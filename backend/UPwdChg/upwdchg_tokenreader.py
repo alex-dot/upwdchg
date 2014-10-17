@@ -118,7 +118,7 @@ class TokenReader(TokenData):
 
         # Decrypt the (symmetric) data key and initialization vector
         try:
-            __sCipherKeyIv = __oPrivateKey.private_decrypt( __sCipherKeyIvEncrypted, M2C.RSA.pkcs1_padding )
+            __sCipherKeyIv = __oPrivateKey.private_decrypt( __sCipherKeyIvEncrypted, M2C.RSA.pkcs1_oaep_padding )
         except Exception as e:
             self.__ERROR( 'Failed to decrypt data key/IV; %s' % str( e ), 2031 )
             return self.error

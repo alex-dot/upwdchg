@@ -95,7 +95,7 @@ class TokenWriter(TokenData):
 
         # Encrypt the (symmetric) data key and initialization vector (IV)
         try:
-            __sCipherKeyIvEncrypted = __oPublicKey.public_encrypt( __sCipherKey+__sCipherIv, M2C.RSA.pkcs1_padding )
+            __sCipherKeyIvEncrypted = __oPublicKey.public_encrypt( __sCipherKey+__sCipherIv, M2C.RSA.pkcs1_oaep_padding )
         except Exception as e:
             self.__ERROR( 'Failed to encrypt data key/IV; %s' % str( e ), 1021 )
             return self.error

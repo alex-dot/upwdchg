@@ -904,7 +904,7 @@ class UPwdChg
     }
 
     // Encrypt the (symmetric) data key and initialization vector (IV)
-    if( openssl_public_encrypt( $sCipherKeyIv, $sCipherKeyIvEncrypted, $sPublicKey, OPENSSL_PKCS1_PADDING ) === false )
+    if( openssl_public_encrypt( $sCipherKeyIv, $sCipherKeyIvEncrypted, $sPublicKey, OPENSSL_PKCS1_OAEP_PADDING ) === false )
     {
       trigger_error( '['.__METHOD__.'] Failed to encrypt data key/IV', E_USER_WARNING );
       throw new Exception( $this->getText( 'error:internal_error' ) );
