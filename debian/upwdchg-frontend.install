@@ -1,0 +1,3 @@
+debian/tmp/usr/share/php
+debian/tmp/etc/upwdchg/frontend
+debian/tmp/etc/logrotate.d/upwdchg-frontend

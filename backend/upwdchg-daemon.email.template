@@ -1,0 +1,13 @@
+Hello,
+
+You password request change has been processed. Please refer to the processing
+output below for further details.
+
+%{OUTPUT}
+
+If errors or warnings are reported, please be aware that your password may not
+have been changed on corresponding (or dependent) systems.
+
+--
+This is an automated message sent by the Universal Password Changer daemon.
+

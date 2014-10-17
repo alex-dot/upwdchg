@@ -1,0 +1,46 @@
+# Universal Password Changer (UPwdCfg) Daemon Configuration
+# ---------------------------------------------------------
+
+[token]
+# Path to pending tokens directory
+#pending_directory = string( min=1, max=256, default='/var/lib/upwdchg/tokens.d' )
+
+# Path to the (token decryption) RSA private key (PEM formatted)
+#private_key_file = string( min=1, max=256, default='/etc/upwdchg/private.pem' )
+
+# Path to token processing plugins directory
+#plugins_directory = string( min=1, max=256, default='/etc/upwdchg/daemon/plugins.d' )
+
+# Path to tokens archive directory; if empty, processed tokens are deleted
+#archive_directory = string( min=0, max=256, default=None )
+
+[process]
+# Processing interval, in seconds
+#interval = integer( min=1, default=60 )
+
+# Maximum tolerated processing errors (before the daemon exits); if zero, ignored
+#max_errors = integer( min=0, default=1 )
+
+[email]
+# Administrator e-mail address to send token processing output; if empty, no messages are sent
+#admin_address = string( min=0, max=256, default='root@localhost.localdomain' )
+
+# Whether to send token processing output to corresponding user
+#user_send = boolean( default=False )
+
+# Domain part to add to usernames
+#user_domain = string( min=0, max=256, default=None )
+
+# Sender e-mail address
+#sender_address = string( min=1, max=256, default='upwdchg@localhost.localdomain' )
+
+# Message subject's prefix
+#subject_prefix = string( min=0, max=256, default='[UPWDCHG] ' )
+
+# Path to message body template; if empty, raw processing output is sent
+# NOTE: the %{OUTPUT} placeholder shall be replaced by the actual processing output
+#body_template_file = string( min=0, max=256, default='/etc/upwdchg/daemon/upwdchg-daemon.email.template' )
+
+# Path to the 'sendmail' binary
+#sendmail_binary = string( min=1, max=256, default='/usr/sbin/sendmail' )
+

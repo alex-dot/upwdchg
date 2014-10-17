@@ -1,0 +1,14 @@
+Universal Password Changer (UPwdChg)
+====================================
+
+RSA private/public keys
+-----------------------
+
+The Universal Password Changer (UPwdChg) relies on RSA public key cryptography
+to secure password change request tokens.
+
+To generated the required RSA private/public keys/files, in PEM format:
+
+  $ touch private.pem && chmod go= private.pem && openssl genrsa -out private.pem 4096
+  $ openssl rsa -in private.pem -out public.pem -outform PEM -pubout
+

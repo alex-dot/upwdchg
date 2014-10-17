@@ -1,0 +1,69 @@
+#!/usr/bin/env python
+# -*- mode:python; tab-width:4; c-basic-offset:4; intent-tabs-mode:nil; -*-
+# ex: filetype=python tabstop=4 softtabstop=4 shiftwidth=4 expandtab autoindent smartindent
+
+#
+# Universal Timestamp Changer (UPwdChg)
+# Copyright (C) 2014 Cedric Dufour <http://cedric.dufour.name>
+# Author: Cedric Dufour <http://cedric.dufour.name>
+#
+# The Universal Timestamp Changer (UPwdChg) is free software:
+# you can redistribute it and/or modify it under the terms of the GNU General
+# Public License as published by the Free Software Foundation, Version 3.
+#
+# The Universal Timestamp Changer (UPwdChg) is distributed in the hope
+# that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+# warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+# See the GNU General Public License for more details.
+#
+
+# Modules
+from UPwdChg import TokenPlugin
+from calendar import timegm
+from time import gmtime, strftime, strptime
+
+# Parameters
+UPWDCHG_PLUGIN_CRITICAL=True
+# ... age (in seconds); int: 0/None=ignore
+UPWDCHG_PLUGIN_TIMESTAMP_AGE_MINIMUM=None
+UPWDCHG_PLUGIN_TIMESTAMP_AGE_MAXIMUM=3600
+
+# Plugin
+class CheckTimestamp(TokenPlugin):
+
+    def __init__( self ):
+        global UPWDCHG_PLUGIN_CRITICAL
+        TokenPlugin.__init__( self, 'CheckTimestamp', UPWDCHG_PLUGIN_CRITICAL )
+
+    def process( self ):
+        global \
+            UPWDCHG_PLUGIN_TIMESTAMP_AGE_MINIMUM, \
+            UPWDCHG_PLUGIN_TIMESTAMP_AGE_MAXIMUM
+
+        # Get token (data)
+        dToken = self._getToken()
+        uTimestamp = dToken['timestamp']
+
+        # Process token data
+        try:
+            iEpochToken = timegm( strptime( uTimestamp, '%Y-%m-%dT%H:%M:%SZ' ) )
+        except Exception as e:
+            self._DEBUG( 'Failed to parse token timestamp; %s' % str( e ) )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        tTimeNow = gmtime()
+        iEpochNow = timegm( tTimeNow )
+        iEpochDelta = iEpochNow-iEpochToken
+        if UPWDCHG_PLUGIN_TIMESTAMP_AGE_MINIMUM and iEpochDelta<UPWDCHG_PLUGIN_TIMESTAMP_AGE_MINIMUM:
+            self._DEBUG( 'Token is too young; %s (now is %s)' % ( dToken['timestamp'], strftime( '%Y-%m-%dT%H:%M:%SZ', tTimeNow ) ) )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        if UPWDCHG_PLUGIN_TIMESTAMP_AGE_MAXIMUM and iEpochDelta>UPWDCHG_PLUGIN_TIMESTAMP_AGE_MAXIMUM:
+            self._DEBUG( 'Token is too old; %s (now is %s)' % ( dToken['timestamp'], strftime( '%Y-%m-%dT%H:%M:%SZ', tTimeNow ) ) )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+
+        # Done
+        self._EXIT_OK( 'Timestamp matches requirements' )
+
+# Process
+CheckTimestamp().process()
+

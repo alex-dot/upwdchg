@@ -1,0 +1,16 @@
+Universal Password Changer (UPwdChg)
+====================================
+
+Processing Plugins
+------------------
+
+The Universal Password Changer (UPwdChg) relies on individual user-customizable
+plugins to process password change request tokens.
+
+Plugins examples can be found in:
+
+  /usr/share/upwdchg/backend/plugins
+
+Files that are marked as executable (chmod a+x) will be considered as plugins.
+Non-executable files - such as this README file - will be ignored.
+

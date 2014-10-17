@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package packagerversion="1.7.2" version="2.0" xmlns="http://pear.php.net/dtd/package-2.0" xmlns:tasks="http://pear.php.net/dtd/tasks-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://pear.php.net/dtd/tasks-1.0 http://pear.php.net/dtd/tasks-1.0.xsd http://pear.php.net/dtd/package-2.0 http://pear.php.net/dtd/package-2.0.xsd">
+ <name>UPwdChg</name>
+ <channel>pear.php.net</channel>
+ <summary>Universal Password Changer (UPwdChg)</summary>
+ <description>The Universal Password Changer (UPwdChg) allows one to synchronize passwords
+between multiple and different user directory systems - LDAP, MIT Kerberos,
+Microsoft Active Directory, etc. - with an emphasis on flexibility, customiz-
+ability and untrusted frontends security.
+
+The Universal Password Changer (UPwdChg) is split in two parts:
+ - a frontend, running on any user-accessible (untrusted) host, which allows
+   users to request password changes
+ - a backend, running on a (trusted) management host, where password change
+   requests are processed
+
+In order to deal with the lower security of the frontend host, public key
+cryptography is used:
+ - on the frontend, password change requests are encrypted as password
+   change tokens, using the RSA public key of the processing backend
+ - password change tokens are saved in a storage location shared between
+   the frontend and the backend (e.g. NFS, CIFS, SSHFS, rsync, etc.)
+ - on the backend, password change tokens are decrypted using the backend
+   RSA private key, and processed through customizable plugins
+
+Password change tokens are actually made of:
+ - the password change data - request timestamp, username, old and new
+   passwords - along corresponding SHA-256 digest, encrypted using
+   AES-256-CBC symetric cipher and base64 encoded
+ - the symetric cipher key and initialization vector (IV), encrypted with
+   the supplied RSA public key and base64-encoded
+
+Once decrypted, password change tokens/requests are processed through various
+user-customizable plugins:
+ - validation plugins, checking credentials validity, password policies
+   compliance, etc.
+ - actual password change plugins, performing the requested password change
+   on multiple and different backends, such as LDAP, MIT Kerberos, Microsoft
+   Active Directory, etc.
+ - any other tasks that may be required as part of a password change operation</description>
+ <lead>
+  <name>Cedric Dufour</name>
+  <user>cdufour</user>
+  <email>http://cedric.dufour.name</email>
+  <active>yes</active>
+ </lead>
+ <date>%{DATE}</date>
+ <time>%{TIME}</time>
+ <version>
+  <release>%{VERSION}</release>
+  <api>1.0.0</api>
+ </version>
+ <stability>
+  <release>stable</release>
+  <api>stable</api>
+ </stability>
+ <license uri="http://www.gnu.org/licenses/gpl-3.0.html">GNU General Public License (GPL) Version 3</license>
+ <notes>(see https://github.com/cedric-dufour/upwdchg for changelog)</notes>
+ <contents>
+  <dir name="/">
+   <file name="README" role="doc" />
+   <file name="INSTALL" role="doc">
+    <tasks:replace from="@version@" to="version" type="package-info" />
+   </file>
+   <file name="COPYRIGHT" role="doc" />
+   <file name="LICENSE" role="doc" />
+   <file name="UPwdChg.php" role="php">
+    <tasks:replace from="@version@" to="version" type="package-info" />
+   </file>
+   <dir name="examples">
+    <file name="README" role="doc" />
+    <file name="config.php" role="doc" />
+    <file name="index.php" role="doc" />
+    <file name="apache.conf" role="doc" />
+   </dir>
+   <dir name="resources">
+    <file name="README" role="data" />
+    <dir name="en">
+     <file name="html.php" role="data" />
+    </dir>
+    <dir name="fr">
+     <file name="text.php" role="data" />
+     <file name="html.php" role="data" />
+    </dir>
+   </dir>
+   <dir name="tokens">
+   </dir>
+  </dir>
+ </contents>
+ <dependencies>
+  <required>
+   <php>
+    <min>5.3.0</min>
+   </php>
+   <pearinstaller>
+    <min>1.4.0</min>
+   </pearinstaller>
+   <package>
+    <name>PEAR</name>
+    <channel>pear.php.net</channel>
+    <min>1.3.6</min>
+   </package>
+ </required>
+ </dependencies>
+ <phprelease />
+ <changelog>
+  <release>
+   <version>
+    <release>%{VERSION}</release>
+    <api>1.0.0</api>
+   </version>
+   <stability>
+    <release>stable</release>
+    <api>stable</api>
+   </stability>
+   <date>%{DATE}</date>
+   <license uri="http://www.gnu.org/licenses/gpl-3.0.html">GNU General Public License (GPL) Version 3</license>
+   <notes>(see https://github.com/cedric-dufour/upwdchg for changelog)</notes>
+  </release>
+ </changelog>
+</package>

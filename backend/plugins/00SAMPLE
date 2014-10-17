@@ -1,0 +1,69 @@
+#!/usr/bin/env python
+# -*- mode:python; tab-width:4; c-basic-offset:4; intent-tabs-mode:nil; -*-
+# ex: filetype=python tabstop=4 softtabstop=4 shiftwidth=4 expandtab autoindent smartindent
+
+#
+# Universal Password Changer (UPwdChg)
+# Copyright (C) 2014 Cedric Dufour <http://cedric.dufour.name>
+# Author: Cedric Dufour <http://cedric.dufour.name>
+#
+# The Universal Password Changer (UPwdChg) is free software:
+# you can redistribute it and/or modify it under the terms of the GNU General
+# Public License as published by the Free Software Foundation, Version 3.
+#
+# The Universal Password Changer (UPwdChg) is distributed in the hope
+# that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+# warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+# See the GNU General Public License for more details.
+#
+
+#
+# This is a SAMPLE plugin, demonstrating how to process a token.
+#
+# Passed arguments are:
+#  - the token full path
+#  - the (token decryption) RSA private key full path
+#
+# The exit code MUST be:
+#  - 0: Success
+#  - 1: Warning
+#  - 2: Error (token processing is interrupted)
+#
+# Standard output SHOULD be:
+#  - a descriptive message of the plugin action/result (which may be sent to
+#    the system administrator and/or user)
+#
+# Standard error SHOULD be:
+#  - empty when no error condition occurs
+#  - a descriptive message of occuring error (which may end in system logs)
+#
+# The plugin file MUST be executable or it will be ignored
+#
+
+# Modules
+from UPwdChg import TokenPlugin
+import sys
+
+# Plugin
+class MyTokenPlugin(TokenPlugin):
+
+    def __init__( self ):
+        TokenPlugin.__init__( self, '00SAMPLE' )
+
+    def process( self ):
+        # Get token (data)
+        dToken = self._getToken()
+
+        # Process token data
+        sys.stdout.write( 'Got a password request change for user "%s" at "%s"\n' % ( dToken['username'], dToken['timestamp'] ) )
+        sys.stdout.write( 'Available token fields are:\n' )
+        for __sKey in sorted( dToken.iterkeys() ):
+            sys.stdout.write( ' - %s\n' % __sKey )
+
+        # Done
+        self._EXIT_OK( 'Done' )
+
+# Process
+MyTokenPlugin().process()
+

@@ -50,8 +50,8 @@ Features
 
 The Universal Password Changer (UPwdChg) provides:
 
-1. a PHP/Javascript web frontend, allowing users to request password change
-   via their web browser
+1. a PHP web frontend, allowing users to request password change via their
+   web browser
 
 2. a set of Python utilities to manage password change tokens/requests:
     - upwdchg-token:    read/write password change tokens

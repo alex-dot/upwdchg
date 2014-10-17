@@ -1,0 +1,32 @@
+#!/bin/bash
+set -e
+
+case "$1" in
+
+  configure)
+    # Set appropriate permissions
+    chown -R root:www-data /etc/upwdchg/frontend
+    find /etc/upwdchg/frontend -type d -exec chmod 750 {} \;
+    find /etc/upwdchg/frontend -type f -exec chmod 640 {} \;
+    chown root:www-data /var/lib/upwdchg/tokens.d /var/log/upwdchg/frontend
+    chmod 2770 /var/lib/upwdchg/tokens.d /var/log/upwdchg/frontend
+
+    # Adapt logrotate configuration
+    if [ -n "$(which logrotate)" ]; then
+      v="$(logrotate 2>&1 | head -n 1 | cut -d' ' -f2)"
+      if [ -n "${v}" -a "$(echo -e "${v}\n3.8.0" | sort -t'.' -n -k1,1 -k2,2 -k3,3 | head -n 1)" == '3.8.0' ]; then
+        [ -z "$(grep '^\s*su\s' /etc/logrotate.d/upwdchg-frontend)" ] && gsed 's|}|\tsu root www-data\n}|' /etc/logrotate.d/upwdchg-frontend
+      fi
+    fi
+
+    # Enable apache configuration
+    [ ! -e /etc/apache2/conf.d/upwdchg.conf ] && ln -s /etc/upwdchg/frontend/apache.conf /etc/apache2/conf.d/upwdchg.conf
+    echo 'WARNING: Please reload apache configuration to enable the UPwdChg frontend!'
+    ;;
+
+esac
+
+#DEBHELPER#
+
+exit 0
+

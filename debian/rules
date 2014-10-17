@@ -1,0 +1,105 @@
+#!/usr/bin/make -f
+
+#export DH_VERBOSE = 1
+export PACKAGE = upwdchg
+export VERSION := $(shell dpkg-parsechangelog | egrep '^Version:' | cut -f 2 -d ' ')
+export VERSION_PEAR := $(shell echo $(VERSION) | sed 's/[-~].*$$//')
+export DATE := $(shell date +'%Y-%m-%d')
+export TIME := $(shell date +'%H:%M:%S')
+
+# Required for 'help2man'
+export PYTHONPATH:=backend:${PYTHONPATH}
+export PATH:=backend:${PATH}
+
+%:
+	dh $@ --with python2
+
+override_dh_install:
+	# Create the PEAR package to be bundled as a Debian package
+	cp frontend/package.xml.in frontend/package.xml
+	sed -i "s|%{VERSION}|$(VERSION_PEAR)|g;s|%{DATE}|$(DATE)|g;s|%{TIME}|$(TIME)|g" frontend/package.xml
+	cp README COPYRIGHT LICENSE INSTALL frontend/.
+	pear install -f -n -R debian/tmp frontend/package.xml
+	rm -f frontend/README frontend/COPYRIGHT frontend/LICENSE frontend/INSTALL
+	# ... clean-up
+	rm -f debian/tmp/usr/share/php/.filemap
+	rm -f debian/tmp/usr/share/php/.lock
+	rm -rf debian/tmp/usr/share/php/.channels
+	rm -rf debian/tmp/usr/share/php/.depdblock
+	rm -rf debian/tmp/usr/share/php/.depdb
+	rm -rf debian/tmp/usr/share/php/.registry
+	rm -rf debian/tmp/tmp
+
+	# Remove unwanted files
+	rm -rf debian/tmp/usr/share/php/data/upwdchg/tokens
+
+	# Fix global variables
+	sed -i "s|UPWDCHG_DAEMON_CONFIGSPEC\s*=.*|UPWDCHG_DAEMON_CONFIGSPEC = '/usr/share/upwdchg/daemon/upwdchg-daemon.conf.spec'|" debian/tmp/usr/lib/*/dist-packages/UPwdChg/Util/upwdchg_daemon.py
+	sed -i "s|UPWDCHG_VERSION\s*=.*|UPWDCHG_VERSION = '$(VERSION)'|" debian/tmp/usr/lib/*/dist-packages/UPwdChg/__init__.py
+
+	# Copy configuration files
+	mkdir -p debian/tmp/etc/upwdchg
+	cp README.keys debian/tmp/etc/upwdchg/README
+	mkdir -p debian/tmp/etc/upwdchg/frontend/htdocs debian/tmp/etc/logrotate.d
+	cp frontend/examples/apache.conf debian/tmp/etc/upwdchg/frontend/apache.conf
+	cp frontend/examples/config.php debian/tmp/etc/upwdchg/frontend/config.php
+	cp frontend/examples/index.php debian/tmp/etc/upwdchg/frontend/htdocs/index.php
+	cp frontend/examples/logrotate debian/tmp/etc/logrotate.d/upwdchg-frontend
+	mkdir -p debian/tmp/etc/upwdchg/backend/plugins.d
+	cp backend/plugins/README debian/tmp/etc/upwdchg/backend/plugins.d/README
+	mkdir -p debian/tmp/etc/upwdchg/daemon/plugins.d
+	cp backend/upwdchg-daemon.conf.sample debian/tmp/etc/upwdchg/daemon/upwdchg-daemon.conf
+	cp backend/upwdchg-daemon.email.template debian/tmp/etc/upwdchg/daemon/.
+	cp backend/plugins/README debian/tmp/etc/upwdchg/daemon/plugins.d/README
+
+	# Create man pages
+	mkdir -p debian/tmp/usr/share/man/man1
+	help2man \
+		--name 'Universal Password Changer (UPwdChg) - Token Reader/Writer' \
+		--help-option --help --version-string $(VERSION) --no-discard-stderr --no-info \
+		upwdchg-token | fgrep -v 'invalid option' > debian/tmp/usr/share/man/man1/upwdchg-token.1
+	mkdir -p debian/tmp/usr/share/man/man1
+	help2man \
+		--name 'Universal Password Changer (UPwdChg) - Token Processor' \
+		--help-option --help --version-string $(VERSION) --no-discard-stderr --no-info \
+		upwdchg-process | fgrep -v 'invalid option' > debian/tmp/usr/share/man/man1/upwdchg-process.1
+	help2man \
+		--name 'Universal Password Changer (UPwdChg) - Token Processing Daemon' \
+		--help-option --help --version-string $(VERSION) --no-discard-stderr --no-info \
+		upwdchg-daemon | fgrep -v 'invalid option' > debian/tmp/usr/share/man/man1/upwdchg-daemon.1
+
+	# Install
+	dh_install
+
+override_dh_installdocs:
+	dh_installdocs --link-doc=upwdchg-common README
+
+override_dh_clean:
+	dh_clean
+	rm -f frontend/package.xml
+
+build-source-tarball:
+	dh_testdir
+	dh_clean build-stamp
+	# Create the source tarball
+	mkdir -p /tmp/$(PACKAGE)-source-$(VERSION)
+	cp -r * /tmp/$(PACKAGE)-source-$(VERSION)/.
+	tar -C /tmp -cjf ../$(PACKAGE)-source-$(VERSION).tar.bz2 $(PACKAGE)-source-$(VERSION)
+	rm -rf /tmp/$(PACKAGE)-source-$(VERSION)
+
+build-install-tarball:
+	# Create the installation tarball
+	# WARNING: make install before-hand!
+	mkdir -p /tmp/$(PACKAGE)-$(VERSION)/
+	cp -rp debian/tmp/usr debian/tmp/etc /tmp/$(PACKAGE)-$(VERSION)/.
+	tar -C /tmp -cjf ../$(PACKAGE)-$(VERSION).tar.bz2 $(PACKAGE)-$(VERSION)
+	rm -rf /tmp/$(PACKAGE)-$(VERSION)
+
+debian-packages:
+	debuild -us -uc -b
+
+debian-source:
+	debuild -I'.git*' -I'*.pyc' -us -uc -S
+
+release: debian-packages build-install-tarball debian-source build-source-tarball
+
