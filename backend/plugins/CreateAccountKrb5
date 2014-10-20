@@ -1,0 +1,112 @@
+#!/usr/bin/env python
+# -*- mode:python; tab-width:4; c-basic-offset:4; intent-tabs-mode:nil; -*-
+# ex: filetype=python tabstop=4 softtabstop=4 shiftwidth=4 expandtab autoindent smartindent
+
+#
+# Universal Password Changer (UPwdChg)
+# Copyright (C) 2014 Cedric Dufour <http://cedric.dufour.name>
+# Author: Cedric Dufour <http://cedric.dufour.name>
+#
+# The Universal Password Changer (UPwdChg) is free software:
+# you can redistribute it and/or modify it under the terms of the GNU General
+# Public License as published by the Free Software Foundation, Version 3.
+#
+# The Universal Password Changer (UPwdChg) is distributed in the hope
+# that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+# warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+# See the GNU General Public License for more details.
+#
+
+# Modules
+from UPwdChg import TokenPlugin
+import subprocess as SP
+
+# Parameters
+UPWDCHG_PLUGIN_CRITICAL=True
+UPWDCHG_PLUGIN_DRYRUN=True
+UPWDCHG_PLUGIN_KRB5_PRINCIPAL='%{USERNAME}@EXAMPLE.ORG'
+UPWDCHG_PLUGIN_KRB5_ADD_USER_DN='uid=%{USERNAME},ou=users,dc=example,dc=org'
+UPWDCHG_PLUGIN_KRB5_ADD_OPTIONS='-policy default'
+UPWDCHG_PLUGIN_KRB5_ADMSRV='root@krb5adm.example.org'  # if not None, SSH to specified server to execute 'kadmin.local' actions
+
+# Plugin
+class CreatePasswordKrb5(TokenPlugin):
+
+    def __init__( self ):
+        global UPWDCHG_PLUGIN_CRITICAL
+        TokenPlugin.__init__( self, 'CreatePasswordKrb5', UPWDCHG_PLUGIN_CRITICAL )
+
+    def process( self ):
+        global \
+            UPWDCHG_PLUGIN_DRYRUN, \
+            UPWDCHG_PLUGIN_KRB5_PRINCIPAL, \
+            UPWDCHG_PLUGIN_KRB5_ADD_USER_DN, \
+            UPWDCHG_PLUGIN_KRB5_ADD_OPTIONS, \
+            UPWDCHG_PLUGIN_KRB5_ADMSRV
+
+        # Get token (data)
+        dToken = self._getToken()
+        sUsername = dToken['username'].encode( 'utf-8' )
+        sPasswordNew = dToken['password-new'].encode( 'utf-8' )
+
+        # Process token data
+
+        # ... Kerberos principal
+        sPrincipal = UPWDCHG_PLUGIN_KRB5_PRINCIPAL.replace( '%{USERNAME}', sUsername )
+
+        # ... Check principal existency
+        bPrincipalExists = True
+        try:
+            lCommand = [ 'kadmin.local', '-q', "'get_principal -terse \"%s\"'" % sPrincipal ]
+            if UPWDCHG_PLUGIN_KRB5_ADMSRV is not None:
+                lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join( lCommand ) ]
+            oPopen = SP.Popen( lCommand, stdout=SP.PIPE, stderr=SP.PIPE )
+            ( sStdOut, sStdErr ) = oPopen.communicate()
+            if oPopen.returncode != 0 or sStdErr:
+                if sStdErr.lower().find( 'principal does not exist' ) < 0:
+                    raise Exception( sStdErr )
+                bPrincipalExists = False
+        except Exception as e:
+            self._DEBUG( 'Failed to change Kerberos 5 password; %s' % str( e ) )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        
+        # ... Kerberos password change (?)
+        if bPrincipalExists and not UPWDCHG_PLUGIN_DRYRUN:
+            try:
+                lCommand = [ 'kadmin.local', '-q', "'change_password -pw \"%s\" \"%s\"'" % ( sPasswordNew, sPrincipal ) ]
+                if UPWDCHG_PLUGIN_KRB5_ADMSRV is not None:
+                    lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join( lCommand ) ]
+                oPopen = SP.Popen( lCommand, stdout=SP.PIPE, stderr=SP.PIPE )
+                ( sStdOut, sStdErr ) = oPopen.communicate()
+                if oPopen.returncode != 0 or sStdErr:
+                    raise Exception( sStdErr )
+            except Exception as e:
+                self._DEBUG( 'Failed to change Kerberos 5 password; %s' % str( e ) )
+                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+
+        # ... Create principal (?)
+        if not bPrincipalExists and not UPWDCHG_PLUGIN_DRYRUN:
+            try:
+                sUserDn = UPWDCHG_PLUGIN_KRB5_ADD_USER_DN.replace( '%{USERNAME}', sUsername )
+                sOptions = UPWDCHG_PLUGIN_KRB5_ADD_OPTIONS
+                lCommand = [ 'kadmin.local', '-q', "'add_principal -x dn=\"%s\" -pw \"%s\" %s \"%s\"'" % ( sUserDn, sPasswordNew, sOptions, sPrincipal ) ]
+                if UPWDCHG_PLUGIN_KRB5_ADMSRV is not None:
+                    lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join( lCommand ) ]
+                oPopen = SP.Popen( lCommand, stdout=SP.PIPE, stderr=SP.PIPE )
+                ( sStdOut, sStdErr ) = oPopen.communicate()
+                if oPopen.returncode != 0 or sStdErr:
+                    raise Exception( sStdErr )
+            except Exception as e:
+                self._DEBUG( 'Failed to create Kerberos 5 principal; %s' % str( e ) )
+                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+
+        # Done
+        if bPrincipalExists:
+            self._EXIT_OK( 'Kerberos 5 password successfully changed' )
+        else:
+            self._EXIT_OK( 'Kerberos 5 principal successfully created' )
+
+# Process
+CreatePasswordKrb5().process()
+

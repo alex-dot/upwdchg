@@ -1,14 +1,10 @@
 Universal Password Changer (UPwdChg)
 ====================================
 
-TODOs
------
+TODO
+----
 
 The following features are already in the pipe for short-/mid-term development:
-
- * 'CreateAccountKrb5Ldap' processing plugin; check whether the LDAP user account
-   corresponding to the pasword change token already has a Kerberos principal and
-   adds it if needs be.
 
  * 'CreateAccountAdFromLdap' processing plugin; check whether the user account
    corresponding to the pasword change token already exists in Microsoft Active
