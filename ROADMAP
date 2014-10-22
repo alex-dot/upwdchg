@@ -6,7 +6,5 @@ TODO
 
 The following features are already in the pipe for short-/mid-term development:
 
- * 'CreateAccountAdFromLdap' processing plugin; check whether the user account
-   corresponding to the pasword change token already exists in Microsoft Active
-   Directory and create it - based on its LDAP counterpart - if needs be.
+  (empty list)
 

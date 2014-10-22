@@ -70,7 +70,7 @@ class CreatePasswordKrb5(TokenPlugin):
         except Exception as e:
             self._DEBUG( 'Failed to change Kerberos 5 password; %s' % str( e ) )
             self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-        
+
         # ... Kerberos password change (?)
         if bPrincipalExists and not UPWDCHG_PLUGIN_DRYRUN:
             try:
