@@ -60,10 +60,10 @@ class CheckUsername(TokenPlugin):
         lsOutputs = list()
 
         # ... check username length
-        if UPWDCHG_PLUGIN_USERNAME_LENGTH_MINIMUM is not None and len( dToken['username'] ) < UPWDCHG_PLUGIN_USERNAME_LENGTH_MINIMUM:
+        if UPWDCHG_PLUGIN_USERNAME_LENGTH_MINIMUM and len( dToken['username'] ) < UPWDCHG_PLUGIN_USERNAME_LENGTH_MINIMUM:
             lsOutputs.append( 'Username MUST contain at least %d characters' % UPWDCHG_PLUGIN_USERNAME_LENGTH_MINIMUM )
             bError = True
-        if UPWDCHG_PLUGIN_USERNAME_LENGTH_MAXIMUM is not None and len( dToken['username'] ) > UPWDCHG_PLUGIN_USERNAME_LENGTH_MAXIMUM:
+        if UPWDCHG_PLUGIN_USERNAME_LENGTH_MAXIMUM and len( dToken['username'] ) > UPWDCHG_PLUGIN_USERNAME_LENGTH_MAXIMUM:
             lsOutputs.append( 'Username may NOT contain more than %d characters' % UPWDCHG_PLUGIN_USERNAME_LENGTH_MAXIMUM )
             bError = True
 
