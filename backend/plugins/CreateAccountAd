@@ -31,38 +31,51 @@ UPWDCHG_PLUGIN_CRITICAL=True
 UPWDCHG_PLUGIN_DRYRUN=True
 # ... (destination) Active Directory
 UPWDCHG_PLUGIN_AD_URI='ldap://ad.example.org:389'
-UPWDCHG_PLUGIN_AD_ADMIN_DN='Administrator@AD.EXAMPLE.ORG'  # MUST be specified
+UPWDCHG_PLUGIN_AD_ADMIN_DN='Administrator@EXAMPLE.ORG'  # MUST be specified
 UPWDCHG_PLUGIN_AD_ADMIN_PWD=''  # prefix with 'file://' to get password from specified file
 UPWDCHG_PLUGIN_AD_USER_DN=None  # set to None to perform DN search
-UPWDCHG_PLUGIN_AD_USER_SEARCH_DN='cn=Users,dc=ad,dc=example,dc=org'
+UPWDCHG_PLUGIN_AD_USER_SEARCH_DN='cn=Users,dc=example,dc=org'
 UPWDCHG_PLUGIN_AD_USER_SEARCH_SCOPE=ldap.SCOPE_ONELEVEL
 UPWDCHG_PLUGIN_AD_USER_SEARCH_FILTER='uid=%{USERNAME}'
-# ... user account creation attributes;
+# ... user account creation attributes
 #     'dn' attribute MUST be set, others are up to you (or AD requirements)
 #     required "system" attributes ('objectClass', 'userAccountControl') will be set automatically
 #     %{LDAP:<attr>} are subsituted with the given LDAP attribute (see LDAP directory settings below)
 UPWDCHG_PLUGIN_AD_USER_ATTRS=dict()
-UPWDCHG_PLUGIN_AD_USER_ATTRS['dn']='cn=%{LDAP:cn},cn=Users,dc=ad,dc=example,dc=org'
+UPWDCHG_PLUGIN_AD_USER_ATTRS['dn']='cn=%{LDAP:cn},cn=Users,dc=example,dc=org'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['cn']='%{LDAP:cn}'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['sn']='%{LDAP:sn}'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['givenName']='%{LDAP:givenName}'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['name']='%{LDAP:displayName}'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['uid']='%{USERNAME}'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['sAMAccountName']='%{USERNAME}'
-UPWDCHG_PLUGIN_AD_USER_ATTRS['userPrincipalName']='%{USERNAME}@AD.EXAMPLE.ORG'
+UPWDCHG_PLUGIN_AD_USER_ATTRS['userPrincipalName']='%{USERNAME}@EXAMPLE.ORG'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['unixHomeDirectory']='/home/%{USERNAME}'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['homeDirectory']='\\\\ad.example.org\\%{USERNAME}'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['homeDrive']='Z:'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['mail']='%{LDAP:mail}'
 UPWDCHG_PLUGIN_AD_USER_CONTROL_FLAGS=0  # 'userAccountControl' additional flags (http://support.microsoft.com/kb/305144)
+# ... group synchronization
+UPWDCHG_PLUGIN_AD_GROUP_DN='cn=%{GROUPNAME},cn=Groups,dc=example,dc=org'  # set to None to perform DN search
+UPWDCHG_PLUGIN_AD_GROUP_SEARCH_DN=None
+UPWDCHG_PLUGIN_AD_GROUP_SEARCH_SCOPE=ldap.SCOPE_ONELEVEL
+UPWDCHG_PLUGIN_AD_GROUP_SEARCH_FILTER=None
+UPWDCHG_PLUGIN_AD_GROUP_ATTR_MEMBER='memberUid'
+UPWDCHG_PLUGIN_AD_GROUP_ATTR_MEMBER_VALUE='%{USERNAME}'
+UPWDCHG_PLUGIN_AD_GROUP_CRITICAL=False
 # ... (source) LDAP directory
-UPWDCHG_PLUGIN_LDAP_URI='ldap://ldap.example.org:389'  # if None, LDAP (source) is ignored
+UPWDCHG_PLUGIN_LDAP_URI='ldap://ldap.example.org:389'  # if None, no LDAP synchronization is performed
 UPWDCHG_PLUGIN_LDAP_ADMIN_DN='cn=admin,dc=example,dc=org'  # set to None to bind as user
 UPWDCHG_PLUGIN_LDAP_ADMIN_PWD=''  # prefix with 'file://' to get password from specified file
 UPWDCHG_PLUGIN_LDAP_USER_DN='uid=%{USERNAME},ou=users,dc=example,dc=org'  # set to None to perform DN search
 UPWDCHG_PLUGIN_LDAP_USER_SEARCH_DN=None
 UPWDCHG_PLUGIN_LDAP_USER_SEARCH_SCOPE=ldap.SCOPE_ONELEVEL
 UPWDCHG_PLUGIN_LDAP_USER_SEARCH_FILTER=None
+# ... group synchronization
+UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_DN='ou=groups,dc=example,dc=org'  # if None, no LDAP groups synchronization is performed
+UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_SCOPE=ldap.SCOPE_ONELEVEL
+UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_FILTER='memberUid=%{USERNAME}'
+UPWDCHG_PLUGIN_LDAP_GROUP_ATTR_NAME='cn'
 
 # Plugin
 class CreateAccountAd(TokenPlugin):
@@ -74,28 +87,21 @@ class CreateAccountAd(TokenPlugin):
         self.__reLdapVariables = re.compile( '%{LDAP:[^}]*}' )
 
 
-    def __getLdapAttributes( self, sUsername, sPassword ):
+    def __ldapBind( self, sUsername, sPassword ):
         global \
             UPWDCHG_PLUGIN_LDAP_URI, \
             UPWDCHG_PLUGIN_LDAP_ADMIN_DN, \
-            UPWDCHG_PLUGIN_LDAP_ADMIN_PWD, \
-            UPWDCHG_PLUGIN_LDAP_USER_DN, \
-            UPWDCHG_PLUGIN_LDAP_USER_SEARCH_DN, \
-            UPWDCHG_PLUGIN_LDAP_USER_SEARCH_SCOPE, \
-            UPWDCHG_PLUGIN_LDAP_USER_SEARCH_FILTER
+            UPWDCHG_PLUGIN_LDAP_ADMIN_PWD
 
-        # Attributes
-        dAttrs = dict()
+        # Bind to LDAP server
+        oLdap = None
         if not UPWDCHG_PLUGIN_LDAP_URI:
-            return dAttrs
-
-
-        # Query LDAP server
+            return oLdap
 
         # ... LDAP bind credentials
-        if UPWDCHG_PLUGIN_LDAP_ADMIN_DN is not None:
+        if UPWDCHG_PLUGIN_LDAP_ADMIN_DN:
             sBindDn = UPWDCHG_PLUGIN_LDAP_ADMIN_DN
-            if UPWDCHG_PLUGIN_LDAP_ADMIN_PWD is None:
+            if not UPWDCHG_PLUGIN_LDAP_ADMIN_PWD:
                 sBindPwd=''  # Really!?!
             elif UPWDCHG_PLUGIN_LDAP_ADMIN_PWD.startswith( 'file://' ):
                 __sFile = UPWDCHG_PLUGIN_LDAP_ADMIN_PWD[7:]
@@ -119,13 +125,29 @@ class CreateAccountAd(TokenPlugin):
             oLdap.bind_s( sBindDn, sBindPwd, ldap.AUTH_SIMPLE )
         except Exception as e:
             self._DEBUG( 'Failed to bind to LDAP server; %s' % str( e ) )
-            if UPWDCHG_PLUGIN_LDAP_ADMIN_DN is not None:
+            if UPWDCHG_PLUGIN_LDAP_ADMIN_DN:
                 self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
             else:
                 self._EXIT_ERROR( 'Invalid LDAP credentials' )
 
+        # Done
+        return oLdap
+
+
+    def __ldapGetAttributes( self, oLdap, sUsername ):
+        global \
+            UPWDCHG_PLUGIN_LDAP_USER_DN, \
+            UPWDCHG_PLUGIN_LDAP_USER_SEARCH_DN, \
+            UPWDCHG_PLUGIN_LDAP_USER_SEARCH_SCOPE, \
+            UPWDCHG_PLUGIN_LDAP_USER_SEARCH_FILTER
+
+        # Retrieve user LDAP attributes
+        dAttrs = dict()
+        if not oLdap:
+            return dAttrs
+
         # ... LDAP user DN
-        if UPWDCHG_PLUGIN_LDAP_USER_DN is None:
+        if not UPWDCHG_PLUGIN_LDAP_USER_DN:
             try:
                 lLdapResults = oLdap.search_ext_s(
                     UPWDCHG_PLUGIN_LDAP_USER_SEARCH_DN,
@@ -141,10 +163,9 @@ class CreateAccountAd(TokenPlugin):
                 self._DEBUG( 'Failed to perform LDAP user DN search; %s' % str( e ) )
                 self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
         else:
-            sUserDn = UPWDCHG_PLUGIN_LDAP_USER_DN.replace( '%{USERNAME}', sUsername )
             try:
                 lLdapResults = oLdap.search_ext_s(
-                    sUserDn,
+                    UPWDCHG_PLUGIN_LDAP_USER_DN.replace( '%{USERNAME}', sUsername ),
                     ldap.SCOPE_BASE,
                     'objectClass=*',
                     attrlist=None, attrsonly=0, sizelimit=2
@@ -156,46 +177,67 @@ class CreateAccountAd(TokenPlugin):
             except Exception as e:
                 self._DEBUG( 'Failed to perform Active Directory user DN search; %s' % str( e ) )
                 self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-        ( sUserDn, dAttrs ) = lLdapResults[0]
-
-        # ... LDAP unbind
-        try:
-            oLdap.unbind_s()
-        except Exception as e:
-            self._DEBUG( 'Failed to unbind from LDAP server; %s' % str( e ) )
+        dAttrs = lLdapResults[0][1]
 
         # Done
         return dAttrs
 
 
-    def process( self ):
+    def __ldapGetGroups( self, oLdap, sUsername ):
         global \
-            UPWDCHG_PLUGIN_DRYRUN, \
+            UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_DN, \
+            UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_SCOPE, \
+            UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_FILTER, \
+            UPWDCHG_PLUGIN_LDAP_GROUP_ATTR_NAME
+
+        # Retrieve user LDAP groups
+        lGroupnames = list()
+        if not oLdap or not UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_DN:
+            return lGroupnames
+
+        # ... LDAP groups
+        try:
+            lLdapResults = oLdap.search_ext_s(
+                UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_DN,
+                UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_SCOPE,
+                UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_FILTER.replace( '%{USERNAME}', sUsername ),
+                attrlist=[UPWDCHG_PLUGIN_LDAP_GROUP_ATTR_NAME], attrsonly=0
+                )
+            for tLdapResult in lLdapResults:
+                lGroupnames.append( tLdapResult[1][UPWDCHG_PLUGIN_LDAP_GROUP_ATTR_NAME][0] )
+        except Exception as e:
+            self._DEBUG( 'Failed to perform LDAP group DN search; %s' % str( e ) )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+
+        # Done
+        return lGroupnames
+
+
+    def __ldapUnbind( self, oLdap ):
+
+        # LDAP unbind
+        if not oLdap:
+            return
+        try:
+            oLdap.unbind_s()
+        except Exception as e:
+            self._DEBUG( 'Failed to unbind from LDAP server; %s' % str( e ) )
+
+
+    def __adBind( self, sUsername, sPassword ):
+        global \
             UPWDCHG_PLUGIN_AD_URI, \
             UPWDCHG_PLUGIN_AD_ADMIN_DN, \
-            UPWDCHG_PLUGIN_AD_ADMIN_PWD, \
-            UPWDCHG_PLUGIN_AD_USER_DN, \
-            UPWDCHG_PLUGIN_AD_USER_SEARCH_DN, \
-            UPWDCHG_PLUGIN_AD_USER_SEARCH_SCOPE, \
-            UPWDCHG_PLUGIN_AD_USER_SEARCH_FILTER, \
-            UPWDCHG_PLUGIN_AD_USER_ATTRS, \
-            UPWDCHG_PLUGIN_AD_USER_CONTROL_FLAGS
+            UPWDCHG_PLUGIN_AD_ADMIN_PWD
 
-        # Get token (data)
-        dToken = self._getToken()
-        sUsername = dToken['username'].encode( 'utf-8' )
-        sPasswordOld = dToken['password-old'].encode( 'utf-8' )
-        sPasswordNew = dToken['password-new'].encode( 'utf-8' )
-
-        # Process token data
-        bUserExists = True
+        # Bind to Active Directory server
 
         # ... Active Directory bind credentials
-        if UPWDCHG_PLUGIN_AD_ADMIN_DN is None:
+        if not UPWDCHG_PLUGIN_AD_ADMIN_DN:
             self._DEBUG( 'Missing administrator distinguished name (DN)' )
             self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
         sBindDn = UPWDCHG_PLUGIN_AD_ADMIN_DN
-        if UPWDCHG_PLUGIN_AD_ADMIN_PWD is None:
+        if not UPWDCHG_PLUGIN_AD_ADMIN_PWD:
             sBindPwd=''  # Really!?!
         elif UPWDCHG_PLUGIN_AD_ADMIN_PWD.startswith( 'file://' ):
             __sFile = UPWDCHG_PLUGIN_AD_ADMIN_PWD[7:]
@@ -211,106 +253,256 @@ class CreateAccountAd(TokenPlugin):
 
         # ... Active Directory bind
         try:
-            oLdap = ldap.initialize( UPWDCHG_PLUGIN_AD_URI )
-            oLdap.protocol_version = ldap.VERSION3
-            oLdap.bind_s( sBindDn, sBindPwd, ldap.AUTH_SIMPLE )
+            oAd = ldap.initialize( UPWDCHG_PLUGIN_AD_URI )
+            oAd.protocol_version = ldap.VERSION3
+            oAd.bind_s( sBindDn, sBindPwd, ldap.AUTH_SIMPLE )
         except Exception as e:
             self._DEBUG( 'Failed to bind to Active Directory server; %s' % str( e ) )
             self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
 
-        # ... Active directory user DN
-        if UPWDCHG_PLUGIN_AD_USER_DN is None:
+        # Done
+        return oAd
+
+
+    def __adGetUserDn( self, oAd, sUsername ):
+        global \
+            UPWDCHG_PLUGIN_AD_USER_DN, \
+            UPWDCHG_PLUGIN_AD_USER_SEARCH_DN, \
+            UPWDCHG_PLUGIN_AD_USER_SEARCH_SCOPE, \
+            UPWDCHG_PLUGIN_AD_USER_SEARCH_FILTER
+
+        # Retrieve Active directory user DN
+        if not UPWDCHG_PLUGIN_AD_USER_DN:
             try:
-                lLdapResults = oLdap.search_ext_s(
+                lAdResults = oAd.search_ext_s(
                     UPWDCHG_PLUGIN_AD_USER_SEARCH_DN,
                     UPWDCHG_PLUGIN_AD_USER_SEARCH_SCOPE,
                     UPWDCHG_PLUGIN_AD_USER_SEARCH_FILTER.replace( '%{USERNAME}', sUsername ),
                     attrlist=[ 'dn' ], attrsonly=1, sizelimit=2
                     )
-                if not lLdapResults:
-                    bUserExists = False
-                elif len( lLdapResults ) > 1:
+                if not lAdResults:
+                    return None
+                elif len( lAdResults ) > 1:
                     raise Exception( 'too many match' )
             except Exception as e:
                 self._DEBUG( 'Failed to perform Active Directory user DN search; %s' % str( e ) )
                 self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-            if bUserExists:
-                ( sUserDn, dAttrs ) = lLdapResults[0]
         else:
-            sUserDn = UPWDCHG_PLUGIN_AD_USER_DN.replace( '%{USERNAME}', sUsername )
             try:
-                lLdapResults = oLdap.search_ext_s(
-                    sUserDn,
+                lAdResults = oAd.search_ext_s(
+                    UPWDCHG_PLUGIN_AD_USER_DN.replace( '%{USERNAME}', sUsername ),
                     ldap.SCOPE_BASE,
                     'objectClass=*',
-                    attrlist=[ 'dn' ], attrsonly=1, sizelimit=2
+                    attrlist=None, attrsonly=0, sizelimit=2
                     )
-                if not lLdapResults:
-                    bUserExists = False
-                elif len( lLdapResults ) > 1:
+                if not lAdResults:
+                    return None
+                elif len( lAdResults ) > 1:
                     raise Exception( 'too many match' )
             except Exception as e:
                 self._DEBUG( 'Failed to perform Active Directory user DN search; %s' % str( e ) )
                 self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        sUserDn = lAdResults[0][0]
 
-        # ... Active Directory user account creation
-        if not bUserExists:
-            if not 'dn' in UPWDCHG_PLUGIN_AD_USER_ATTRS:
-                self._DEBUG( 'Missing Active Directory user DN attribute' )
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-            # ... populate "custom" attributes
-            dAttrsLdap = self.__getLdapAttributes( sUsername, sPasswordOld )
-            dAttrsAd = dict()
-            for sKeyAd in UPWDCHG_PLUGIN_AD_USER_ATTRS.iterkeys():
-                sAttr = UPWDCHG_PLUGIN_AD_USER_ATTRS[sKeyAd]
-                sAttr = sAttr.replace( '%{USERNAME}', sUsername )
-                for sKeyLdap in dAttrsLdap.iterkeys():
-                    sAttr = sAttr.replace( '%%{LDAP:%s}' % sKeyLdap, dAttrsLdap[sKeyLdap][0] )
+        # Done
+        return sUserDn
+
+
+    def __adCreateAccount( self, oAd, oLdap, sUsername ):
+        global \
+            UPWDCHG_PLUGIN_DRYRUN, \
+            UPWDCHG_PLUGIN_AD_USER_ATTRS
+
+        # Active Directory user account creation
+        if not 'dn' in UPWDCHG_PLUGIN_AD_USER_ATTRS:
+            self._DEBUG( 'Missing Active Directory user DN attribute' )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+
+        # ... populate "custom" attributes
+        dAttrsLdap = self.__ldapGetAttributes( oLdap, sUsername )
+        dAttrsAd = dict()
+        for sKeyAd in UPWDCHG_PLUGIN_AD_USER_ATTRS.iterkeys():
+            sAttr = UPWDCHG_PLUGIN_AD_USER_ATTRS[sKeyAd]
+            sAttr = sAttr.replace( '%{USERNAME}', sUsername )
+            for sKeyLdap in dAttrsLdap.iterkeys():
+                sAttr = sAttr.replace( '%%{LDAP:%s}' % sKeyLdap, dAttrsLdap[sKeyLdap][0] )
                 sAttr = self.__reLdapVariables.sub( '', sAttr )
                 dAttrsAd[sKeyAd] = sAttr
-            # ... populate "system" attributes
-            sUserDn = dAttrsAd['dn']
-            dAttrsAd.pop( 'dn', None )
-            dAttrsAd['objectClass'] = [ 'top', 'person', 'organizationalPerson', 'user' ]
-            dAttrsAd['userAccountControl'] = '514'
-            # ... create account
-            if not UPWDCHG_PLUGIN_DRYRUN:
-                try:
-                    lLDIF = ldap.modlist.addModlist( dAttrsAd )
-                    oLdap.add_s( sUserDn, lLDIF )
-                except Exception as e:
-                    self._DEBUG( 'Failed to create Active Directory user account; %s' % str( e ) )
-                    self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
 
-        # ... Active Directory password change
-        #     REF: http://support.microsoft.com/kb/263991
-        if not UPWDCHG_PLUGIN_DRYRUN:
-            try:
-                lLDIF = [
-                    ( ldap.MOD_REPLACE, 'unicodePwd', ( '"%s"' % dToken['password-new'] ).encode( 'utf-16-le' ) ),
-                ]
-                oLdap.modify_s( sUserDn, lLDIF )
-            except Exception as e:
-                self._DEBUG( 'Failed to change Active Directory password; %s' % str( e ) )
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        # ... populate "system" attributes
+        sUserDn = dAttrsAd['dn']
+        dAttrsAd.pop( 'dn', None )
+        dAttrsAd['objectClass'] = [ 'top', 'person', 'organizationalPerson', 'user' ]
+        dAttrsAd['userAccountControl'] = '514'
 
-        # ... Active Directory account activation (control)
-        #     REF: http://support.microsoft.com/kb/305144
-        if not bUserExists and not UPWDCHG_PLUGIN_DRYRUN:
-            try:
-                lLDIF = [
-                    ( ldap.MOD_REPLACE, 'userAccountControl', ( '%d' % ( 512 | UPWDCHG_PLUGIN_AD_USER_CONTROL_FLAGS ) ) ),
-                ]
-                oLdap.modify_s( sUserDn, lLDIF )
-            except Exception as e:
-                self._DEBUG( 'Failed to activate Active Directory user account; %s' % str( e ) )
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-
-        # ... Active Directory unbind
+        # ... create account
+        if UPWDCHG_PLUGIN_DRYRUN:
+            return sUserDn
         try:
-            oLdap.unbind_s()
+            lLDIF = ldap.modlist.addModlist( dAttrsAd )
+            oAd.add_s( sUserDn, lLDIF )
+        except Exception as e:
+            self._DEBUG( 'Failed to create Active Directory user account; %s' % str( e ) )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+
+        # Done
+        return sUserDn
+
+
+    def __adAddUserToGroup( self, oAd, sUsername, sUserDn, sGroupname ):
+        global \
+            UPWDCHG_PLUGIN_DRYRUN, \
+            UPWDCHG_PLUGIN_AD_GROUP_DN, \
+            UPWDCHG_PLUGIN_AD_GROUP_SEARCH_DN, \
+            UPWDCHG_PLUGIN_AD_GROUP_SEARCH_SCOPE, \
+            UPWDCHG_PLUGIN_AD_GROUP_SEARCH_FILTER, \
+            UPWDCHG_PLUGIN_AD_GROUP_ATTR_MEMBER, \
+            UPWDCHG_PLUGIN_AD_GROUP_ATTR_MEMBER_VALUE, \
+            UPWDCHG_PLUGIN_AD_GROUP_CRITICAL
+
+        # Active Directory add user to group
+
+        # ... Active Directory group DN
+        if not UPWDCHG_PLUGIN_AD_GROUP_DN:
+            try:
+                lAdResults = oAd.search_ext_s(
+                    UPWDCHG_PLUGIN_AD_GROUP_SEARCH_DN,
+                    UPWDCHG_PLUGIN_AD_GROUP_SEARCH_SCOPE,
+                    UPWDCHG_PLUGIN_AD_GROUP_SEARCH_FILTER.replace( '%{GROUPNAME}', sGroupname ),
+                    attrlist=None, attrsonly=0, sizelimit=2
+                    )
+                if not lAdResults:
+                    raise Exception( 'group not found' )
+                elif len( lAdResults ) > 1:
+                    raise Exception( 'too many match' )
+            except Exception as e:
+                self._DEBUG( 'Failed to perform Active Directory group DN search; %s' % str( e ) )
+                if UPWDCHG_PLUGIN_AD_GROUP_CRITICAL:
+                    self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+                else:
+                    return
+        else:
+            try:
+                lAdResults = oAd.search_ext_s(
+                    UPWDCHG_PLUGIN_AD_GROUP_DN.replace( '%{GROUPNAME}', sGroupname ),
+                    ldap.SCOPE_BASE,
+                    'objectClass=*',
+                    attrlist=None, attrsonly=0, sizelimit=2
+                    )
+                if not lAdResults:
+                    raise Exception( 'group not found' )
+                elif len( lAdResults ) > 1:
+                    raise Exception( 'too many match' )
+            except Exception as e:
+                self._DEBUG( 'Failed to perform Active Directory group DN search; %s' % str( e ) )
+                if UPWDCHG_PLUGIN_AD_GROUP_CRITICAL:
+                    self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+                else:
+                    return
+        sGroupDn = lAdResults[0][0]
+
+        # ... Active Directory add group membership
+        sMembershipAttr = UPWDCHG_PLUGIN_AD_GROUP_ATTR_MEMBER
+        sMembershipAttrValue = UPWDCHG_PLUGIN_AD_GROUP_ATTR_MEMBER_VALUE.replace( '%{USERNAME}', sUsername ).replace( '%{USERDN}', sUserDn )
+        if UPWDCHG_PLUGIN_DRYRUN:
+            return
+        try:
+            lLDIF = [ ( ldap.MOD_ADD, sMembershipAttr, sMembershipAttrValue ) ]
+            oAd.modify_s( sGroupDn, lLDIF )
+        except Exception as e:
+            self._DEBUG( 'Failed to add Active Directory group membership; %s' % str( e ) )
+            if UPWDCHG_PLUGIN_AD_GROUP_CRITICAL:
+                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            else:
+                return
+
+
+    def __adChangePassword( self, oAd, sUserDn, uPasswordNew ):
+        global \
+            UPWDCHG_PLUGIN_DRYRUN
+
+        if UPWDCHG_PLUGIN_DRYRUN:
+            return
+
+        # Active Directory password change
+        # REF: http://support.microsoft.com/kb/263991
+        try:
+            lLDIF = [
+                ( ldap.MOD_REPLACE, 'unicodePwd', ( '"%s"' % uPasswordNew ).encode( 'utf-16-le' ) ),
+                ]
+            oAd.modify_s( sUserDn, lLDIF )
+        except Exception as e:
+            self._DEBUG( 'Failed to change Active Directory password; %s' % str( e ) )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+
+
+    def __adEnableAccount( self, oAd, sUserDn ):
+        global \
+            UPWDCHG_PLUGIN_DRYRUN, \
+            UPWDCHG_PLUGIN_AD_USER_CONTROL_FLAGS
+
+        if UPWDCHG_PLUGIN_DRYRUN:
+            return
+
+        # Active Directory account activation (control)
+        # REF: http://support.microsoft.com/kb/305144
+        try:
+            lLDIF = [
+                ( ldap.MOD_REPLACE, 'userAccountControl', ( '%d' % ( 512 | UPWDCHG_PLUGIN_AD_USER_CONTROL_FLAGS ) ) ),
+                ]
+            oAd.modify_s( sUserDn, lLDIF )
+        except Exception as e:
+            self._DEBUG( 'Failed to activate Active Directory user account; %s' % str( e ) )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+
+
+    def __adUnbind( self, oAd ):
+
+        # Active Directory unbind
+        try:
+            oAd.unbind_s()
         except Exception as e:
             self._DEBUG( 'Failed to unbind from Active Directory server; %s' % str( e ) )
+
+
+    def process( self ):
+
+        # Get token (data)
+        dToken = self._getToken()
+        sUsername = dToken['username'].encode( 'utf-8' )
+        sPasswordOld = dToken['password-old'].encode( 'utf-8' )
+        uPasswordNew = dToken['password-new']
+
+        # Process token data
+        bUserExists = True
+
+        # ... Active Directory bind
+        oAd = self.__adBind( sUsername, sPasswordOld )
+
+        # ... Active directory user DN
+        bUserExists = False
+        sUserDn = self.__adGetUserDn( oAd, sUsername )
+        if sUserDn:
+            bUserExists = True
+
+        # ... Active Directory user account creation
+        if not bUserExists or UPWDCHG_PLUGIN_DRYRUN:
+            oLdap = self.__ldapBind( sUsername, sPasswordOld )
+            sUserDn = self.__adCreateAccount( oAd, oLdap, sUsername )
+            lGroupnames = self.__ldapGetGroups( oLdap, sUsername )
+            for sGroupname in lGroupnames:
+                self.__adAddUserToGroup( oAd, sUsername, sUserDn, sGroupname )
+
+        # ... Active Directory password change
+        self.__adChangePassword( oAd, sUserDn, uPasswordNew )
+
+        # ... Active Directory user account activation
+        if not bUserExists or UPWDCHG_PLUGIN_DRYRUN:
+            self.__adEnableAccount( oAd, sUserDn )
+            self.__ldapUnbind( oLdap )
+
+        # ... Active Directory unbind
+        self.__adUnbind( oAd )
 
         # Done
         if bUserExists:
