@@ -31,11 +31,11 @@ UPWDCHG_PLUGIN_KRB5_ADD_OPTIONS='-policy default'
 UPWDCHG_PLUGIN_KRB5_ADMSRV='root@krb5adm.example.org'  # if not None, SSH to specified server to execute 'kadmin.local' actions
 
 # Plugin
-class CreatePasswordKrb5(TokenPlugin):
+class CreateAccountKrb5(TokenPlugin):
 
     def __init__( self ):
         global UPWDCHG_PLUGIN_CRITICAL
-        TokenPlugin.__init__( self, 'CreatePasswordKrb5', UPWDCHG_PLUGIN_CRITICAL )
+        TokenPlugin.__init__( self, 'CreateAccountKrb5', UPWDCHG_PLUGIN_CRITICAL )
 
     def process( self ):
         global \
@@ -108,5 +108,5 @@ class CreatePasswordKrb5(TokenPlugin):
             self._EXIT_OK( 'Kerberos 5 principal successfully created' )
 
 # Process
-CreatePasswordKrb5().process()
+CreateAccountKrb5().process()
 
