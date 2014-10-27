@@ -25,6 +25,9 @@ import subprocess as SP
 # Parameters
 UPWDCHG_PLUGIN_CRITICAL=True
 UPWDCHG_PLUGIN_DRYRUN=True
+UPWDCHG_PLUGIN_DEBUG=TokenPlugin.DEBUG_INFO
+
+# ... Kerberos 5
 UPWDCHG_PLUGIN_KRB5_PRINCIPAL='%{USERNAME}@EXAMPLE.ORG'
 UPWDCHG_PLUGIN_KRB5_ADD_USER_DN='uid=%{USERNAME},ou=users,dc=example,dc=org'
 UPWDCHG_PLUGIN_KRB5_ADD_OPTIONS='-policy default'
@@ -35,7 +38,7 @@ class CreateAccountKrb5(TokenPlugin):
 
     def __init__( self ):
         global UPWDCHG_PLUGIN_CRITICAL
-        TokenPlugin.__init__( self, 'CreateAccountKrb5', UPWDCHG_PLUGIN_CRITICAL )
+        TokenPlugin.__init__( self, 'CreateAccountKrb5', UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG )
 
     def process( self ):
         global \
@@ -44,6 +47,14 @@ class CreateAccountKrb5(TokenPlugin):
             UPWDCHG_PLUGIN_KRB5_ADD_USER_DN, \
             UPWDCHG_PLUGIN_KRB5_ADD_OPTIONS, \
             UPWDCHG_PLUGIN_KRB5_ADMSRV
+
+        # Check parameters
+        if not UPWDCHG_PLUGIN_KRB5_PRINCIPAL:
+            self._DEBUG( 'Missing principal' )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        if not UPWDCHG_PLUGIN_KRB5_ADD_USER_DN:
+            self._DEBUG( 'Missing user distinguished name (DN)' )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
 
         # Get token (data)
         dToken = self._getToken()
@@ -68,8 +79,12 @@ class CreateAccountKrb5(TokenPlugin):
                     raise Exception( sStdErr )
                 bPrincipalExists = False
         except Exception as e:
-            self._DEBUG( 'Failed to change Kerberos 5 password; %s' % str( e ) )
+            self._DEBUG( 'Failed to change password; %s' % str( e ) )
             self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        if bPrincipalExists:
+            self._DEBUG( 'Principal already exists (its password will be updated): %s' % sPrincipal, TokenPlugin.DEBUG_NOTICE )
+        else:
+            self._DEBUG( 'Principal does not exists (and will be created): %s' % sPrincipal, TokenPlugin.DEBUG_NOTICE )
 
         # ... Kerberos password change (?)
         if bPrincipalExists and not UPWDCHG_PLUGIN_DRYRUN:
@@ -82,13 +97,15 @@ class CreateAccountKrb5(TokenPlugin):
                 if oPopen.returncode != 0 or sStdErr:
                     raise Exception( sStdErr )
             except Exception as e:
-                self._DEBUG( 'Failed to change Kerberos 5 password; %s' % str( e ) )
+                self._DEBUG( 'Failed to change password; %s' % str( e ) )
                 self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            self._DEBUG( 'Successfully changed password for principal: %s' % sPrincipal, TokenPlugin.DEBUG_INFO )
 
         # ... Create principal (?)
         if not bPrincipalExists and not UPWDCHG_PLUGIN_DRYRUN:
             try:
                 sUserDn = UPWDCHG_PLUGIN_KRB5_ADD_USER_DN.replace( '%{USERNAME}', sUsername )
+                self._DEBUG( 'Creating principal (DN): %s (%s)' % ( sPrincipal, sUserDn ), TokenPlugin.DEBUG_TRACE )
                 sOptions = UPWDCHG_PLUGIN_KRB5_ADD_OPTIONS
                 lCommand = [ 'kadmin.local', '-q', "'add_principal -x dn=\"%s\" -pw \"%s\" %s \"%s\"'" % ( sUserDn, sPasswordNew, sOptions, sPrincipal ) ]
                 if UPWDCHG_PLUGIN_KRB5_ADMSRV:
@@ -98,15 +115,15 @@ class CreateAccountKrb5(TokenPlugin):
                 if oPopen.returncode != 0 or sStdErr:
                     raise Exception( sStdErr )
             except Exception as e:
-                self._DEBUG( 'Failed to create Kerberos 5 principal; %s' % str( e ) )
+                self._DEBUG( 'Failed to create principal; %s' % str( e ) )
                 self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            self._DEBUG( 'Successfully created principal: %s' % sPrincipal, TokenPlugin.DEBUG_INFO )
 
         # Done
         if bPrincipalExists:
-            self._EXIT_OK( 'Kerberos 5 password successfully changed' )
+            self._EXIT_OK( 'Password successfully changed' )
         else:
-            self._EXIT_OK( 'Kerberos 5 principal successfully created' )
+            self._EXIT_OK( 'Account successfully created' )
 
 # Process
 CreateAccountKrb5().process()
-
