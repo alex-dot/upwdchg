@@ -1,0 +1,334 @@
+#!/usr/bin/env python
+# -*- mode:python; tab-width:4; c-basic-offset:4; intent-tabs-mode:nil; coding:utf-8 -*-
+# ex: filetype=python tabstop=4 softtabstop=4 shiftwidth=4 expandtab autoindent smartindent
+
+#
+# Universal Password Changer (UPwdChg)
+# Copyright (C) 2014 Cedric Dufour <http://cedric.dufour.name>
+# Author: Cedric Dufour <http://cedric.dufour.name>
+#
+# The Universal Password Changer (UPwdChg) is free software:
+# you can redistribute it and/or modify it under the terms of the GNU General
+# Public License as published by the Free Software Foundation, Version 3.
+#
+# The Universal Password Changer (UPwdChg) is distributed in the hope
+# that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+# warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+# See the GNU General Public License for more details.
+#
+
+# Modules
+# ... deb: python-ldap
+from UPwdChg import TokenPlugin
+import ldap
+import ldap.modlist
+import re
+
+# Parameters
+UPWDCHG_PLUGIN_CRITICAL=True
+UPWDCHG_PLUGIN_DRYRUN=True
+UPWDCHG_PLUGIN_DEBUG=TokenPlugin.DEBUG_INFO
+
+# ... (source) LDAP directory
+UPWDCHG_PLUGIN_LDAP_SRC_URI='ldap://ldap.example.org:389'
+UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_DN='cn=admin,dc=example,dc=org'
+UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD=''  # prefix with 'file://' to get password from specified file
+# ... group synchronization
+UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_DN='ou=groups,dc=example,dc=org'
+UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_SCOPE=ldap.SCOPE_ONELEVEL
+UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_FILTER='(objectClass=posixGroup)'
+UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME='cn'
+
+# ... (destination) LDAP directory
+UPWDCHG_PLUGIN_LDAP_DST_URI='ldap://ad.example.org:389'
+UPWDCHG_PLUGIN_LDAP_DST_ADMIN_DN='Administrator@EXAMPLE.ORG'
+UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD=''  # prefix with 'file://' to get password from specified file
+# ... group synchronization
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN='ou=Users,dc=example,dc=org'
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_SCOPE=ldap.SCOPE_ONELEVEL
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER='(&(objectClass=group)(cn=%{GROUPNAME}))'
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL=False
+# ... group creation attributes
+#     'dn' attribute MUST be set, others are up to you (or AD requirements)
+#     required "system" attributes ('objectClass') will be set automatically
+#     %{LDAP:<attr>} are subsituted with the given LDAP attribute (see LDAP directory settings below)
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_CLASSES=[ 'top', 'group' ]
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS=dict()
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS['dn']='cn=%{LDAP:cn},ou=Users,dc=example,dc=org'
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS['cn']='%{LDAP:cn}'
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS['name']='%{LDAP:cn}'
+
+# Plugin
+class SynchGroupsLdap(TokenPlugin):
+
+    def __init__( self ):
+        global UPWDCHG_PLUGIN_CRITICAL
+        TokenPlugin.__init__( self, 'SynchGroupsLdap', UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG )
+        # ... fields
+        self.__reLdapVariables = re.compile( '%{LDAP:[^}]*}' )
+
+
+    def __ldapSrcBind( self ):
+        global \
+            UPWDCHG_PLUGIN_LDAP_SRC_URI, \
+            UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_DN, \
+            UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD
+
+        # Check parameters
+        if not UPWDCHG_PLUGIN_LDAP_SRC_URI:
+            self._DEBUG( 'Missing (source LDAP) server address (URI)' )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        if not UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_DN:
+            self._DEBUG( 'Missing (source LDAP) administrator distinguished name (DN)' )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+
+        # Bind to server
+
+        # ... bind credentials
+        sBindDn = UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_DN
+        if not UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD:
+            sBindPwd=''  # Really!?!
+        elif UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD.startswith( 'file://' ):
+            __sFile = UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD[7:]
+            try:
+                __oFile = open( __sFile, 'r' )
+                sBindPwd = __oFile.readline()
+                __oFile.close()
+            except Exception as e:
+                self._DEBUG( 'Failed to retrieve (source LDAP) bind password from file; %s' % str( e ) )
+                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        else:
+            sBindPwd = UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD
+        self._DEBUG( 'Binding to (source LDAP) server as (DN): %s' % sBindDn, TokenPlugin.DEBUG_TRACE )
+
+        # ... bind
+        try:
+            oLdap = ldap.initialize( UPWDCHG_PLUGIN_LDAP_SRC_URI )
+            oLdap.protocol_version = ldap.VERSION3
+            oLdap.bind_s( sBindDn, sBindPwd, ldap.AUTH_SIMPLE )
+        except Exception as e:
+            self._DEBUG( 'Failed to bind to (source LDAP) server; %s' % str( e ) )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        self._DEBUG( 'Successfully bound to (source LDAP) server', TokenPlugin.DEBUG_NOTICE )
+
+        # Done
+        return oLdap
+
+
+    def __ldapSrcGetGroups( self, oLdap ):
+        global \
+            UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_DN, \
+            UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_SCOPE, \
+            UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_FILTER, \
+            UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME
+
+        # Return variable
+        lGroups = list()
+
+        # Check parameters
+        if not UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_DN:
+            self._DEBUG( 'Missing (source LDAP) group search base (DN)' )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+
+        # Retrieve groups
+
+        # ... groups
+        try:
+            lLdapResults = oLdap.search_ext_s(
+                UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_DN,
+                UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_SCOPE,
+                UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_FILTER,
+                attrlist=[UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME], attrsonly=0
+                )
+            for tLdapResult in lLdapResults:
+                lGroups.append( ( tLdapResult[1][UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME][0], tLdapResult[0] ) )
+        except Exception as e:
+            self._DEBUG( 'Failed to perform (source LDAP) group search; %s' % str( e ) )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        self._DEBUG( 'Successfully retrieved groups from (source LDAP) server:\n%s' % str( lGroups ), TokenPlugin.DEBUG_TRACE )
+
+        # Done
+        return lGroups
+
+
+    def __ldapSrcGetAttributes( self, oLdap, sGroupDn ):
+
+        # Return variable
+        dAttrs = dict()
+
+        # Retrieve group attributes
+
+        # ... group DN
+        try:
+            lLdapResults = oLdap.search_ext_s(
+                sGroupDn,
+                ldap.SCOPE_BASE,
+                '(objectClass=*)',
+                attrlist=None, attrsonly=0, sizelimit=2
+                )
+            if not lLdapResults:
+                raise Exception( 'group not found' )
+            elif len( lLdapResults ) > 1:
+                raise Exception( 'too many match' )
+        except Exception as e:
+            self._DEBUG( 'Failed to perform (source LDAP) group search; %s' % str( e ) )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        dAttrs = lLdapResults[0][1]
+        self._DEBUG( 'Successfully retrieved group attributes from (LDAP) server:\n%s' % str( dAttrs ), TokenPlugin.DEBUG_TRACE )
+
+        # Done
+        return dAttrs
+
+
+    def __ldapSrcUnbind( self, oLdap ):
+
+        # Unbind
+        try:
+            oLdap.unbind_s()
+        except Exception as e:
+            self._DEBUG( 'Failed to unbind from (source LDAP) server; %s' % str( e ) )
+
+
+    def __ldapDstBind( self ):
+        global \
+            UPWDCHG_PLUGIN_LDAP_DST_URI, \
+            UPWDCHG_PLUGIN_LDAP_DST_ADMIN_DN, \
+            UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD
+
+        # Check parameters
+        if not UPWDCHG_PLUGIN_LDAP_DST_URI:
+            self._DEBUG( 'Missing (destination LDAP) server address (URI)' )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        if not UPWDCHG_PLUGIN_LDAP_DST_ADMIN_DN:
+            self._DEBUG( 'Missing (destination LDAP) administrator distinguished name (DN)' )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+
+        # Bind to server
+
+        # ... bind credentials
+        sBindDn = UPWDCHG_PLUGIN_LDAP_DST_ADMIN_DN
+        if not UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD:
+            sBindPwd=''  # Really!?!
+        elif UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD.startswith( 'file://' ):
+            __sFile = UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD[7:]
+            try:
+                __oFile = open( __sFile, 'r' )
+                sBindPwd = __oFile.readline()
+                __oFile.close()
+            except Exception as e:
+                self._DEBUG( 'Failed to retrieve (destination LDAP) bind password from file; %s' % str( e ) )
+                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        else:
+            sBindPwd = UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD
+        self._DEBUG( 'Binding to (destination LDAP) server as (DN): %s' % sBindDn, TokenPlugin.DEBUG_TRACE )
+
+        # ... bind
+        try:
+            oLdap = ldap.initialize( UPWDCHG_PLUGIN_LDAP_DST_URI )
+            oLdap.protocol_version = ldap.VERSION3
+            oLdap.bind_s( sBindDn, sBindPwd, ldap.AUTH_SIMPLE )
+        except Exception as e:
+            self._DEBUG( 'Failed to bind to (destination LDAP) server; %s' % str( e ) )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        self._DEBUG( 'Successfully bound to (destination LDAP) server', TokenPlugin.DEBUG_NOTICE )
+
+        # Done
+        return oLdap
+
+
+    def __ldapDstCreateGroup( self, oLdapDst, sGroupname, oLdapSrc, sGroupDnSrc ):
+        global \
+            UPWDCHG_PLUGIN_DRYRUN, \
+            UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN, \
+            UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_SCOPE, \
+            UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER, \
+            UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL, \
+            UPWDCHG_PLUGIN_LDAP_DST_GROUP_CLASSES, \
+            UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS
+
+        # Create group
+
+        # ... check existency
+        try:
+            lLdapResults = oLdapDst.search_ext_s(
+                UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN,
+                UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_SCOPE,
+                UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER.replace( '%{GROUPNAME}', sGroupname ),
+                attrlist=None, attrsonly=1, sizelimit=2
+                )
+            if not lLdapResults:
+                pass
+            elif len( lLdapResults ) > 1:
+                raise Exception( 'too many match' )
+            else:
+                self._DEBUG( 'Group already exists in (destination LDAP) server: %s' % lLdapResults[0][0], TokenPlugin.DEBUG_NOTICE )
+        except Exception as e:
+            self._DEBUG( 'Failed to perform (destination LDAP) group search; %s' % str( e ) )
+            if UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL:
+                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            else:
+                return
+
+        # ... populate "custom" attributes
+        dAttrsSrc = self.__ldapSrcGetAttributes( oLdapSrc, sGroupDnSrc )
+        dAttrsDst = dict()
+        for sKeyDst in UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS.iterkeys():
+            sAttr = UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS[sKeyDst]
+            sAttr = sAttr.replace( '%{GROUPNAME}', sGroupname )
+            for sKeySrc in dAttrsSrc.iterkeys():
+                sAttr = sAttr.replace( '%%{LDAP:%s}' % sKeySrc, dAttrsSrc[sKeySrc][0] )
+            sAttr = self.__reLdapVariables.sub( '', sAttr )
+            dAttrsDst[sKeyDst] = sAttr
+
+        # ... populate "system" attributes
+        sGroupDn = dAttrsDst['dn']
+        dAttrsDst.pop( 'dn', None )
+        dAttrsDst['objectClass'] = UPWDCHG_PLUGIN_LDAP_DST_GROUP_CLASSES
+
+        # ... create account
+        if UPWDCHG_PLUGIN_DRYRUN:
+            return sGroupDn
+        try:
+            lLDIF = ldap.modlist.addModlist( dAttrsDst )
+            oLdapDst.add_s( sGroupDn, lLDIF )
+        except Exception as e:
+            self._DEBUG( 'Failed to create (destination LDAP) group; %s' % str( e ) )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        self._DEBUG( 'Successfully created (destination LDAP) group (DN): %s' % sGroupDn, TokenPlugin.DEBUG_INFO )
+
+        # Done
+        return sGroupDn
+
+
+    def __ldapDstUnbind( self, oLdap ):
+
+        # Unbind
+        try:
+            oLdap.unbind_s()
+        except Exception as e:
+            self._DEBUG( 'Failed to unbind from (destination LDAP) server; %s' % str( e ) )
+
+
+    def process( self ):
+
+        # Synchronize groups
+
+        # ... (destination LDAP) bind
+        oLdapDst = self.__ldapDstBind()
+
+        # ... groups synchronization
+        oLdapSrc = self.__ldapSrcBind()
+        lGroups = self.__ldapSrcGetGroups( oLdapSrc )
+        for tGroup in lGroups:
+            self.__ldapDstCreateGroup( oLdapDst, tGroup[0], oLdapSrc, tGroup[1] )
+        self.__ldapSrcUnbind( oLdapSrc )
+
+        # ... (destination LDAP) unbind
+        self.__ldapDstUnbind( oLdapDst )
+
+        # Done
+        self._EXIT_OK( 'Groups successfully synchronized' )
+
+# Process
+SynchGroupsLdap().process()
