@@ -34,15 +34,27 @@ class TokenPlugin(TokenReader):
     """
 
     #------------------------------------------------------------------------------
+    # CONSTANTS
+    #------------------------------------------------------------------------------
+
+    DEBUG_ERROR=0
+    DEBUG_WARNING=1
+    DEBUG_INFO=2
+    DEBUG_NOTICE=3
+    DEBUG_TRACE=4
+
+
+    #------------------------------------------------------------------------------
     # CONSTRUCTORS / DESTRUCTOR
     #------------------------------------------------------------------------------
 
-    def __init__( self, _sName, _bCritical = True ):
+    def __init__( self, _sName, _bCritical = True, _iDebugLevel = DEBUG_ERROR ):
         TokenReader.__init__( self )
 
         # Fields
         self.__sName = _sName
         self.__bCritical = _bCritical
+        self.__iDebugLevel = _iDebugLevel
         if _bCritical:
             self.__sErrorPrefix = 'ERROR'
         else:
@@ -57,11 +69,25 @@ class TokenPlugin(TokenReader):
     # Helpers
     #
 
-    def _DEBUG( self, _lsMessages ):
+    def _DEBUG( self, _lsMessages, _iDebugLevel = None ):
+        if _iDebugLevel > self.__iDebugLevel:
+            return
+        if _iDebugLevel == self.DEBUG_TRACE:
+            __sPrefix = 'TRACE'
+        elif _iDebugLevel == self.DEBUG_NOTICE:
+            __sPrefix = 'NOTICE'
+        elif _iDebugLevel == self.DEBUG_INFO:
+            __sPrefix = 'INFO'
+        elif _iDebugLevel == self.DEBUG_WARNING:
+            __sPrefix = 'WARNING'
+        elif _iDebugLevel == self.DEBUG_ERROR:
+            __sPrefix = 'WARNING'
+        else:
+            __sPrefix = self.__sErrorPrefix
         if not isinstance( _lsMessages, list ):
             _lsMessages = [ _lsMessages ]
         for __sMessage in _lsMessages:
-            sys.stderr.write( '%s[%s]: %s\n' % ( self.__sErrorPrefix, self.__sName, __sMessage ) )
+            sys.stderr.write( '%s[%s]: %s\n' % ( __sPrefix, self.__sName, __sMessage ) )
 
     def _EXIT_ERROR( self, _lsMessages ):
         if not isinstance( _lsMessages, list ):
@@ -98,4 +124,3 @@ class TokenPlugin(TokenReader):
 
         # Done
         return __oToken.getData()
-
