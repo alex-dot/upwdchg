@@ -25,6 +25,7 @@ from time import gmtime, strftime, strptime
 
 # Parameters
 UPWDCHG_PLUGIN_CRITICAL=True
+
 # ... age (in seconds); int: 0/None=ignore
 UPWDCHG_PLUGIN_TIMESTAMP_AGE_MINIMUM=None
 UPWDCHG_PLUGIN_TIMESTAMP_AGE_MAXIMUM=3600
