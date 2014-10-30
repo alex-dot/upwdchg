@@ -1,3 +1,17 @@
+upwdchg (1.0.20141030~rc3) UNRELEASED; urgency=low
+
+  * FIX: Switch RSA padding to PKCS#1 OAEP
+  * FIX: [Plugin/ChangePasswordKrb5] Specify Kerberos principal instead of realm
+  * MOD: [Backend] Add debugging messages levels
+  * NEW: [Plugin/CreateAccountKrb5] Create Kerberos account (principal) with new
+         password (or update its password if already existing)
+  * NEW: [Plugin/CreateAccountAd] Create Active Directory user account with new
+         password (or update its password if already existing)
+  * NEW: [Plugin/SynchGroupsLdap] Synchronize LDAP groups
+  * NEW: [Plugin/SynchGroupsMemberLdap] Synchronize LDAP groups membership
+
+ -- Cedric Dufour <cedric.dufour@ced-network.net>  Thu, 30 Oct 2014 14:54:41 +0100
+
 upwdchg (1.0.20141011~rc2) UNRELEASED; urgency=low
 
   * INITIAL RELEASE
