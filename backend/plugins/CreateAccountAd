@@ -39,11 +39,6 @@ UPWDCHG_PLUGIN_LDAP_USER_DN='uid=%{USERNAME},ou=users,dc=example,dc=org'  # set 
 UPWDCHG_PLUGIN_LDAP_USER_SEARCH_DN='ou=users,dc=example,dc=org'
 UPWDCHG_PLUGIN_LDAP_USER_SEARCH_SCOPE=ldap.SCOPE_ONELEVEL
 UPWDCHG_PLUGIN_LDAP_USER_SEARCH_FILTER='(&(objectClass=posixAccount)(uid=%{USERNAME}))'
-# ... group synchronization
-UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_DN='ou=groups,dc=example,dc=org'  # if None, no LDAP groups synchronization is performed
-UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_SCOPE=ldap.SCOPE_ONELEVEL
-UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_FILTER='(&(objectClass=posixGroup)(memberUid=%{USERNAME}))'
-UPWDCHG_PLUGIN_LDAP_GROUP_ATTR_NAME='cn'
 
 # ... (destination) Active Directory
 UPWDCHG_PLUGIN_AD_URI='ldap://ad.example.org:389'
@@ -53,7 +48,7 @@ UPWDCHG_PLUGIN_AD_USER_SEARCH_DN='ou=Users,dc=example,dc=org'
 UPWDCHG_PLUGIN_AD_USER_SEARCH_SCOPE=ldap.SCOPE_ONELEVEL
 UPWDCHG_PLUGIN_AD_USER_SEARCH_FILTER='(&(objectClass=user)(uid=%{USERNAME}))'
 # ... user account creation attributes
-#     'dn' attribute MUST be set, others are up to you (or AD requirements)
+#     'dn' attribute MUST be set, others are up to you (http://msdn.microsoft.com/en-us/library/ms677943%28v=vs.85%29.aspx)
 #     required "system" attributes ('objectClass', 'userAccountControl') will be set automatically
 #     %{LDAP:<attr>} are subsituted with the given LDAP attribute (see LDAP directory settings below)
 UPWDCHG_PLUGIN_AD_USER_CLASSES=[ 'top', 'person', 'organizationalPerson', 'user' ]
@@ -63,21 +58,16 @@ UPWDCHG_PLUGIN_AD_USER_ATTRS['cn']='%{LDAP:cn}'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['sn']='%{LDAP:sn}'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['givenName']='%{LDAP:givenName}'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['name']='%{LDAP:displayName}'
-UPWDCHG_PLUGIN_AD_USER_ATTRS['uid']='%{USERNAME}'
+UPWDCHG_PLUGIN_AD_USER_ATTRS['uid']='%{LDAP:uid}'
+UPWDCHG_PLUGIN_AD_USER_ATTRS['uidNumber']='%{LDAP:uidNumber}'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['sAMAccountName']='%{USERNAME}'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['userPrincipalName']='%{USERNAME}@EXAMPLE.ORG'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['unixHomeDirectory']='/home/%{USERNAME}'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['homeDirectory']='\\\\ad.example.org\\%{USERNAME}'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['homeDrive']='Z:'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['mail']='%{LDAP:mail}'
+UPWDCHG_PLUGIN_AD_USER_ATTRS['description']='%{LDAP:description}'
 UPWDCHG_PLUGIN_AD_USER_CONTROL_FLAGS=0  # 'userAccountControl' additional flags (http://support.microsoft.com/kb/305144)
-# ... group synchronization
-UPWDCHG_PLUGIN_AD_GROUP_SEARCH_DN='ou=Users,dc=example,dc=org'
-UPWDCHG_PLUGIN_AD_GROUP_SEARCH_SCOPE=ldap.SCOPE_ONELEVEL
-UPWDCHG_PLUGIN_AD_GROUP_SEARCH_FILTER='(&(objectClass=group)(cn=%{GROUPNAME}))'
-UPWDCHG_PLUGIN_AD_GROUP_ATTR_MEMBER='member'
-UPWDCHG_PLUGIN_AD_GROUP_ATTR_MEMBER_VALUE='%{USERDN}'
-UPWDCHG_PLUGIN_AD_GROUP_CRITICAL=False
 
 # Plugin
 class CreateAccountAd(TokenPlugin):
@@ -186,41 +176,6 @@ class CreateAccountAd(TokenPlugin):
 
         # Done
         return dAttrs
-
-
-    def __ldapGetGroups( self, oLdap, sUsername ):
-        global \
-            UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_DN, \
-            UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_SCOPE, \
-            UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_FILTER, \
-            UPWDCHG_PLUGIN_LDAP_GROUP_ATTR_NAME
-
-        # Return variable
-        lGroups = list()
-
-        # Check parameters
-        if not UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_DN:
-            return lGroups
-
-        # Retrieve user groups
-
-        # ... groups
-        try:
-            lLdapResults = oLdap.search_ext_s(
-                UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_DN,
-                UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_SCOPE,
-                UPWDCHG_PLUGIN_LDAP_GROUP_SEARCH_FILTER.replace( '%{USERNAME}', sUsername ),
-                attrlist=[UPWDCHG_PLUGIN_LDAP_GROUP_ATTR_NAME], attrsonly=0
-                )
-            for tLdapResult in lLdapResults:
-                lGroups.append( ( tLdapResult[1][UPWDCHG_PLUGIN_LDAP_GROUP_ATTR_NAME][0], tLdapResult[0] ) )
-        except Exception as e:
-            self._DEBUG( 'Failed to perform (LDAP) group search; %s' % str( e ) )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-        self._DEBUG( 'Successfully retrieved user groups from (LDAP) server:\n%s' % str( lGroups ), TokenPlugin.DEBUG_TRACE )
-
-        # Done
-        return lGroups
 
 
     def __ldapUnbind( self, oLdap ):
@@ -351,55 +306,6 @@ class CreateAccountAd(TokenPlugin):
         return sUserDn
 
 
-    def __adAddUserToGroup( self, oAd, sUsername, sUserDn, sGroupname ):
-        global \
-            UPWDCHG_PLUGIN_DRYRUN, \
-            UPWDCHG_PLUGIN_AD_GROUP_SEARCH_DN, \
-            UPWDCHG_PLUGIN_AD_GROUP_SEARCH_SCOPE, \
-            UPWDCHG_PLUGIN_AD_GROUP_SEARCH_FILTER, \
-            UPWDCHG_PLUGIN_AD_GROUP_ATTR_MEMBER, \
-            UPWDCHG_PLUGIN_AD_GROUP_ATTR_MEMBER_VALUE, \
-            UPWDCHG_PLUGIN_AD_GROUP_CRITICAL
-
-        # Add user to group
-
-        # ... group DN
-        try:
-            lAdResults = oAd.search_ext_s(
-                UPWDCHG_PLUGIN_AD_GROUP_SEARCH_DN,
-                UPWDCHG_PLUGIN_AD_GROUP_SEARCH_SCOPE,
-                UPWDCHG_PLUGIN_AD_GROUP_SEARCH_FILTER.replace( '%{GROUPNAME}', sGroupname ),
-                attrlist=None, attrsonly=1, sizelimit=2
-                )
-            if not lAdResults:
-                raise Exception( 'group not found' )
-            elif len( lAdResults ) > 1:
-                raise Exception( 'too many match' )
-        except Exception as e:
-            self._DEBUG( 'Failed to perform (AD) group search; %s' % str( e ) )
-            if UPWDCHG_PLUGIN_AD_GROUP_CRITICAL:
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-            else:
-                return
-        sGroupDn = lAdResults[0][0]
-
-        # ... add group membership
-        sMembershipAttr = UPWDCHG_PLUGIN_AD_GROUP_ATTR_MEMBER
-        sMembershipAttrValue = UPWDCHG_PLUGIN_AD_GROUP_ATTR_MEMBER_VALUE.replace( '%{USERNAME}', sUsername ).replace( '%{USERDN}', sUserDn )
-        if UPWDCHG_PLUGIN_DRYRUN:
-            return
-        try:
-            lLDIF = [ ( ldap.MOD_ADD, sMembershipAttr, sMembershipAttrValue ) ]
-            oAd.modify_s( sGroupDn, lLDIF )
-        except Exception as e:
-            self._DEBUG( 'Failed to add (AD) group membership; %s' % str( e ) )
-            if UPWDCHG_PLUGIN_AD_GROUP_CRITICAL:
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-            else:
-                return
-        self._DEBUG( 'Successfully added (AD) group membership (DN): %s' % sGroupDn, TokenPlugin.DEBUG_INFO )
-
-
     def __adChangePassword( self, oAd, sUserDn, uPasswordNew ):
         global \
             UPWDCHG_PLUGIN_DRYRUN
@@ -477,10 +383,6 @@ class CreateAccountAd(TokenPlugin):
         if not bUserExists or UPWDCHG_PLUGIN_DRYRUN:
             oLdap = self.__ldapBind()
             sUserDn = self.__adCreateAccount( oAd, sUsername, oLdap )
-            if oLdap:
-                lGroups = self.__ldapGetGroups( oLdap, sUsername )
-                for tGroup in lGroups:
-                    self.__adAddUserToGroup( oAd, sUsername, sUserDn, tGroup[0] )
 
         # ... Active Directory password change
         self.__adChangePassword( oAd, sUserDn, uPasswordNew )
