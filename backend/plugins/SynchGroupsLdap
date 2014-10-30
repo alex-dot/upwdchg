@@ -53,11 +53,12 @@ UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL=False
 #     'dn' attribute MUST be set, others are up to you (or AD requirements)
 #     required "system" attributes ('objectClass') will be set automatically
 #     %{LDAP:<attr>} are subsituted with the given LDAP attribute (see LDAP directory settings below)
-UPWDCHG_PLUGIN_LDAP_DST_GROUP_CLASSES=[ 'top', 'group' ]
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_CLASSES=[ 'top', 'posixGroup', 'group' ]
 UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS=dict()
 UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS['dn']='cn=%{LDAP:cn},ou=Users,dc=example,dc=org'
 UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS['cn']='%{LDAP:cn}'
-UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS['name']='%{LDAP:cn}'
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS['name']='%{LDAP:displayName}'
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS['gidNumber']='%{LDAP:gidNumber}'
 
 # Plugin
 class SynchGroupsLdap(TokenPlugin):
@@ -263,6 +264,7 @@ class SynchGroupsLdap(TokenPlugin):
                 raise Exception( 'too many match' )
             else:
                 self._DEBUG( 'Group already exists in (destination LDAP) server: %s' % lLdapResults[0][0], TokenPlugin.DEBUG_NOTICE )
+                return
         except Exception as e:
             self._DEBUG( 'Failed to perform (destination LDAP) group search; %s' % str( e ) )
             if UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL:
