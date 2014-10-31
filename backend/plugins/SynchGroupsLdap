@@ -47,10 +47,10 @@ UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD=''  # prefix with 'file://' to get password fr
 # ... group synchronization
 UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN='ou=Users,dc=example,dc=org'
 UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_SCOPE=ldap.SCOPE_ONELEVEL
-UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER='(&(objectClass=group)(cn=%{GROUPNAME}))'
-UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL=False
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER='(objectClass=group)'
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_NAME='cn'
 # ... group creation attributes
-#     'dn' attribute MUST be set, others are up to you (or AD requirements)
+#     'dn' attribute MUST be set, others are up to you
 #     required "system" attributes ('objectClass') will be set automatically
 #     %{LDAP:<attr>} are subsituted with the given LDAP attribute (see LDAP directory settings below)
 UPWDCHG_PLUGIN_LDAP_DST_GROUP_CLASSES=[ 'top', 'posixGroup', 'group' ]
@@ -59,6 +59,9 @@ UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS['dn']='cn=%{LDAP:cn},ou=Users,dc=example,dc=
 UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS['cn']='%{LDAP:cn}'
 UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS['name']='%{LDAP:displayName}'
 UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS['gidNumber']='%{LDAP:gidNumber}'
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_CREATE=True
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_DELETE=True
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL=False
 
 # Plugin
 class SynchGroupsLdap(TokenPlugin):
@@ -125,7 +128,7 @@ class SynchGroupsLdap(TokenPlugin):
             UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME
 
         # Return variable
-        lGroups = list()
+        dGroups = dict()
 
         # Check parameters
         if not UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_DN:
@@ -143,14 +146,14 @@ class SynchGroupsLdap(TokenPlugin):
                 attrlist=[UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME], attrsonly=0
                 )
             for tLdapResult in lLdapResults:
-                lGroups.append( ( tLdapResult[1][UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME][0], tLdapResult[0] ) )
+                dGroups[ tLdapResult[1][UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME][0] ] = tLdapResult[0];
         except Exception as e:
             self._DEBUG( 'Failed to perform (source LDAP) group search; %s' % str( e ) )
             self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-        self._DEBUG( 'Successfully retrieved groups from (source LDAP) server:\n%s' % str( lGroups ), TokenPlugin.DEBUG_TRACE )
+        self._DEBUG( 'Successfully retrieved groups from (source LDAP) server:\n%s' % str( dGroups ), TokenPlugin.DEBUG_TRACE )
 
         # Done
-        return lGroups
+        return dGroups
 
 
     def __ldapSrcGetAttributes( self, oLdap, sGroupDn ):
@@ -169,9 +172,9 @@ class SynchGroupsLdap(TokenPlugin):
                 attrlist=None, attrsonly=0, sizelimit=2
                 )
             if not lLdapResults:
-                raise Exception( 'group not found' )
+                raise Exception( 'group not found: %s' % sGroupDn )
             elif len( lLdapResults ) > 1:
-                raise Exception( 'too many match' )
+                raise Exception( 'too many match: %s' % sGroupDn )
         except Exception as e:
             self._DEBUG( 'Failed to perform (source LDAP) group search; %s' % str( e ) )
             self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
@@ -238,39 +241,50 @@ class SynchGroupsLdap(TokenPlugin):
         return oLdap
 
 
-    def __ldapDstCreateGroup( self, oLdapDst, sGroupname, oLdapSrc, sGroupDnSrc ):
+    def __ldapDstGetGroups( self, oLdap ):
         global \
-            UPWDCHG_PLUGIN_DRYRUN, \
             UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN, \
             UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_SCOPE, \
             UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER, \
+            UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_NAME
+
+        # Return variable
+        dGroups = dict()
+
+        # Check parameters
+        if not UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN:
+            self._DEBUG( 'Missing (destination LDAP) group search base (DN)' )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+
+        # Retrieve groups
+
+        # ... groups
+        try:
+            lLdapResults = oLdap.search_ext_s(
+                UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN,
+                UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_SCOPE,
+                UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER,
+                attrlist=[UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_NAME], attrsonly=0
+                )
+            for tLdapResult in lLdapResults:
+                dGroups[ tLdapResult[1][UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_NAME][0] ] = tLdapResult[0];
+        except Exception as e:
+            self._DEBUG( 'Failed to perform (source LDAP) group search; %s' % str( e ) )
+            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        self._DEBUG( 'Successfully retrieved groups from (source LDAP) server:\n%s' % str( dGroups ), TokenPlugin.DEBUG_TRACE )
+
+        # Done
+        return dGroups
+
+
+    def __ldapDstCreateGroup( self, oLdapDst, sGroupname, oLdapSrc, sGroupDnSrc ):
+        global \
+            UPWDCHG_PLUGIN_DRYRUN, \
             UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL, \
             UPWDCHG_PLUGIN_LDAP_DST_GROUP_CLASSES, \
             UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS
 
         # Create group
-
-        # ... check existency
-        try:
-            lLdapResults = oLdapDst.search_ext_s(
-                UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN,
-                UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_SCOPE,
-                UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER.replace( '%{GROUPNAME}', sGroupname ),
-                attrlist=None, attrsonly=1, sizelimit=2
-                )
-            if not lLdapResults:
-                pass
-            elif len( lLdapResults ) > 1:
-                raise Exception( 'too many match' )
-            else:
-                self._DEBUG( 'Group already exists in (destination LDAP) server: %s' % lLdapResults[0][0], TokenPlugin.DEBUG_NOTICE )
-                return
-        except Exception as e:
-            self._DEBUG( 'Failed to perform (destination LDAP) group search; %s' % str( e ) )
-            if UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL:
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-            else:
-                return
 
         # ... populate "custom" attributes
         dAttrsSrc = self.__ldapSrcGetAttributes( oLdapSrc, sGroupDnSrc )
@@ -288,19 +302,38 @@ class SynchGroupsLdap(TokenPlugin):
         dAttrsDst.pop( 'dn', None )
         dAttrsDst['objectClass'] = UPWDCHG_PLUGIN_LDAP_DST_GROUP_CLASSES
 
-        # ... create account
+        # ... create group
         if UPWDCHG_PLUGIN_DRYRUN:
-            return sGroupDn
+            return
         try:
             lLDIF = ldap.modlist.addModlist( dAttrsDst )
             oLdapDst.add_s( sGroupDn, lLDIF )
         except Exception as e:
             self._DEBUG( 'Failed to create (destination LDAP) group; %s' % str( e ) )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            if UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL:
+                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            else:
+                return
         self._DEBUG( 'Successfully created (destination LDAP) group (DN): %s' % sGroupDn, TokenPlugin.DEBUG_INFO )
 
-        # Done
-        return sGroupDn
+
+    def __ldapDstDeleteGroup( self, oLdap, sGroupDn ):
+        global \
+            UPWDCHG_PLUGIN_DRYRUN, \
+            UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL
+
+        # Delete group
+        if UPWDCHG_PLUGIN_DRYRUN:
+            return
+        try:
+            oLdap.delete_s( sGroupDn )
+        except Exception as e:
+            self._DEBUG( 'Failed to delete (destination LDAP) group; %s' % str( e ) )
+            if UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL:
+                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            else:
+                return
+        self._DEBUG( 'Successfully deleted (destination LDAP) group (DN): %s' % sGroupDn, TokenPlugin.DEBUG_INFO )
 
 
     def __ldapDstUnbind( self, oLdap ):
@@ -313,20 +346,30 @@ class SynchGroupsLdap(TokenPlugin):
 
 
     def process( self ):
+        global \
+            UPWDCHG_PLUGIN_LDAP_DST_GROUP_CREATE, \
+            UPWDCHG_PLUGIN_LDAP_DST_GROUP_DELETE
 
         # Synchronize groups
 
-        # ... (destination LDAP) bind
+        # ... bind
+        oLdapSrc = self.__ldapSrcBind()
         oLdapDst = self.__ldapDstBind()
 
         # ... groups synchronization
-        oLdapSrc = self.__ldapSrcBind()
-        lGroups = self.__ldapSrcGetGroups( oLdapSrc )
-        for tGroup in lGroups:
-            self.__ldapDstCreateGroup( oLdapDst, tGroup[0], oLdapSrc, tGroup[1] )
-        self.__ldapSrcUnbind( oLdapSrc )
+        dGroupsSrc = self.__ldapSrcGetGroups( oLdapSrc )
+        dGroupsDst = self.__ldapDstGetGroups( oLdapDst )
+        if UPWDCHG_PLUGIN_LDAP_DST_GROUP_CREATE:
+            for sGroupname in [ s for s in dGroupsSrc if s not in dGroupsDst ]:
+                self._DEBUG( 'Create group: %s' % sGroupname, TokenPlugin.DEBUG_NOTICE )
+                self.__ldapDstCreateGroup( oLdapDst, sGroupname, oLdapSrc, dGroupsSrc[sGroupname] )
+        if UPWDCHG_PLUGIN_LDAP_DST_GROUP_DELETE:
+            for sGroupname in [ s for s in dGroupsDst if s not in dGroupsSrc ]:
+                self._DEBUG( 'Delete group: %s' % sGroupname, TokenPlugin.DEBUG_NOTICE )
+                self.__ldapDstDeleteGroup( oLdapDst, dGroupsDst[sGroupname] )
 
-        # ... (destination LDAP) unbind
+        # ... unbind
+        self.__ldapSrcUnbind( oLdapSrc )
         self.__ldapDstUnbind( oLdapDst )
 
         # Done
