@@ -1,3 +1,11 @@
+upwdchg (1.0.20141031~rc4) UNRELEASED; urgency=low
+
+  * FIX: [Plugin/SynchGroupsLdap] Allow to remove (deleted) groups
+  * FIX: [Plugin/SynchGroupsMemberLdap] Allow to remove (deleted)
+         groups membership
+
+ -- Cedric Dufour <cedric.dufour@ced-network.net>  Fri, 31 Oct 2014 16:04:33 +0100
+
 upwdchg (1.0.20141030~rc3) UNRELEASED; urgency=low
 
   * FIX: Switch RSA padding to PKCS#1 OAEP
