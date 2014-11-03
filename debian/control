@@ -64,7 +64,7 @@ Description: Universal Password Changer (UPwdChg) - frontend utilities
 Package: upwdchg-backend
 Architecture: all
 Depends: ${misc:Depends}, ${python:Depends}, upwdchg-common, python-argparse, python-configobj, python-daemon, python-m2crypto
-Suggests: python-ldap, krb5-admin-server | ssh-client
+Suggests: upwdchg-plugins, python-ldap, krb5-admin-server | ssh-client
 Description: Universal Password Changer (UPwdChg) - backend utilities
  The Universal Password Changer (UPwdChg) allows one to synchronize passwords
  between multiple and different user directory systems - LDAP, MIT Kerberos,
@@ -75,19 +75,11 @@ Description: Universal Password Changer (UPwdChg) - backend utilities
   - the 'upwdchg-token' (Python) utility to create password change tokens
     from the command line
   - the 'upwdchg-process' (Python) utility to process password change tokens
-  - various password change token processing plugins:
-    ShowTokenInfo:        display password change token username and timestamp
-    CheckTimestamp:       validate timestamp
-    CheckUsername:        validate username
-    CheckPassword:        validate password (policy)
-    CheckCredentialsLdap: validate credentials via LDAP
-    ChangePasswordLdap:   perform password change on LDAP
-    ChangePasswordKrb5:   perform password change on MIT Kerberos 5
-    ChangePasswordAd:     perform password change on Microsoft Active Directory
 
 Package: upwdchg-daemon
 Architecture: all
 Depends: ${misc:Depends}, ${python:Depends}, upwdchg-common, upwdchg-backend
+Suggests: upwdchg-plugins
 Description: Universal Password Changer (UPwdChg) - processing daemon
  The Universal Password Changer (UPwdChg) allows one to synchronize passwords
  between multiple and different user directory systems - LDAP, MIT Kerberos,
@@ -96,4 +88,37 @@ Description: Universal Password Changer (UPwdChg) - processing daemon
  .
  The Universal Password Changer (UPwdChg) daemon watches a given directory
  for new password change tokens and automatically process them.
+
+Package: upwdchg-plugins
+Architecture: all
+Depends: ${misc:Depends}, python, upwdchg-common, upwdchg-backend
+Description: Universal Password Changer (UPwdChg) - sample plugins
+ The Universal Password Changer (UPwdChg) allows one to synchronize passwords
+ between multiple and different user directory systems - LDAP, MIT Kerberos,
+ Microsoft Active Directory, etc. - with an emphasis on flexibility, customiz-
+ ability and untrusted frontends security.
+ .
+ The Universal Password Changer (UPwdChg) sample plugins are:
+  * debug
+    - ShowTokenInfo:         display password change token details
+  * validation
+    - CheckTimestamp:        check password change token age
+    - CheckUsername:         check username (length, characters)
+    - CheckPassword:         check password policy (length, complexity)
+    - CheckCredentialsLdap:  check credentials on LDAP server
+    - CheckActualChange:     check old and new passwords are different
+  * password change
+    - ChangePasswordLdap:    perform password change on LDAP server
+    - ChangePasswordKrb5:    perform password change on MIT Kerberos 5 server
+    - ChangePasswordAd:      perform password change on Microsoft Active
+                             Directory server
+  * account creation (synchronization)
+    - CreateAccountKrb5:     create MIT Kerberos 5 principal (or update its
+                             password if already existing)
+    - CreateAccountAd:       create Active Directory user account (or update
+                             its password if already existing)
+  * groups synchronization
+    - SynchGroupsLdap:       synchcronize groups between LDAP servers
+    - SynchGroupsMemberLdap: synchcronize groups (user) membership between
+                             LDAP servers
 

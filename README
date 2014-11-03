@@ -73,4 +73,13 @@ The Universal Password Changer (UPwdChg) provides:
       - ChangePasswordKrb5:    perform password change on MIT Kerberos 5 server
       - ChangePasswordAd:      perform password change on Microsoft Active
                                Directory server
+    * account creation (synchronization)
+      - CreateAccountKrb5:     create MIT Kerberos 5 principal (or update its
+                               password if already existing)
+      - CreateAccountAd:       create Active Directory user account (or update
+                               its password if already existing)
+    * groups synchronization
+      - SynchGroupsLdap:       synchcronize groups between LDAP servers
+      - SynchGroupsMemberLdap: synchcronize groups (user) membership between
+                               LDAP servers
 
