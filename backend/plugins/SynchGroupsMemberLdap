@@ -39,7 +39,7 @@ UPWDCHG_PLUGIN_LDAP_SRC_USER_SEARCH_SCOPE=ldap.SCOPE_ONELEVEL
 UPWDCHG_PLUGIN_LDAP_SRC_USER_SEARCH_FILTER='(&(objectClass=posixAccount)(uid=%{USERNAME}))'
 UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_DN='ou=groups,dc=example,dc=org'
 UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_SCOPE=ldap.SCOPE_ONELEVEL
-UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_FILTER='(&(objectClass=posixGroup)(cn=%{GROUPNAME})(memberUid=%{USERNAME}))'
+UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_FILTER_MEMBERSHIP='(&(objectClass=posixGroup)(memberUid=%{USERNAME}))'
 UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME='cn'
 
 # ... (destination) LDAP directory
@@ -53,7 +53,8 @@ UPWDCHG_PLUGIN_LDAP_DST_USER_SEARCH_FILTER='(&(objectClass=user)(uid=%{USERNAME}
 # ... group synchronization
 UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN='ou=Users,dc=example,dc=org'
 UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_SCOPE=ldap.SCOPE_ONELEVEL
-UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER='(&(objectClass=group)(cn=%{GROUPNAME})(member=%{USERDN}))'
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER='(&(objectClass=group)(cn=%{GROUPNAME}))'
+UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER_MEMBERSHIP='(&(objectClass=group)(member=%{USERDN}))'
 UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_NAME='cn'
 # ... membership attributes
 UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER='member'
@@ -166,7 +167,7 @@ class SynchGroupsMemberLdap(TokenPlugin):
         global \
             UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_DN, \
             UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_SCOPE, \
-            UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_FILTER, \
+            UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_FILTER_MEMBERSHIP, \
             UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME
 
         # Return variable
@@ -184,7 +185,7 @@ class SynchGroupsMemberLdap(TokenPlugin):
             lLdapResults = oLdap.search_ext_s(
                 UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_DN,
                 UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_SCOPE,
-                UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_FILTER.replace( '%{GROUPNAME}', '*' ).replace( '%{USERNAME}', sUsername ).replace( '%{USERDN}', sUserDn ),
+                UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_FILTER_MEMBERSHIP.replace( '%{USERNAME}', sUsername ).replace( '%{USERDN}', sUserDn ),
                 attrlist=[UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME], attrsonly=0
                 )
             for tLdapResult in lLdapResults:
@@ -303,7 +304,7 @@ class SynchGroupsMemberLdap(TokenPlugin):
         global \
             UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN, \
             UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_SCOPE, \
-            UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER, \
+            UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER_MEMBERSHIP, \
             UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_NAME
 
         # Return variable
@@ -321,7 +322,7 @@ class SynchGroupsMemberLdap(TokenPlugin):
             lLdapResults = oLdap.search_ext_s(
                 UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN,
                 UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_SCOPE,
-                UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER.replace( '%{GROUPNAME}', '*' ).replace( '%{USERNAME}', sUsername ).replace( '%{USERDN}', sUserDn ),
+                UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER_MEMBERSHIP.replace( '%{USERNAME}', sUsername ).replace( '%{USERDN}', sUserDn ),
                 attrlist=[UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_NAME], attrsonly=0
                 )
             for tLdapResult in lLdapResults:
@@ -352,7 +353,7 @@ class SynchGroupsMemberLdap(TokenPlugin):
             lLdapResults = oLdap.search_ext_s(
                 UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN,
                 UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_SCOPE,
-                UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER.replace( '%{GROUPNAME}', sGroupname ).replace( '%{USERNAME}', '*' ).replace( '%{USERDN}', '*' ),
+                UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER.replace( '%{GROUPNAME}', sGroupname ),
                 attrlist=None, attrsonly=1, sizelimit=2
                 )
             if not lLdapResults:
