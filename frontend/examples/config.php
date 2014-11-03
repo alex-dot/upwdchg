@@ -54,6 +54,10 @@ $_CONFIG['tokens_directory'] = '/var/lib/upwdchg/tokens.d';
 # Maximum password length.
 #$_CONFIG['password_length_maximum'] = 64; // integer
 
+# Non-ASCII character requirement.
+# -1 = forbid; 1 = require; 0 = ignore
+#$_CONFIG['password_charset_nonascii'] = -1; // integer
+
 # Lowercase character requirement.
 # -1 = forbid; 1 = require; 0 = ignore
 #$_CONFIG['password_type_lower'] = 0; // integer
