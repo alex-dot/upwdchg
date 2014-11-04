@@ -52,7 +52,7 @@ UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_NAME='cn'
 # ... group creation attributes
 #     'dn' attribute MUST be set, others are up to you
 #     required "system" attributes ('objectClass') will be set automatically
-#     %{LDAP:<attr>} are subsituted with the given LDAP attribute (see LDAP directory settings below)
+#     %{LDAP:<attr>} are subsituted with the given LDAP attribute
 UPWDCHG_PLUGIN_LDAP_DST_GROUP_CLASSES=[ 'top', 'posixGroup', 'group' ]
 UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS=dict()
 UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS['dn']='cn=%{LDAP:cn},ou=Users,dc=example,dc=org'

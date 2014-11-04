@@ -118,7 +118,7 @@ Description: Universal Password Changer (UPwdChg) - sample plugins
     - CreateAccountAd:       create Active Directory user account (or update
                              its password if already existing)
   * groups synchronization
-    - SynchGroupsLdap:       synchcronize groups between LDAP servers
-    - SynchGroupsMemberLdap: synchcronize groups (user) membership between
+    - SynchGroupsLdap:       synchronize groups between LDAP servers
+    - SynchGroupsMemberLdap: synchronize groups (user) membership between
                              LDAP servers
 

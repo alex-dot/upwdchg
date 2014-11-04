@@ -50,7 +50,7 @@ UPWDCHG_PLUGIN_AD_USER_SEARCH_FILTER='(&(objectClass=user)(uid=%{USERNAME}))'
 # ... user account creation attributes
 #     'dn' attribute MUST be set, others are up to you (http://msdn.microsoft.com/en-us/library/ms677943%28v=vs.85%29.aspx)
 #     required "system" attributes ('objectClass', 'userAccountControl') will be set automatically
-#     %{LDAP:<attr>} are subsituted with the given LDAP attribute (see LDAP directory settings below)
+#     %{LDAP:<attr>} are subsituted with the given LDAP attribute
 UPWDCHG_PLUGIN_AD_USER_CLASSES=[ 'top', 'person', 'organizationalPerson', 'user' ]
 UPWDCHG_PLUGIN_AD_USER_ATTRS=dict()
 UPWDCHG_PLUGIN_AD_USER_ATTRS['dn']='cn=%{LDAP:cn},ou=Users,dc=example,dc=org'
