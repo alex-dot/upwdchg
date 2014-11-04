@@ -838,6 +838,7 @@ class UPwdChg
                               or $this->amCONFIG['credentials_check_method'] != 'none' );
       $sHTML .= '<FORM METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'">';
       $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="credentials" />';
+      $sHTML .= '<INPUT TYPE="password" NAME="autocomplete_off" STYLE="DISPLAY:none;" />';
       if( !$bFormPassword_old )
         $sHTML .= '<INPUT TYPE="hidden" NAME="password_old" />';
       $sHTML .= '<TABLE CELLSPACING="0">';
