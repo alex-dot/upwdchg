@@ -1,3 +1,12 @@
+upwdchg (1.0.20141106) UNRELEASED; urgency=low
+
+  * FIX: [Plugin/SynchGroupsLdap] Populate SAM-Account-Name for Windows
+         NT 4 interoperability
+  * FIX: [Frontend] Trick browsers into not saving credentials
+  * MOD: Moved sample plugins to new (separated) 'upwdchg-plugins' package
+
+ -- Cedric Dufour <cedric.dufour@ced-network.net>  Thu, 06 Nov 2014 16:37:57 +0100
+
 upwdchg (1.0.20141103~rc5) UNRELEASED; urgency=low
 
   * FIX: [Plugin/SynchGroupsMemberLdap] Membership addition now works on
