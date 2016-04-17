@@ -23,7 +23,7 @@ PID=/var/run/upwdchg-daemon.pid
 
 # Include defaults if available
 START=no
-[ -f "${DEFAULT}" ] && . /etc/default/upwdchg-daemon
+[ -e "${DEFAULT}" ] && . "${DEFAULT}"
 [ "${START}" != 'yes' ] && echo "INFO: Daemon is disabled (in ${DEFAULT})" && exit 0
 
 # Check runtime environment
