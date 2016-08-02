@@ -69,7 +69,7 @@ class CreateAccountKrb5(TokenPlugin):
         # ... Check principal existency
         bPrincipalExists = True
         try:
-            lCommand = [ 'kadmin.local', '-q', "'get_principal -terse \"%s\"'" % sPrincipal ]
+            lCommand = [ 'kadmin.local', '-q', "'get_principal -terse \"%s\"'" % sPrincipal.replace('"', '""') ]
             if UPWDCHG_PLUGIN_KRB5_ADMSRV:
                 lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join( lCommand ) ]
             oPopen = SP.Popen( lCommand, stdout=SP.PIPE, stderr=SP.PIPE )
@@ -89,7 +89,7 @@ class CreateAccountKrb5(TokenPlugin):
         # ... Kerberos password change (?)
         if bPrincipalExists and not UPWDCHG_PLUGIN_DRYRUN:
             try:
-                lCommand = [ 'kadmin.local', '-q', "'change_password -pw \"%s\" \"%s\"'" % ( sPasswordNew, sPrincipal ) ]
+                lCommand = [ 'kadmin.local', '-q', "'change_password -pw \"%s\" \"%s\"'" % ( sPasswordNew.replace('"', '""'), sPrincipal.replace('"', '""') ) ]
                 if UPWDCHG_PLUGIN_KRB5_ADMSRV:
                     lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join( lCommand ) ]
                 oPopen = SP.Popen( lCommand, stdout=SP.PIPE, stderr=SP.PIPE )
@@ -107,7 +107,7 @@ class CreateAccountKrb5(TokenPlugin):
                 sUserDn = UPWDCHG_PLUGIN_KRB5_ADD_USER_DN.replace( '%{USERNAME}', sUsername )
                 self._DEBUG( 'Creating principal (DN): %s (%s)' % ( sPrincipal, sUserDn ), TokenPlugin.DEBUG_TRACE )
                 sOptions = UPWDCHG_PLUGIN_KRB5_ADD_OPTIONS
-                lCommand = [ 'kadmin.local', '-q', "'add_principal -x dn=\"%s\" -pw \"%s\" %s \"%s\"'" % ( sUserDn, sPasswordNew, sOptions, sPrincipal ) ]
+                lCommand = [ 'kadmin.local', '-q', "'add_principal -x dn=\"%s\" -pw \"%s\" %s \"%s\"'" % ( sUserDn.replace('"', '""'), sPasswordNew.replace('"', '""'), sOptions, sPrincipal.replace('"', '""') ) ]
                 if UPWDCHG_PLUGIN_KRB5_ADMSRV:
                     lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join( lCommand ) ]
                 oPopen = SP.Popen( lCommand, stdout=SP.PIPE, stderr=SP.PIPE )
