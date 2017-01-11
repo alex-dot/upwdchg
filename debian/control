@@ -49,7 +49,7 @@ Description: Universal Password Changer (UPwdChg) - common files
 
 Package: upwdchg-frontend
 Architecture: all
-Depends: ${misc:Depends}, upwdchg-common, libapache2-mod-php5 | php5-cgi, php5-mcrypt, php-pear
+Depends: ${misc:Depends}, upwdchg-common, libapache2-mod-php5 | php5-cgi | php5-fpm, php5-mcrypt, php-pear
 Recommends: php5-ldap
 Description: Universal Password Changer (UPwdChg) - frontend utilities
  The Universal Password Changer (UPwdChg) allows one to synchronize passwords
