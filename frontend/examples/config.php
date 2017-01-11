@@ -111,3 +111,5 @@ $_CONFIG['tokens_directory'] = '/var/lib/upwdchg/tokens.d';
 # Bind password
 #$_CONFIG['ldap_bind_password'] = ''; // string
 
+# LDAP protocol version (ignored if <= 0)
+#$_CONFIG['ldap_protocol_version'] = 0; // integer

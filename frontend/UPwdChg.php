@@ -123,6 +123,7 @@ class UPwdChg
     $_CONFIG['ldap_user_filter'] = '';
     $_CONFIG['ldap_bind_dn'] = '';
     $_CONFIG['ldap_bind_password'] = '';
+    $_CONFIG['ldap_protocol_version'] = 0;
 
     // Load user configuration
     if( ( include $sConfigurationPath ) === false )
@@ -138,7 +139,7 @@ class UPwdChg
                     'password_length_minimum', 'password_length_maximum', 'password_charset_notascii',
                     'password_type_lower', 'password_type_upper', 'password_type_digit',
                     'password_type_punct', 'password_type_other', 'password_type_minimum',
-                    'ldap_port',
+                    'ldap_port', 'ldap_protocol_version',
                     ) as $p )
       if( !is_int( $_CONFIG[$p] ) )
         trigger_error( '['.__METHOD__.'] Parameter must be an integer ('.$p.')', E_USER_ERROR );
@@ -468,6 +469,13 @@ class UPwdChg
                              $this->amCONFIG['ldap_port'] );
       if( $hLdap === false )
         throw new Exception( 'Failed to connect to LDAP server' );
+
+      // ... set protocol version
+      if( $this->amCONFIG['ldap_protocol_version'] > 0
+          and !ldap_set_option( $hLdap,
+                                LDAP_OPT_PROTOCOL_VERSION,
+                                $this->amCONFIG['ldap_protocol_version'] ) )
+        throw new Exception( 'Failed to set LDAP protocol version' );
 
       // ... search for user (?)
       if( !empty( $this->amCONFIG['ldap_user_base_dn'] )
