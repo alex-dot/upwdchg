@@ -253,7 +253,7 @@ class UPwdChg
       $_TEXT['error:internal_error'] = 'Internal error. Please contact the system administrator.';
       $_TEXT['error:unsecure_channel'] = 'Unsecure channel. Please use an encrypted channel (SSL).';
       $_TEXT['error:invalid_form_data'] = 'Invalid form data. Please contact the system administrator.';
-      $_TEXT['error:invalid_credentials'] = 'Invalid credentials (old password).';
+      $_TEXT['error:invalid_credentials'] = 'Invalid credentials (incorrect username or old password).';
       $_TEXT['error:password_mismatch'] = 'Password confirmation mismatch.';
       $_TEXT['error:password_identical'] = 'Old and new passwords are identical.';
       $_TEXT['error:password_length_minimum'] = 'Password MUST contain at least '.$this->amCONFIG['password_length_minimum'].' characters.';
