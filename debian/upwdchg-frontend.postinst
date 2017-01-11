@@ -25,8 +25,19 @@ case "$1" in
     fi
 
     # Enable apache configuration
-    [ ! -e /etc/apache2/conf.d/upwdchg.conf ] && ln -s /etc/upwdchg/frontend/apache.conf /etc/apache2/conf.d/upwdchg.conf
-    echo 'WARNING: Please reload apache configuration to enable the UPwdChg frontend!'
+    if [ -d /etc/apache2 ]; then
+      if [ -d /etc/apache2/conf-available ]; then
+        if [ ! -e /etc/apache2/conf-available/upwdchg.conf -a ! -e /etc/apache2/conf.d/upwdchg.conf ]; then
+          ln -s /etc/upwdchg/frontend/apache.conf /etc/apache2/conf-available/upwdchg.conf
+          echo 'WARNING: Please enable and reload the relevant apache configuration to enable the UPwdChg frontend!'
+        fi
+      elif [ -d /etc/apache2/conf.d ]; then
+        if [ ! -e /etc/apache2/conf.d/upwdchg.conf ]; then
+          ln -s /etc/upwdchg/frontend/apache.conf /etc/apache2/conf.d/upwdchg.conf
+          echo 'WARNING: Please reload apache configuration to enable the UPwdChg frontend!'
+        fi
+      fi
+    fi
     ;;
 
 esac
