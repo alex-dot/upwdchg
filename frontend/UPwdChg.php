@@ -25,7 +25,7 @@
  * @author     Cedric Dufour <http://cedric.dufour.name>
  * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU General Public License (GPL) Version 3
  * @version    @version@
- * @link       http://www.idiap.ch/software/php-geremo
+ * @link       http://cedric.dufour.name/software/upwdchg
  */
 
 /** Universal Password Changer (UPwdChg) Module
