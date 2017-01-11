@@ -6,5 +6,6 @@
   delaycompress
   notifempty
   nocreate
+  su root www-data
 }
 
