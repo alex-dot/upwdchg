@@ -19,7 +19,7 @@
 #
 
 # Modules
-# ... deb: python-argparse, python-configobj, python-daemon
+# ... deb: python-argparse, python-configobj, python-daemon, python-ldap
 from UPwdChg import \
     UPWDCHG_VERSION, \
     TokenReader
@@ -47,6 +47,11 @@ import sys
 import syslog
 import time
 import validate as VA
+try:
+    LDAP_AVAILABLE = True
+    import ldap
+except ImportError:
+    LDAP_AVAILABLE = False
 
 
 #------------------------------------------------------------------------------
@@ -77,10 +82,18 @@ class Daemon:
         self._sEmailAdmin = None
         self._bEmailUser = False
         self._sEmailUserDomain = None
+        self._bEmailUserAddressFromLdap = False
         self._sEmailSender = 'upwdchg-daemon'
         self._uEmailSubjectPrefix = u'[UPWDCHG] '
         self._sFileEmailBodyTemplate = None
         self._sEmailSendmail = 'sendmail'
+        self._sLdapUri = 'ldap://ldap.example.org:389'
+        self._sLdapBindDN = 'cn=admin,dc=example,dc=org'
+        self._sLdapBindPwd = ''
+        self._sLdapSearchDN = 'ou=users,dc=example,dc=org'
+        self._oLdapSearchScope = 'ldap.SCOPE_ONELEVEL'
+        self._sLdapSearchFilter = '(&(objectClass=posixAccount)(uid=%{USERNAME}))'
+        self._sLdapEmailAttribute = 'mail'
 
 
     #------------------------------------------------------------------------------
@@ -220,6 +233,69 @@ class Daemon:
                         __sEmailUser = __sUsername
                         if self._sEmailUserDomain:
                             __sEmailUser += '@'+self._sEmailUserDomain
+
+                        # ... using ldap-stored email-address
+                        if self._bEmailUserAddressFromLdap:
+                            try:
+                                lLdapAttrList = [self._sLdapEmailAttribute]
+                                if self._oLdapSearchScope == 'ldap.SCOPE_BASELEVEL':
+                                    iLdapScope = ldap.SCOPE_BASELEVEL
+                                elif self._oLdapSearchScope == 'ldap.SCOPE_ONELEVEL':
+                                    iLdapScope = ldap.SCOPE_ONELEVEL
+                                elif self._oLdapSearchScope == 'ldap.SCOPE_SUBTREE':
+                                    iLdapScope = ldap.SCOPE_SUBTREE
+
+                                if self._sLdapBindPwd.startswith( 'file://' ):
+                                    __sFile = self._sLdapBindPwd[7:]
+                                    try:
+                                        __oFile = open( __sFile, 'r' )
+                                        sBindPwd = __oFile.readline()
+                                        __oFile.close()
+                                    except Exception as e:
+                                        __iErrorToken += 1
+                                        sys.stderr.write( 'ERROR[Daemon]: Failed to retrieve bind password from file: %s\n' % str( e ) )
+                                else:
+                                    sBindPwd = self._sLdapBindPwd
+
+                                # ... bind
+                                try:
+                                    oLdap = ldap.initialize( self._sLdapUri )
+                                    oLdap.protocol_version = ldap.VERSION3
+                                    oLdap.bind_s( self._sLdapBindDN, sBindPwd, ldap.AUTH_SIMPLE )
+                                except Exception as e:
+                                    __iErrorToken += 1
+                                    sys.stderr.write( 'ERROR[Daemon]: Failed to bind to server; %s\n' % str( e ) )
+
+                                # ... search
+                                try:
+                                    lLdapResults = oLdap.search_ext_s(
+                                        self._sLdapSearchDN,
+                                        iLdapScope,
+                                        self._sLdapSearchFilter.replace( '%{USERNAME}', __sUsername ),
+                                        lLdapAttrList,
+                                        sizelimit=2
+                                        )
+                                    if not lLdapResults:
+                                        raise Exception( 'user not found: %s' % __sUsername )
+                                    elif len( lLdapResults ) > 1:
+                                        raise Exception( 'too many match: %s' % __sUsername )
+                                    ( sUserDn, dAttrs ) = lLdapResults[0]
+                                    __sEmailUser = dAttrs[self._sLdapEmailAttribute][0]
+                                except Exception as e:
+                                    __iErrorToken += 1
+                                    sys.stderr.write( 'ERROR[Daemon]: Failed to perform user search; %s\n' % str( e ) )
+
+                                # ... unbind
+                                try:
+                                    oLdap.unbind_s()
+                                except Exception as e:
+                                    __iErrorToken += 1
+                                    sys.stderr.write( 'Failed to unbind from server; %s\n' % str( e ) )
+                            except Exception as e:
+                                __iErrorToken += 1
+                                sys.stderr.write( 'ERROR[Daemon]: ldap module not loadable, cannot retrieve user address: %s\n' % str( e ) )
+
+                        # ... send the mail
                         try:
                             __oMIMEText = MIMEText( __sOutput, 'plain', 'utf-8' )
                             __oMIMEText['From'] = self._sEmailSender
@@ -497,10 +573,18 @@ class DaemonMain(Daemon):
         self._sEmailAdmin = self.__oConfigObj['email']['admin_address']
         self._bEmailUser = self.__oConfigObj['email']['user_send']
         self._sEmailUserDomain = self.__oConfigObj['email']['user_domain']
+        self._bEmailUserAddressFromLdap = self.__oConfigObj['email']['user_address_from_ldap']
         self._sEmailSender = self.__oConfigObj['email']['sender_address']
-        self._sEmailSubjectPrefix = self.__oConfigObj['email']['subject_prefix']
+        self._uEmailSubjectPrefix = self.__oConfigObj['email']['subject_prefix']
         self._sFileEmailBodyTemplate = self.__oConfigObj['email']['body_template_file']
         self._sEmailSendmail = self.__oConfigObj['email']['sendmail_binary']
+        self._sLdapUri = self.__oConfigObj['ldap']['uri']
+        self._sLdapBindDN = self.__oConfigObj['ldap']['bind_dn']
+        self._sLdapBindPwd = self.__oConfigObj['ldap']['bind_pwd']
+        self._sLdapSearchDN = self.__oConfigObj['ldap']['search_dn']
+        self._oLdapSearchScope = self.__oConfigObj['ldap']['search_scope']
+        self._sLdapSearchFilter = self.__oConfigObj['ldap']['search_filter']
+        self._sLdapEmailAttribute = self.__oConfigObj['ldap']['mail_attribute']
 
         # Fork to background (?)
         if not self.__oArguments.foreground:
