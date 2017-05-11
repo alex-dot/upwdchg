@@ -31,6 +31,9 @@
 # Domain part to add to usernames
 #user_domain = string( min=0, max=256, default=None )
 
+# Use LDAP for user's e-mail address
+#user_address_from_ldap = boolean( default=False )
+
 # Sender e-mail address
 #sender_address = string( min=1, max=256, default='upwdchg@localhost.localdomain' )
 
@@ -44,3 +47,24 @@
 # Path to the 'sendmail' binary
 #sendmail_binary = string( min=1, max=256, default='/usr/sbin/sendmail' )
 
+[ldap]
+# URI of the ldap service
+#uri = string( min=0, max=256, default='ldap://ldap.example.org:389' )
+
+# DN of the user doing the search
+#bind_dn = string( min=0, max=256, default='cn=admin,dc=example,dc=org'  )
+
+# Password for the user doing the search, prefix with 'file://' to get password from specified file
+#bind_pwd = string( min=0, max=256, default='' )
+
+# Search-DN to look for user
+#search_dn = string( min=0, max=256, default='ou=users,dc=example,dc=org' )
+
+# Search scope
+#search_scope = option( ldap.SCOPE_BASELEVEL, ldap.SCOPE_ONELEVEL, ldap.SCOPE_SUBTREE, default=ldap.SCOPE_ONELEVEL )
+
+# Filter to use, by default filter by username and objectclass
+#search_filter = string( min=0, max=256, default='(&(objectClass=posixAccount)(uid=%{USERNAME}))' )
+
+# Attribute to use for the email-address
+#email_attribute = string( min=0, max=256, default='mail' )
