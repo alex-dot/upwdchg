@@ -48,8 +48,8 @@ class TokenPlugin(TokenReader):
     # CONSTRUCTORS / DESTRUCTOR
     #------------------------------------------------------------------------------
 
-    def __init__( self, _sName, _bCritical = True, _iDebugLevel = DEBUG_ERROR ):
-        TokenReader.__init__( self )
+    def __init__(self, _sName, _bCritical = True, _iDebugLevel = DEBUG_ERROR):
+        TokenReader.__init__(self)
 
         # Fields
         self.__sName = _sName
@@ -69,7 +69,7 @@ class TokenPlugin(TokenReader):
     # Helpers
     #
 
-    def _DEBUG( self, _lsMessages, _iDebugLevel = None ):
+    def _DEBUG(self, _lsMessages, _iDebugLevel = None):
         if _iDebugLevel > self.__iDebugLevel:
             return
         if _iDebugLevel == self.DEBUG_TRACE:
@@ -84,43 +84,43 @@ class TokenPlugin(TokenReader):
             __sPrefix = 'WARNING'
         else:
             __sPrefix = self.__sErrorPrefix
-        if not isinstance( _lsMessages, list ):
+        if not isinstance(_lsMessages, list):
             _lsMessages = [ _lsMessages ]
         for __sMessage in _lsMessages:
-            sys.stderr.write( '%s[%s]: %s\n' % ( __sPrefix, self.__sName, __sMessage ) )
+            sys.stderr.write('%s[%s]: %s\n' % (__sPrefix, self.__sName, __sMessage))
 
-    def _EXIT_ERROR( self, _lsMessages ):
-        if not isinstance( _lsMessages, list ):
+    def _EXIT_ERROR(self, _lsMessages):
+        if not isinstance(_lsMessages, list):
             _lsMessages = [ _lsMessages ]
         for __sMessage in _lsMessages:
-            sys.stdout.write( '%s[%s]: %s\n' % ( self.__sErrorPrefix, self.__sName, __sMessage ) )
+            sys.stdout.write('%s[%s]: %s\n' % (self.__sErrorPrefix, self.__sName, __sMessage))
         if self.__bCritical:
-            sys.exit( 2 )
+            sys.exit(2)
         else:
-            sys.exit( 1 )
+            sys.exit(1)
 
-    def _EXIT_OK( self, _lsMessages ):
-        if not isinstance( _lsMessages, list ):
+    def _EXIT_OK(self, _lsMessages):
+        if not isinstance(_lsMessages, list):
             _lsMessages = [ _lsMessages ]
         for __sMessage in _lsMessages:
-            sys.stdout.write( 'OK[%s]: %s\n' % ( self.__sName, __sMessage ) )
-        sys.exit( 0 )
+            sys.stdout.write('OK[%s]: %s\n' % (self.__sName, __sMessage))
+        sys.exit(0)
 
 
     #
     # Initialization
     #
 
-    def _getToken( self ):
+    def _getToken(self):
         # Check arguments
-        if len( sys.argv ) < 3:
-            self._DEBUG( 'Missing argument(s); expected token and RSA private key paths' )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        if len(sys.argv) < 3:
+            self._DEBUG('Missing argument(s); expected token and RSA private key paths')
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # Get token data
         __oToken = TokenReader()
-        if __oToken.read( sys.argv[1], sys.argv[2] ):
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+        if __oToken.read(sys.argv[1], sys.argv[2]):
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # Done
         return __oToken.getData()

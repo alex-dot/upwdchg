@@ -23,5 +23,4 @@ from UPwdChg.Util import TokenMain
 import sys
 
 # Excutes
-sys.exit( TokenMain().execute() )
-
+sys.exit(TokenMain().execute())

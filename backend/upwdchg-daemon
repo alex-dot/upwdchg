@@ -23,5 +23,4 @@ from UPwdChg.Util import DaemonMain
 import sys
 
 # Excutes
-sys.exit( DaemonMain().execute() )
-
+sys.exit(DaemonMain().execute())

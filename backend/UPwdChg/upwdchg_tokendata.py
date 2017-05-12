@@ -35,7 +35,7 @@ class TokenData:
     # CONSTRUCTORS / DESTRUCTOR
     #------------------------------------------------------------------------------
 
-    def __init__( self ):
+    def __init__(self):
         # Fields
         self.__sEncoding = 'utf-8'
         self._uTimestamp = None
@@ -48,7 +48,7 @@ class TokenData:
     # METHODS
     #------------------------------------------------------------------------------
 
-    def setEncoding( self, _sEncoding ):
+    def setEncoding(self, _sEncoding):
         """
         Sets the (input/output) data encoding (default:UTF-8)
         """
@@ -56,27 +56,27 @@ class TokenData:
         self.__sEncoding = _sEncoding
 
 
-    def setData( self, _suUsername, _suPasswordOld, _suPasswordNew ):
+    def setData(self, _suUsername, _suPasswordOld, _suPasswordNew):
         """
         Sets the token data
         """
 
-        self._uTimestamp = unicode( strftime( '%Y-%m-%dT%H:%M:%SZ', gmtime() ), self.__sEncoding )
-        if isinstance( _suUsername, unicode ):
+        self._uTimestamp = unicode(strftime('%Y-%m-%dT%H:%M:%SZ', gmtime()), self.__sEncoding)
+        if isinstance(_suUsername, unicode):
             self._uUsername = _suUsername
         else:
-            self._uUsername = _suUsername.decode( self.__sEncoding )
-        if isinstance( _suPasswordOld, unicode ):
+            self._uUsername = _suUsername.decode(self.__sEncoding)
+        if isinstance(_suPasswordOld, unicode):
             self._uPasswordOld = _suPasswordOld
         else:
-            self._uPasswordOld = _suPasswordOld.decode( self.__sEncoding )
-        if isinstance( _suPasswordNew, unicode ):
+            self._uPasswordOld = _suPasswordOld.decode(self.__sEncoding)
+        if isinstance(_suPasswordNew, unicode):
             self._uPasswordNew = _suPasswordNew
         else:
-            self._uPasswordNew = _suPasswordNew.decode( self.__sEncoding )
+            self._uPasswordNew = _suPasswordNew.decode(self.__sEncoding)
 
 
-    def getData( self ):
+    def getData(self):
         """
         Returns the token (unicode) data (dictionary), mapping:
          'timestamp': token creation timestamp
@@ -91,4 +91,3 @@ class TokenData:
             'password-old' : self._uPasswordOld,
             'password-new' : self._uPasswordNew,
         }
-
