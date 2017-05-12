@@ -226,17 +226,16 @@ class Daemon:
                             __oPopen.communicate( __oMIMEText.as_string() )
                         except Exception, e:
                             __iErrorToken += 1
-                            sys.stderr.write( 'ERROR: Failed to send token processing output to administrator; %s\n' % str( e ) )
+                            sys.stderr.write( 'ERROR[Daemon]: Failed to send token processing output to administrator; %s\n' % str( e ) )
 
                     # ... send to user
                     if self._bEmailUser:
-                        __sEmailUser = __sUsername
-                        if self._sEmailUserDomain:
-                            __sEmailUser += '@'+self._sEmailUserDomain
+                        __sEmailUser = None
 
-                        # ... using ldap-stored email-address
                         if self._bEmailUserAddressFromLdap:
+                            # ... use ldap-stored e-mail address
                             try:
+
                                 lLdapAttrList = [self._sLdapEmailAttribute]
                                 if self._oLdapSearchScope == 'ldap.SCOPE_BASELEVEL':
                                     iLdapScope = ldap.SCOPE_BASELEVEL
@@ -252,8 +251,7 @@ class Daemon:
                                         sBindPwd = __oFile.readline()
                                         __oFile.close()
                                     except Exception as e:
-                                        __iErrorToken += 1
-                                        sys.stderr.write( 'ERROR[Daemon]: Failed to retrieve bind password from file: %s\n' % str( e ) )
+                                        raise Exception( 'failed to retrieve bind password from file; %s' % str( e ) )
                                 else:
                                     sBindPwd = self._sLdapBindPwd
 
@@ -263,8 +261,7 @@ class Daemon:
                                     oLdap.protocol_version = ldap.VERSION3
                                     oLdap.bind_s( self._sLdapBindDN, sBindPwd, ldap.AUTH_SIMPLE )
                                 except Exception as e:
-                                    __iErrorToken += 1
-                                    sys.stderr.write( 'ERROR[Daemon]: Failed to bind to server; %s\n' % str( e ) )
+                                    raise Exception( 'failed to bind to server; %s' % str( e ) )
 
                                 # ... search
                                 try:
@@ -282,30 +279,37 @@ class Daemon:
                                     ( sUserDn, dAttrs ) = lLdapResults[0]
                                     __sEmailUser = dAttrs[self._sLdapEmailAttribute][0]
                                 except Exception as e:
-                                    __iErrorToken += 1
-                                    sys.stderr.write( 'ERROR[Daemon]: Failed to perform user search; %s\n' % str( e ) )
+                                    raise Exception( 'failed to perform user search; %s' % str( e ) )
 
                                 # ... unbind
                                 try:
                                     oLdap.unbind_s()
                                 except Exception as e:
                                     __iErrorToken += 1
-                                    sys.stderr.write( 'Failed to unbind from server; %s\n' % str( e ) )
+                                    sys.stderr.write( 'ERROR[Daemon]: Failed to unbind from LDAP server; %s\n' % str( e ) )
+
                             except Exception as e:
                                 __iErrorToken += 1
-                                sys.stderr.write( 'ERROR[Daemon]: ldap module not loadable, cannot retrieve user address: %s\n' % str( e ) )
+                                sys.stderr.write( 'ERROR[Daemon]: Failed to retrieve user e-mail address from LDAP server; %s\n' % str( e ) )
+
+                        else:
+                            # ... use user name as e-mail address
+                            __sEmailUser = __sUsername
+                            if self._sEmailUserDomain:
+                                __sEmailUser += '@'+self._sEmailUserDomain
 
                         # ... send the mail
-                        try:
-                            __oMIMEText = MIMEText( __sOutput, 'plain', 'utf-8' )
-                            __oMIMEText['From'] = self._sEmailSender
-                            __oMIMEText['Subject'] = self._uEmailSubjectPrefix.encode( 'utf-8' )+__sSubject
-                            __oMIMEText['To'] = __sEmailUser
-                            __oPopen = Popen( [ self._sEmailSendmail, '-t' ], stdin=PIPE )
-                            __oPopen.communicate( __oMIMEText.as_string() )
-                        except Exception, e:
-                            __iErrorToken += 1
-                            sys.stderr.write( 'ERROR: Failed to send token processing output to user; %s\n' % str( e ) )
+                        if __sEmailUser is not None:
+                            try:
+                                __oMIMEText = MIMEText( __sOutput, 'plain', 'utf-8' )
+                                __oMIMEText['From'] = self._sEmailSender
+                                __oMIMEText['Subject'] = self._uEmailSubjectPrefix.encode( 'utf-8' )+__sSubject
+                                __oMIMEText['To'] = __sEmailUser
+                                __oPopen = Popen( [ self._sEmailSendmail, '-t' ], stdin=PIPE )
+                                __oPopen.communicate( __oMIMEText.as_string() )
+                            except Exception, e:
+                                __iErrorToken += 1
+                                sys.stderr.write( 'ERROR[Daemon]: Failed to send token processing output to user; %s\n' % str( e ) )
 
                 # ... move token to archive directory (or delete it)
                 __sFileToken_archive = None
