@@ -48,8 +48,8 @@ import syslog
 import time
 import validate as VA
 try:
-    LDAP_AVAILABLE = True
     import ldap
+    LDAP_AVAILABLE = True
 except ImportError:
     LDAP_AVAILABLE = False
 
@@ -585,6 +585,11 @@ class DaemonMain(Daemon):
         self._oLdapSearchScope = self.__oConfigObj['ldap']['search_scope']
         self._sLdapSearchFilter = self.__oConfigObj['ldap']['search_filter']
         self._sLdapEmailAttribute = self.__oConfigObj['ldap']['mail_attribute']
+
+        # Check dependencies
+        if self._bEmailUser and self._bEmailUserAddressFromLdap and not LDAP_AVAILABLE:
+            sys.stderr.write( 'ERROR[DaemonMain]: Missing LDAP dependency\n' )
+            return 1
 
         # Fork to background (?)
         if not self.__oArguments.foreground:
