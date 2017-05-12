@@ -601,6 +601,118 @@ class UPwdChg
 
 
   /*
+   * METHODS: Token
+   ********************************************************************************/
+
+  /** Return the "password-change" token data (associative array)
+   *
+   * @param int $iNow Current time (epoch)
+   * @param string $sUsername Username
+   * @param string $sPassword_old Old password
+   * @param string $sPassword_new New password
+   * @return array|string Token data
+   */
+  private function getTokenData_PasswordChange($iNow, $sUsername, $sPassword_old, $sPassword_new)
+  {
+    // Associative array
+    return array(
+      'timestamp' => gmstrftime('%Y-%m-%dT%H:%M:%SZ', $iNow),
+      'username' => $sUsername,
+      'password-old' => $sPassword_old,
+      'password-new' => $sPassword_new,
+    );
+  }
+
+  /** Return the encrypted token
+   *
+   * @param array|string $asData Token data
+   * @return string Token
+   */
+  private function encryptToken($asData)
+  {
+    // Load the RSA public key
+    $sPublicKey = file_get_contents($this->amCONFIG['public_key_file']);
+    if($sPublicKey === false) {
+      trigger_error('['.__METHOD__.'] Failed to load RSA public key', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    $mPublicKey = openssl_pkey_get_public($sPublicKey);
+    if($mPublicKey === false) {
+      trigger_error('['.__METHOD__.'] Invalid RSA public key', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+
+    // Random material
+    $sCipherKey = mcrypt_create_iv(UPwdChg::CIPHER_KEY_LENGTH, $this->amCONFIG['random_source']);
+    $sCipherIv = mcrypt_create_iv(UPwdChg::CIPHER_IV_LENGTH, $this->amCONFIG['random_source']);
+    $sCipherKeyIv = $sCipherKey.$sCipherIv;
+
+    // Encrypt the symmetric key and initialization vector (IV)
+    if(openssl_public_encrypt($sCipherKeyIv, $sCipherKeyIvEncrypted, $mPublicKey, OPENSSL_PKCS1_OAEP_PADDING) === false) {
+      trigger_error('['.__METHOD__.'] Failed to encrypt symmetric key/IV', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+
+    // Data
+    $sData = implode("\n", $asData);
+
+    // Digest
+    $sDataDigest = openssl_digest($sData, UPwdChg::DIGEST_ALGO, true);
+    if($sDataDigest === false) {
+      trigger_error('['.__METHOD__.'] Failed to compute data digest', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    $sData = base64_encode($sDataDigest)."\n".$sData;
+
+    // Encrypt
+    $sDataEncrypted = openssl_encrypt($sData, UPwdChg::CIPHER_ALGO, $sCipherKey, true, $sCipherIv);
+    if($sDataEncrypted === false) {
+      trigger_error('['.__METHOD__.'] Failed to encrypt data', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+
+    // Token
+    $asToken = array('format' => '# UNIVERSAL PASSWORD CHANGER TOKEN, V1.0',
+                     'key' => base64_encode($sCipherKeyIvEncrypted),
+                     'data' => base64_encode($sDataEncrypted));
+    return implode("\n", $asToken);
+  }
+
+  /** Write the given token to file
+   *
+   * @param int $iNow Current time (epoch)
+   * @param string $sToken Token
+   */
+  private function writeToken($iNow, $sToken)
+  {
+    // Write the token to storage
+    $sFile = $this->amCONFIG['tokens_directory'].DIRECTORY_SEPARATOR.gmstrftime('%Y%m%dT%H%M%SZ-', $iNow).bin2hex(openssl_random_pseudo_bytes(8)).'.token';
+    $iUMask_old = umask();
+    umask(0137);
+    if(file_put_contents($sFile, $sToken) != strlen($sToken)) {
+      umask($iUMask_old);
+      trigger_error('['.__METHOD__.'] Failed to write token to file', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    umask($iUMask_old);
+  }
+
+  /** Write the encrypted "password-change" token to file
+   *
+   * @param string $sUsername Username
+   * @param string $sPassword_old Old password
+   * @param string $sPassword_new New password
+   */
+  private function writeToken_PasswordChange($sUsername, $sPassword_old, $sPassword_new)
+  {
+    $iNow = time();
+    $asData = $this->getTokenData_PasswordChange($iNow, $sUsername, $sPassword_old, $sPassword_new);
+    $sToken = $this->encryptToken($asData);
+    $this->writeToken($iNow, $sToken);
+  }
+
+
+  /*
    * METHODS: HTML
    ********************************************************************************/
 
@@ -688,7 +800,7 @@ class UPwdChg
         $this->checkPasswordPolicy($sPassword_new, $sPassword_confirm, $sPassword_old);
 
         // Write token
-        $this->writeToken($sUsername, $sPassword_old, $sPassword_new);
+        $this->writeToken_PasswordChange($sUsername, $sPassword_old, $sPassword_new);
 
         // Clear session (prevent replay of current session)
         session_regenerate_id(true);
@@ -867,80 +979,6 @@ class UPwdChg
 
     // Restore session locale and login URL
     $_SESSION['UPwdChg_Locale'] = $sLocale;
-  }
-
-
-  /*
-   * METHODS: Token
-   ********************************************************************************/
-
-  /** Write the password change request token to file
-   *
-   * @param string $sUsername Username
-   * @param string $sPassword_old Old password
-   * @param string $sPassword_new New password
-   */
-  private function writeToken($sUsername, $sPassword_old, $sPassword_new) {
-    $iNow = time();
-
-    // Random material
-    $sCipherKey = mcrypt_create_iv(UPwdChg::CIPHER_KEY_LENGTH, $this->amCONFIG['random_source']);
-    $sCipherIv = mcrypt_create_iv(UPwdChg::CIPHER_IV_LENGTH, $this->amCONFIG['random_source']);
-    $sCipherKeyIv = $sCipherKey.$sCipherIv;
-
-    // Load the RSA public key
-    $sPublicKey = file_get_contents($this->amCONFIG['public_key_file']);
-    if($sPublicKey === false) {
-      trigger_error('['.__METHOD__.'] Failed to load RSA public key', E_USER_WARNING);
-      throw new Exception($this->getText('error:internal_error'));
-    }
-    $mPublicKey = openssl_pkey_get_public($sPublicKey);
-    if($mPublicKey === false) {
-      trigger_error('['.__METHOD__.'] Invalid RSA public key', E_USER_WARNING);
-      throw new Exception($this->getText('error:internal_error'));
-    }
-
-    // Encrypt the (symmetric) data key and initialization vector (IV)
-    if(openssl_public_encrypt($sCipherKeyIv, $sCipherKeyIvEncrypted, $sPublicKey, OPENSSL_PKCS1_OAEP_PADDING) === false) {
-      trigger_error('['.__METHOD__.'] Failed to encrypt data key/IV', E_USER_WARNING);
-      throw new Exception($this->getText('error:internal_error'));
-    }
-
-    // Data
-    $asData = array('timestamp' => gmstrftime('%Y-%m-%dT%H:%M:%SZ', $iNow),
-                    'username' => $sUsername,
-                    'password-old' => $sPassword_old,
-                    'password-new' => $sPassword_new);
-    $sData = implode("\n", $asData);
-    # ... digest
-    $sDataDigest = openssl_digest($sData, UPwdChg::DIGEST_ALGO, true);
-    if($sDataDigest === false) {
-      trigger_error('['.__METHOD__.'] Failed to compute data digest', E_USER_WARNING);
-      throw new Exception($this->getText('error:internal_error'));
-    }
-    $sData = base64_encode($sDataDigest)."\n".$sData;
-
-    // Encrypt the data
-    $sDataEncrypted = openssl_encrypt($sData, UPwdChg::CIPHER_ALGO, $sCipherKey, true, $sCipherIv);
-    if($sDataEncrypted === false) {
-      trigger_error('['.__METHOD__.'] Failed to encrypt data', E_USER_WARNING);
-      throw new Exception($this->getText('error:internal_error'));
-    }
-
-    // Write the token
-    $asToken = array('format' => '# UNIVERSAL PASSWORD CHANGER TOKEN, V1.0',
-                     'key' => base64_encode($sCipherKeyIvEncrypted),
-                     'data' => base64_encode($sDataEncrypted));
-    $sToken = implode("\n", $asToken);
-    $sFileToken = $this->amCONFIG['tokens_directory'].DIRECTORY_SEPARATOR.gmstrftime('%Y%m%d%H%M%S-', $iNow).sha1($sUsername).'.token';
-    $iUMask_old = umask();
-    umask(0137);
-    if(file_put_contents($sFileToken, $sToken) != strlen($sToken)) {
-      umask($iUMask_old);
-      trigger_error('['.__METHOD__.'] Failed to write token to file', E_USER_WARNING);
-      throw new Exception($this->getText('error:internal_error'));
-    }
-    umask($iUMask_old);
   }
 
 }
