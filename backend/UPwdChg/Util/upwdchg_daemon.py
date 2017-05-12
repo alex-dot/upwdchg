@@ -588,7 +588,7 @@ class DaemonMain(Daemon):
         self._sLdapSearchDN = self.__oConfigObj['ldap']['search_dn']
         self._oLdapSearchScope = self.__oConfigObj['ldap']['search_scope']
         self._sLdapSearchFilter = self.__oConfigObj['ldap']['search_filter']
-        self._sLdapEmailAttribute = self.__oConfigObj['ldap']['mail_attribute']
+        self._sLdapEmailAttribute = self.__oConfigObj['ldap']['email_attribute']
 
         # Check dependencies
         if self._bEmailUser and self._bEmailUserAddressFromLdap and not LDAP_AVAILABLE:
