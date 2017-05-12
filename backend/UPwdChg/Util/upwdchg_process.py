@@ -63,43 +63,43 @@ class Process:
             sys.stderr = _oStdErr
 
         # Initialize
-        __lsOutputs = list()
+        lsOutputs = list()
 
         # Reading token from stdin (?)
-        __hFileTmp = None
+        hFileTmp = None
         if _sFileToken == '-':
             try:
-                (__hFileTmp, _sFileToken) = mkstemp()
-                for __sLine in sys.stdin:
-                    os.write(__hFileTmp, __sLine)
-                os.close(__hFileTmp)
+                (hFileTmp, _sFileToken) = mkstemp()
+                for sLine in sys.stdin:
+                    os.write(hFileTmp, sLine)
+                os.close(hFileTmp)
             except Exception as e:
                 sys.stderr.write('ERROR[Process]: Failed to store token to temporary file; %s\n' % str(e))
                 return None
 
         # Plugins processing
-        for __sFilePlugin in _lsFilesPlugin:
+        for sFilePlugin in _lsFilesPlugin:
             try:
-                __oPopen = SP.Popen([ __sFilePlugin, _sFileToken, _sFilePrivateKey ], stdout=SP.PIPE, stderr=SP.PIPE)
-                (__sStdOut, __sStdErr) = __oPopen.communicate()
-                __lsOutputs.append(__sStdOut)
-                if __sStdErr:
-                    sys.stderr.write(__sStdErr)
-                if __oPopen.returncode > 1:
+                oPopen = SP.Popen([ sFilePlugin, _sFileToken, _sFilePrivateKey ], stdout=SP.PIPE, stderr=SP.PIPE)
+                (sStdOut, sStdErr) = oPopen.communicate()
+                lsOutputs.append(sStdOut)
+                if sStdErr:
+                    sys.stderr.write(sStdErr)
+                if oPopen.returncode > 1:
                     break
             except Exception as e:
                 sys.stderr.write('ERROR[Process]: Failed to validate password change; %s\n' % str(e))
-                __lsOutputs = None
+                lsOutputs = None
 
         # Clean-up token temporary file
-        if __hFileTmp:
+        if hFileTmp:
             try:
                 os.remove(_sFileToken)
             except Exception as e:
                 sys.stderr.write('ERROR[Process]: Failed to delete token temporary file; %s\n' % str(e))
 
         # Done
-        return __lsOutputs
+        return lsOutputs
 
 
     def getPlugins(self, _sDirPlugins):
@@ -108,25 +108,25 @@ class Process:
         """
 
         # Initialize
-        __iModeExec = stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
-        __lsFilesPlugin = list()
+        iModeExec = stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
+        lsFilesPlugin = list()
 
         # List plugins
         if _sDirPlugins is not None:
             try:
-                for __sFile in os.listdir(_sDirPlugins):
-                    __sFile = _sDirPlugins.rstrip(os.sep)+os.sep+__sFile
-                    if os.path.isfile(__sFile) and (os.stat(__sFile).st_mode & __iModeExec):
-                        __lsFilesPlugin.append(__sFile)
+                for sFile in os.listdir(_sDirPlugins):
+                    sFile = _sDirPlugins.rstrip(os.sep)+os.sep+sFile
+                    if os.path.isfile(sFile) and (os.stat(sFile).st_mode & iModeExec):
+                        lsFilesPlugin.append(sFile)
             except Exception as e:
                 sys.stderr.write('ERROR[Process]: Failed to retrieve plugins list\n; %s' % str(e))
                 return None
-        if not len(__lsFilesPlugin):
+        if not len(lsFilesPlugin):
             return None
-        __lsFilesPlugin.sort()
+        lsFilesPlugin.sort()
 
         # Done
-        return __lsFilesPlugin
+        return lsFilesPlugin
 
 
 class ProcessMain(Process):
@@ -213,22 +213,22 @@ class ProcessMain(Process):
         # Initialize
 
         # ... arguments
-        __iReturn = self.__initArguments()
-        if __iReturn:
-            return __iReturn
+        iReturn = self.__initArguments()
+        if iReturn:
+            return iReturn
 
         # List plugins
-        __lsFilesPlugin = self.getPlugins(self.__oArguments.plugins)
-        if __lsFilesPlugin is None:
+        lsFilesPlugin = self.getPlugins(self.__oArguments.plugins)
+        if lsFilesPlugin is None:
             sys.stderr.write('ERROR[ProcessMain]: No processing plugin found\n')
             return 1
 
         # Process token
-        __lsOutputs = self.processToken(self.__oArguments.token, self.__oArguments.key_private, __lsFilesPlugin)
-        if __lsOutputs is None:
+        lsOutputs = self.processToken(self.__oArguments.token, self.__oArguments.key_private, lsFilesPlugin)
+        if lsOutputs is None:
             return 1
-        for __sOutput in __lsOutputs:
-            sys.stdout.write('%s' % __sOutput)
+        for sOutput in lsOutputs:
+            sys.stdout.write('%s' % sOutput)
 
         # Done
         return 0

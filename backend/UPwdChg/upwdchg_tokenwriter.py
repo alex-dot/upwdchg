@@ -83,68 +83,68 @@ class TokenWriter(TokenData):
         except Exception as e:
             self.__ERROR('Failed to seed random number generator; %s' % str(e), 1001)
             return self.error
-        __sCipherKey = M2C.Rand.rand_bytes(UPWDCHG_CIPHER_KEY_LENGTH,);
-        __sCipherIv = M2C.Rand.rand_bytes(UPWDCHG_CIPHER_IV_LENGTH,);
+        sCipherKey = M2C.Rand.rand_bytes(UPWDCHG_CIPHER_KEY_LENGTH,);
+        sCipherIv = M2C.Rand.rand_bytes(UPWDCHG_CIPHER_IV_LENGTH,);
 
         # Load the RSA public key
         try:
-            __oPublicKey = M2C.RSA.load_pub_key(_sFilePublicKey)
+            oPublicKey = M2C.RSA.load_pub_key(_sFilePublicKey)
         except Exception as e:
             self.__ERROR('Failed to load RSA public key; %s' % str(e), 1011)
             return self.error
 
         # Encrypt the (symmetric) data key and initialization vector (IV)
         try:
-            __sCipherKeyIvEncrypted = __oPublicKey.public_encrypt(__sCipherKey+__sCipherIv, M2C.RSA.pkcs1_oaep_padding)
+            sCipherKeyIvEncrypted = oPublicKey.public_encrypt(sCipherKey+sCipherIv, M2C.RSA.pkcs1_oaep_padding)
         except Exception as e:
             self.__ERROR('Failed to encrypt data key/IV; %s' % str(e), 1021)
             return self.error
 
         # Data
-        __sData = '\n'.join(map(lambda _u:_u.encode('utf-8'), [ self._uTimestamp, self._uUsername, self._uPasswordOld, self._uPasswordNew ]))
+        sData = '\n'.join(map(lambda _u:_u.encode('utf-8'), [ self._uTimestamp, self._uUsername, self._uPasswordOld, self._uPasswordNew ]))
         try:
-            __oMessageDigest = M2C.EVP.MessageDigest(algo=UPWDCHG_DIGEST_ALGO)
+            oMessageDigest = M2C.EVP.MessageDigest(algo=UPWDCHG_DIGEST_ALGO)
         except Exception as e:
             self.__ERROR('Failed to initialize data digest; %s' % str(e), 1031)
             return self.error
-        if __oMessageDigest.update(__sData) != 1:
+        if oMessageDigest.update(sData) != 1:
             self.__ERROR('Failed to compute data digest', 1032)
             return self.error
-        __sDataDigest = __oMessageDigest.final()
-        __sData = B64.b64encode(__sDataDigest)+'\n'+__sData
+        sDataDigest = oMessageDigest.final()
+        sData = B64.b64encode(sDataDigest)+'\n'+sData
 
 
         # Encrypt the data
         try:
-            __oCipher = M2C.EVP.Cipher(alg=UPWDCHG_CIPHER_ALGO, key=__sCipherKey, iv=__sCipherIv, op=M2C.encrypt)
+            oCipher = M2C.EVP.Cipher(alg=UPWDCHG_CIPHER_ALGO, key=sCipherKey, iv=sCipherIv, op=M2C.encrypt)
         except Exception as e:
             self.__ERROR('Failed to initialize data encryption; %s' % str(e), 1041)
             return self.error
         try:
-            __sDataEncrypted = __oCipher.update(__sData)
-            __sDataEncrypted += __oCipher.final()
+            sDataEncrypted = oCipher.update(sData)
+            sDataEncrypted += oCipher.final()
         except Exception as e:
             self.__ERROR('Failed to encrypt data; %s' % str(e), 1042)
             return self.error
 
         # Write the token
-        __sToken = '# UNIVERSAL PASSWORD CHANGER TOKEN, V1.0\n'
-        __sToken += B64.b64encode(__sCipherKeyIvEncrypted)+'\n'
-        __sToken += B64.b64encode(__sDataEncrypted)+'\n'
+        sToken = '# UNIVERSAL PASSWORD CHANGER TOKEN, V1.0\n'
+        sToken += B64.b64encode(sCipherKeyIvEncrypted)+'\n'
+        sToken += B64.b64encode(sDataEncrypted)+'\n'
         try:
             if _sFileToken == '-':
-                __oFile = sys.stdout
+                oFile = sys.stdout
             else:
-                __oFile = open(_sFileToken, 'w')
+                oFile = open(_sFileToken, 'w')
         except Exception as e:
             self.__ERROR('Failed to open token file; %s' % str(e), 1051)
             return self.error
         try:
-            __oFile.write(__sToken)
+            oFile.write(sToken)
         except Exception as e:
             self.__ERROR('Failed to write token to file; %s' % str(e), 1052)
-        if __oFile != sys.stdout:
-            __oFile.close()
+        if oFile != sys.stdout:
+            oFile.close()
         if self.error:
             return self.error
 

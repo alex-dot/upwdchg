@@ -73,27 +73,27 @@ class TokenPlugin(TokenReader):
         if _iDebugLevel > self.__iDebugLevel:
             return
         if _iDebugLevel == self.DEBUG_TRACE:
-            __sPrefix = 'TRACE'
+            sPrefix = 'TRACE'
         elif _iDebugLevel == self.DEBUG_NOTICE:
-            __sPrefix = 'NOTICE'
+            sPrefix = 'NOTICE'
         elif _iDebugLevel == self.DEBUG_INFO:
-            __sPrefix = 'INFO'
+            sPrefix = 'INFO'
         elif _iDebugLevel == self.DEBUG_WARNING:
-            __sPrefix = 'WARNING'
+            sPrefix = 'WARNING'
         elif _iDebugLevel == self.DEBUG_ERROR:
-            __sPrefix = 'WARNING'
+            sPrefix = 'WARNING'
         else:
-            __sPrefix = self.__sErrorPrefix
+            sPrefix = self.__sErrorPrefix
         if not isinstance(_lsMessages, list):
             _lsMessages = [ _lsMessages ]
-        for __sMessage in _lsMessages:
-            sys.stderr.write('%s[%s]: %s\n' % (__sPrefix, self.__sName, __sMessage))
+        for sMessage in _lsMessages:
+            sys.stderr.write('%s[%s]: %s\n' % (sPrefix, self.__sName, sMessage))
 
     def _EXIT_ERROR(self, _lsMessages):
         if not isinstance(_lsMessages, list):
             _lsMessages = [ _lsMessages ]
-        for __sMessage in _lsMessages:
-            sys.stdout.write('%s[%s]: %s\n' % (self.__sErrorPrefix, self.__sName, __sMessage))
+        for sMessage in _lsMessages:
+            sys.stdout.write('%s[%s]: %s\n' % (self.__sErrorPrefix, self.__sName, sMessage))
         if self.__bCritical:
             sys.exit(2)
         else:
@@ -102,8 +102,8 @@ class TokenPlugin(TokenReader):
     def _EXIT_OK(self, _lsMessages):
         if not isinstance(_lsMessages, list):
             _lsMessages = [ _lsMessages ]
-        for __sMessage in _lsMessages:
-            sys.stdout.write('OK[%s]: %s\n' % (self.__sName, __sMessage))
+        for sMessage in _lsMessages:
+            sys.stdout.write('OK[%s]: %s\n' % (self.__sName, sMessage))
         sys.exit(0)
 
 
@@ -118,9 +118,9 @@ class TokenPlugin(TokenReader):
             self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # Get token data
-        __oToken = TokenReader()
-        if __oToken.read(sys.argv[1], sys.argv[2]):
+        oToken = TokenReader()
+        if oToken.read(sys.argv[1], sys.argv[2]):
             self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # Done
-        return __oToken.getData()
+        return oToken.getData()

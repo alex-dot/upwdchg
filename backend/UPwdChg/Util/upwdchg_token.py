@@ -61,38 +61,38 @@ class Token:
         # Token data
 
         # ... username
-        __sUsername = _sUsername
-        while not __sUsername:
-            __sUsername = raw_input('Username: ')
+        sUsername = _sUsername
+        while not sUsername:
+            sUsername = raw_input('Username: ')
 
         # ... password (old)
-        __sPasswordOld = _sPasswordOld
-        while _bPasswordOldPrompt and not __sPasswordOld:
-            __sPassword_confirm = None
-            while __sPassword_confirm is None or __sPasswordOld != __sPassword_confirm:
-                if __sPassword_confirm is not None:
+        sPasswordOld = _sPasswordOld
+        while _bPasswordOldPrompt and not sPasswordOld:
+            sPassword_confirm = None
+            while sPassword_confirm is None or sPasswordOld != sPassword_confirm:
+                if sPassword_confirm is not None:
                     sys.stdout.write('Password Mismatch! Please try again...\n')
-                __sPasswordOld = getpass.getpass('Old Password: ')
-                __sPassword_confirm = getpass.getpass('Old Password (confirm): ')
+                sPasswordOld = getpass.getpass('Old Password: ')
+                sPassword_confirm = getpass.getpass('Old Password (confirm): ')
 
         # ... password (new)
-        __sPasswordNew = _sPasswordNew
-        while not __sPasswordNew:
-            __sPassword_confirm = None
-            while __sPassword_confirm is None or __sPasswordNew != __sPassword_confirm:
-                if __sPassword_confirm is not None:
+        sPasswordNew = _sPasswordNew
+        while not sPasswordNew:
+            sPassword_confirm = None
+            while sPassword_confirm is None or sPasswordNew != sPassword_confirm:
+                if sPassword_confirm is not None:
                     sys.stdout.write('Password Mismatch! Please try again...\n')
-                __sPasswordNew = getpass.getpass('New Password: ')
-                __sPassword_confirm = getpass.getpass('New Password (confirm): ')
+                sPasswordNew = getpass.getpass('New Password: ')
+                sPassword_confirm = getpass.getpass('New Password (confirm): ')
 
         # Write token
-        __oToken = TokenWriter()
+        oToken = TokenWriter()
         if _sEncoding:
-            __oToken.setEncoding(_sEncoding)
-        __oToken.setData(__sUsername, __sPasswordOld, __sPasswordNew)
-        __iReturn = __oToken.write(_sFileToken, _sFilePublicKey, _sFileRandom)
-        if __iReturn:
-            return __iReturn
+            oToken.setEncoding(_sEncoding)
+        oToken.setData(sUsername, sPasswordOld, sPasswordNew)
+        iReturn = oToken.write(_sFileToken, _sFilePublicKey, _sFileRandom)
+        if iReturn:
+            return iReturn
 
         # Done
         return 0
@@ -104,19 +104,19 @@ class Token:
         """
 
         # Read and dump token data
-        __oToken = TokenReader()
+        oToken = TokenReader()
         if _sEncoding:
-            __oToken.setEncoding(_sEncoding)
-        __iReturn = __oToken.read(_sFileToken, _sFilePrivateKey)
-        if __iReturn:
-            return __iReturn
-        __dToken = __oToken.getData()
+            oToken.setEncoding(_sEncoding)
+        iReturn = oToken.read(_sFileToken, _sFilePrivateKey)
+        if iReturn:
+            return iReturn
+        dToken = oToken.getData()
         if _bPasswordShow:
-            __lFields = ('timestamp', 'username', 'password-old', 'password-new')
+            lFields = ('timestamp', 'username', 'password-old', 'password-new')
         else:
-            __lFields = ('timestamp', 'username')
-        for __sField in __lFields:
-            sys.stdout.write('%s\n' % __dToken[ __sField ])
+            lFields = ('timestamp', 'username')
+        for sField in lFields:
+            sys.stdout.write('%s\n' % dToken[ sField ])
 
         # Done
         return 0
@@ -263,15 +263,15 @@ class TokenMain(Token):
         # Initialize
 
         # ... arguments
-        __iReturn = self.__initArguments()
-        if __iReturn:
-            return __iReturn
+        iReturn = self.__initArguments()
+        if iReturn:
+            return iReturn
 
         # Executes
 
         # ... write
         if self.__oArguments.write:
-            __iReturn = self.write(
+            iReturn = self.write(
                 self.__oArguments.token,
                 self.__oArguments.key_public,
                 self.__oArguments.random,
@@ -281,21 +281,21 @@ class TokenMain(Token):
                 self.__oArguments.password_old_prompt,
                 self.__oArguments.encoding,
                 )
-            if __iReturn:
-                return __iReturn
+            if iReturn:
+                return iReturn
             return 0
 
         # ... read
         if not self.__oArguments.write \
             or (self.__oArguments.read and self.__oArguments.token):
-            __iReturn = self.read(
+            iReturn = self.read(
                 self.__oArguments.token,
                 self.__oArguments.key_private,
                 self.__oArguments.password_show,
                 self.__oArguments.encoding,
                 )
-            if __iReturn:
-                return __iReturn
+            if iReturn:
+                return iReturn
 
         # Done
         return 0
