@@ -72,7 +72,7 @@ override_dh_install:
 	dh_install
 
 override_dh_installdocs:
-	dh_installdocs --link-doc=upwdchg-common README
+	dh_installdocs --link-doc=upwdchg-common README CREDITS PROTOCOL
 
 override_dh_clean:
 	dh_clean

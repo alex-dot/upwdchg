@@ -1,3 +1,34 @@
+upwdchg (1.0.20170512) UNRELEASED; urgency=low
+
+  Alexander Herr:
+  * NEW: [Backend] Use user mail-address stored in LDAP directory for password
+         change confirmation mail
+         > REF: https://github.com/cedric-dufour/upwdchg/issues/3
+
+  Cédric Dufour:
+  * FIX: [Backend] Minor correction in daemon init script
+  * FIX: [Debian] Fix the 'release' packaging rules (meta)target
+  * FIX: [Plugin/*Krb5] Prevent 'Unbalanced quotes in command line' error
+  * FIX: [Debian] Get rid of 'gsed' (GCFG dependency) in upwdchg-frontend.postinst
+         > REF: https://github.com/cedric-dufour/upwdchg/issues/1
+  * FIX: [Debian] Gracefully handle Apache 2.2 <-> 2.4 configuration
+         > REF: https://github.com/cedric-dufour/upwdchg/issues/1
+  * FIX: [Debian] Add PHP FPM as alternative depencency for upwdchg-frontend    
+         > REF: https://github.com/cedric-dufour/upwdchg/issues/1
+  * FIX: Wrong link in copyright/documentation header
+  * FIX: [Frontend] Fix and make Apache example configuration version-aware
+  * NEW: [Frontend] Allow to set LDAP protocol version
+         > REF: https://github.com/cedric-dufour/upwdchg/issues/2
+  * MOD: [Frontend] User-friendlier 'invalid credentials' message
+         > REF: https://github.com/cedric-dufour/upwdchg/issues/2
+  * MOD: Added CREDITS and modified COPYRIGHT to account for contributors
+  * MOD: [Backend] Detect missing LDAP dependency early and exit immediately
+  * FIX: [Backend] Improve LDAP errors handling and abort LDAP processing on error
+  * NEW: Add PROTOCOL description file
+  * FIX: [Backend] Inconsistent LDAP mail attribute configuration setting
+
+ -- Cédric Dufour <cedric.dufour@ced-network.net>  Fri, 12 May 2017 10:52:19 +0200
+
 upwdchg (1.0.20141106) UNRELEASED; urgency=low
 
   * FIX: [Plugin/SynchGroupsLdap] Populate SAM-Account-Name for Windows
