@@ -586,7 +586,7 @@ class UPwdChg
           throw new Exception($this->getText('error:invalid_form_data'));
         }
         if($this->amCONFIG['authentication_method'] == 'none')
-          $sUsername = $_POST['username'];
+          $sUsername = $amFormData['username'] = $_POST['username'];
         if($this->amCONFIG['authentication_method'] == 'none'
            or $this->amCONFIG['credentials_check_method'] != 'none')
           $sPassword_old = $_POST['password_old'];
