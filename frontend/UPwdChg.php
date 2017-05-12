@@ -274,62 +274,6 @@ class UPwdChg
     return $_TEXT[$sTextID];
   }
 
-  /** Check the given password characters types
-   *
-   * @param string $sPassword Password
-   * @return array|int Types array (lower, upper, digit, punct, other, count)
-   */
-  private static function getPasswordTypes($sPassword) {
-    $bNotAscii = false;
-    $bLower = false;
-    $bUpper = false;
-    $bDigit = false;
-    $bPunct = false;
-    $bOther = false;
-    $iType = 0;
-    foreach(str_split($sPassword) as $sCharacter) {
-      if(ord($sCharacter) > 127)
-        $bNotAscii = true;
-      if(ctype_lower($sCharacter)) {
-        if(!$bLower) {
-          $bLower = true;
-          $iType++;
-        }
-      }
-      elseif(ctype_upper($sCharacter)) {
-        if(!$bUpper) {
-          $bUpper = true;
-          $iType++;
-        }
-      }
-      elseif(ctype_digit($sCharacter)) {
-        if(!$bDigit) {
-          $bDigit = true;
-          $iType++;
-        }
-      }
-      elseif(ctype_punct($sCharacter)) {
-        if(!$bPunct) {
-          $bPunct = true;
-          $iType++;
-        }
-      }
-      else {
-        if(!$bOther) {
-          $bOther = true;
-          $iType++;
-        }
-      }
-    }
-    return array('notascii' => $bNotAscii,
-                 'lower' => $bLower,
-                 'upper' => $bUpper,
-                 'digit' => $bDigit,
-                 'punct' => $bPunct,
-                 'other' => $bOther,
-                 'count' => $iType);
-  }
-
 
   /*
    * METHODS: Authentication
@@ -511,6 +455,152 @@ class UPwdChg
 
 
   /*
+   * METHODS: Password
+   ********************************************************************************/
+
+  /** Check the given password characters types
+   *
+   * @param string $sPassword Password
+   * @return array|int Types array (lower, upper, digit, punct, other, count)
+   */
+  private static function getPasswordTypes($sPassword) {
+    $bNotAscii = false;
+    $bLower = false;
+    $bUpper = false;
+    $bDigit = false;
+    $bPunct = false;
+    $bOther = false;
+    $iType = 0;
+    foreach(str_split($sPassword) as $sCharacter) {
+      if(ord($sCharacter) > 127)
+        $bNotAscii = true;
+      if(ctype_lower($sCharacter)) {
+        if(!$bLower) {
+          $bLower = true;
+          $iType++;
+        }
+      }
+      elseif(ctype_upper($sCharacter)) {
+        if(!$bUpper) {
+          $bUpper = true;
+          $iType++;
+        }
+      }
+      elseif(ctype_digit($sCharacter)) {
+        if(!$bDigit) {
+          $bDigit = true;
+          $iType++;
+        }
+      }
+      elseif(ctype_punct($sCharacter)) {
+        if(!$bPunct) {
+          $bPunct = true;
+          $iType++;
+        }
+      }
+      else {
+        if(!$bOther) {
+          $bOther = true;
+          $iType++;
+        }
+      }
+    }
+    return array('notascii' => $bNotAscii,
+                 'lower' => $bLower,
+                 'upper' => $bUpper,
+                 'digit' => $bDigit,
+                 'punct' => $bPunct,
+                 'other' => $bOther,
+                 'count' => $iType);
+  }
+
+  /** Check password policy
+   *
+   * @param string $sPassword_new New password
+   * @param string $sPassword_confirm New password confirmation
+   * @param string $sPassword_old Old password
+   */
+  private function checkPasswordPolicy($sPassword_new, $sPassword_confirm, $sPassword_old=null) {
+    $asPasswordErrors = array();
+
+    // Check password confirmation
+    if($sPassword_new != $sPassword_confirm)
+      throw new Exception($this->getText('error:password_mismatch'));
+
+    // Check no-change password
+    if(isset($sPassword_old) and $sPassword_new == $sPassword_old)
+      throw new Exception($this->getText('error:password_identical'));
+
+    // Check minimum length
+    if($this->amCONFIG['password_length_minimum']) {
+      if(mb_strlen($sPassword_new) < $this->amCONFIG['password_length_minimum'])
+        array_push($asPasswordErrors, $this->getText('error:password_length_minimum'));
+    }
+
+    // Check maximum length
+    if($this->amCONFIG['password_length_maximum']) {
+      if(mb_strlen($sPassword_new) > $this->amCONFIG['password_length_maximum'])
+        array_push($asPasswordErrors, $this->getText('error:password_length_maximum'));
+    }
+
+    // Check password characters type
+    $aiPasswordTypes = $this->getPasswordTypes($sPassword_new);
+    // ... not ASCII
+    if($this->amCONFIG['password_charset_notascii']) {
+      if($aiPasswordTypes['notascii'] and $this->amCONFIG['password_charset_notascii']<0)
+        array_push($asPasswordErrors, $this->getText('error:password_charset_notascii_forbidden'));
+      elseif(!$aiPasswordTypes['notascii'] and $this->amCONFIG['password_charset_notascii']>0)
+        array_push($asPasswordErrors, $this->getText('error:password_charset_notascii_required'));
+    }
+    // ... lowercase
+    if($this->amCONFIG['password_type_lower']) {
+      if($aiPasswordTypes['lower'] and $this->amCONFIG['password_type_lower']<0)
+        array_push($asPasswordErrors, $this->getText('error:password_type_lower_forbidden'));
+      elseif(!$aiPasswordTypes['lower'] and $this->amCONFIG['password_type_lower']>0)
+        array_push($asPasswordErrors, $this->getText('error:password_type_lower_required'));
+    }
+    // ... uppercase
+    if($this->amCONFIG['password_type_upper']) {
+      if($aiPasswordTypes['upper'] and $this->amCONFIG['password_type_upper']<0)
+        array_push($asPasswordErrors, $this->getText('error:password_type_upper_forbidden'));
+      elseif(!$aiPasswordTypes['upper'] and $this->amCONFIG['password_type_upper']>0)
+        array_push($asPasswordErrors, $this->getText('error:password_type_upper_required'));
+    }
+    // ... digit
+    if($this->amCONFIG['password_type_digit']) {
+      if($aiPasswordTypes['digit'] and $this->amCONFIG['password_type_digit']<0)
+        array_push($asPasswordErrors, $this->getText('error:password_type_digit_forbidden'));
+      elseif(!$aiPasswordTypes['digit'] and $this->amCONFIG['password_type_digit']>0)
+        array_push($asPasswordErrors, $this->getText('error:password_type_digit_required'));
+    }
+    // ... punctuation mark
+    if($this->amCONFIG['password_type_punct']) {
+      if($aiPasswordTypes['punct'] and $this->amCONFIG['password_type_punct']<0)
+        array_push($asPasswordErrors, $this->getText('error:password_type_punct_forbidden'));
+      elseif(!$aiPasswordTypes['punct'] and $this->amCONFIG['password_type_punct']>0)
+        array_push($asPasswordErrors, $this->getText('error:password_type_punct_required'));
+    }
+    // ... other
+    if($this->amCONFIG['password_type_other']) {
+      if($aiPasswordTypes['other'] and $this->amCONFIG['password_type_other']<0)
+        array_push($asPasswordErrors, $this->getText('error:password_type_other_forbidden'));
+      elseif(!$aiPasswordTypes['other'] and $this->amCONFIG['password_type_other']>0)
+        array_push($asPasswordErrors, $this->getText('error:password_type_other_required'));
+    }
+    // ... complexity
+    if($this->amCONFIG['password_type_minimum']) {
+      if($aiPasswordTypes['count'] < $this->amCONFIG['password_type_minimum'])
+        array_push($asPasswordErrors, $this->getText('error:password_type_minimum'));
+    }
+
+    // Throw errors
+    if(count($asPasswordErrors)) {
+      throw new Exception(implode("\n", $asPasswordErrors));
+    }
+  }
+
+
+  /*
    * METHODS: HTML
    ********************************************************************************/
 
@@ -599,64 +689,8 @@ class UPwdChg
             throw new Exception($this->getText('error:invalid_credentials'));
         }
 
-        // Check password
-        $asPasswordErrors = array();
-        if($sPassword_new != $sPassword_confirm)
-          throw new Exception($this->getText('error:password_mismatch'));
-        if($sPassword_new == $sPassword_old)
-          throw new Exception($this->getText('error:password_identical'));
-        if($this->amCONFIG['password_length_minimum']) {
-          if(mb_strlen($sPassword_new) < $this->amCONFIG['password_length_minimum'])
-            array_push($asPasswordErrors, $this->getText('error:password_length_minimum'));
-        }
-        if($this->amCONFIG['password_length_maximum']) {
-          if(mb_strlen($sPassword_new) > $this->amCONFIG['password_length_maximum'])
-            array_push($asPasswordErrors, $this->getText('error:password_length_maximum'));
-        }
-        $aiPasswordTypes = $this->getPasswordTypes($sPassword_new);
-        if($this->amCONFIG['password_charset_notascii']) {
-          if($aiPasswordTypes['notascii'] and $this->amCONFIG['password_charset_notascii']<0)
-            array_push($asPasswordErrors, $this->getText('error:password_charset_notascii_forbidden'));
-          elseif(!$aiPasswordTypes['notascii'] and $this->amCONFIG['password_charset_notascii']>0)
-            array_push($asPasswordErrors, $this->getText('error:password_charset_notascii_required'));
-        }
-        if($this->amCONFIG['password_type_lower']) {
-          if($aiPasswordTypes['lower'] and $this->amCONFIG['password_type_lower']<0)
-            array_push($asPasswordErrors, $this->getText('error:password_type_lower_forbidden'));
-          elseif(!$aiPasswordTypes['lower'] and $this->amCONFIG['password_type_lower']>0)
-            array_push($asPasswordErrors, $this->getText('error:password_type_lower_required'));
-        }
-        if($this->amCONFIG['password_type_upper']) {
-          if($aiPasswordTypes['upper'] and $this->amCONFIG['password_type_upper']<0)
-            array_push($asPasswordErrors, $this->getText('error:password_type_upper_forbidden'));
-          elseif(!$aiPasswordTypes['upper'] and $this->amCONFIG['password_type_upper']>0)
-            array_push($asPasswordErrors, $this->getText('error:password_type_upper_required'));
-        }
-        if($this->amCONFIG['password_type_digit']) {
-          if($aiPasswordTypes['digit'] and $this->amCONFIG['password_type_digit']<0)
-            array_push($asPasswordErrors, $this->getText('error:password_type_digit_forbidden'));
-          elseif(!$aiPasswordTypes['digit'] and $this->amCONFIG['password_type_digit']>0)
-            array_push($asPasswordErrors, $this->getText('error:password_type_digit_required'));
-        }
-        if($this->amCONFIG['password_type_punct']) {
-          if($aiPasswordTypes['punct'] and $this->amCONFIG['password_type_punct']<0)
-            array_push($asPasswordErrors, $this->getText('error:password_type_punct_forbidden'));
-          elseif(!$aiPasswordTypes['punct'] and $this->amCONFIG['password_type_punct']>0)
-            array_push($asPasswordErrors, $this->getText('error:password_type_punct_required'));
-        }
-        if($this->amCONFIG['password_type_other']) {
-          if($aiPasswordTypes['other'] and $this->amCONFIG['password_type_other']<0)
-            array_push($asPasswordErrors, $this->getText('error:password_type_other_forbidden'));
-          elseif(!$aiPasswordTypes['other'] and $this->amCONFIG['password_type_other']>0)
-            array_push($asPasswordErrors, $this->getText('error:password_type_other_required'));
-        }
-        if($this->amCONFIG['password_type_minimum']) {
-          if($aiPasswordTypes['count'] < $this->amCONFIG['password_type_minimum'])
-            array_push($asPasswordErrors, $this->getText('error:password_type_minimum'));
-        }
-        if(count($asPasswordErrors)) {
-          throw new Exception(implode("\n", $asPasswordErrors));
-        }
+        // Check password policy
+        $this->checkPasswordPolicy($sPassword_new, $sPassword_confirm, $sPassword_old);
 
         // Write token
         $this->writeToken($sUsername, $sPassword_old, $sPassword_new);
