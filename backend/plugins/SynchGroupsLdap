@@ -95,11 +95,11 @@ class SynchGroupsLdap(TokenPlugin):
         if not UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD:
             sBindPwd=''  # Really!?!
         elif UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD.startswith('file://'):
-            __sFile = UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD[7:]
+            sFile = UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD[7:]
             try:
-                __oFile = open(__sFile, 'r')
-                sBindPwd = __oFile.readline()
-                __oFile.close()
+                oFile = open(sFile, 'r')
+                sBindPwd = oFile.readline()
+                oFile.close()
             except Exception as e:
                 self._DEBUG('Failed to retrieve (source LDAP) bind password from file; %s' % str(e))
                 self._EXIT_ERROR('Internal error; please contact your system administrator')
@@ -216,11 +216,11 @@ class SynchGroupsLdap(TokenPlugin):
         if not UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD:
             sBindPwd=''  # Really!?!
         elif UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD.startswith('file://'):
-            __sFile = UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD[7:]
+            sFile = UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD[7:]
             try:
-                __oFile = open(__sFile, 'r')
-                sBindPwd = __oFile.readline()
-                __oFile.close()
+                oFile = open(sFile, 'r')
+                sBindPwd = oFile.readline()
+                oFile.close()
             except Exception as e:
                 self._DEBUG('Failed to retrieve (destination LDAP) bind password from file; %s' % str(e))
                 self._EXIT_ERROR('Internal error; please contact your system administrator')

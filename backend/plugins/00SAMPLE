@@ -58,8 +58,8 @@ class MyTokenPlugin(TokenPlugin):
         # Process token data
         sys.stdout.write('Got a password request change for user "%s" at "%s"\n' % (dToken['username'], dToken['timestamp']))
         sys.stdout.write('Available token fields are:\n')
-        for __sKey in sorted(dToken.iterkeys()):
-            sys.stdout.write(' - %s\n' % __sKey)
+        for sKey in sorted(dToken.iterkeys()):
+            sys.stdout.write(' - %s\n' % sKey)
 
         # Done
         self._EXIT_OK('Done')
