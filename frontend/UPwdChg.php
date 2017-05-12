@@ -660,12 +660,7 @@ class UPwdChg
           $sView = $_GET['view'];
         break;
 
-      case 'policy':
-        // View
-        $sView = 'policy';
-        break;
-
-      case 'credentials':
+      case 'password-change':
         // Retrieve arguments
         if(!isset($_POST['username'], $_POST['password_old'], $_POST['password_new'], $_POST['password_confirm'])
            or !is_scalar($_POST['username']) or strlen($_POST['username']) > 1000
@@ -699,13 +694,18 @@ class UPwdChg
         session_regenerate_id(true);
 
         // Redirect (prevent form resubmission)
-        echo '<SCRIPT TYPE="text/javascript">document.location.replace(\'?view=confirm\')</SCRIPT>';
-        echo '<META HTTP-EQUIV="refresh" CONTENT="1;URL=?view=confirm" />';
+        echo '<SCRIPT TYPE="text/javascript">document.location.replace(\'?view=password-change-confirm\')</SCRIPT>';
+        echo '<META HTTP-EQUIV="refresh" CONTENT="1;URL=?view=password-change-confirm" />';
         exit;
 
-      case 'confirm':
+      case 'password-change-confirm':
         // View
-        $sView = 'confirm';
+        $sView = 'password-change-confirm';
+        break;
+
+      case 'password-policy':
+        // View
+        $sView = 'password-policy';
         break;
 
       default:
@@ -762,7 +762,7 @@ class UPwdChg
       $sHTML .= '</FORM>';
       break;
 
-    case 'policy':
+    case 'password-policy':
       $sCurrentLocale = $this->getCurrentLocale();
       $sHTML .= '<UL>';
       if($this->amCONFIG['password_length_minimum'])
@@ -811,12 +811,12 @@ class UPwdChg
       $sHTML .= '<P CLASS="link"><A HREF="?">'.htmlentities($this->getText('label:password_policy_back')).'</A></P>';
       break;
 
-    case 'credentials':
+    case 'password-change':
       $bFormUsername = ($this->amCONFIG['authentication_method'] == 'none');
       $bFormPassword_old = ($this->amCONFIG['authentication_method'] == 'none'
                             or $this->amCONFIG['credentials_check_method'] != 'none');
       $sHTML .= '<FORM METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'">';
-      $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="credentials" />';
+      $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="password-change" />';
       $sHTML .= '<INPUT TYPE="password" NAME="autocomplete_off" STYLE="DISPLAY:none;" />';
       if(!$bFormPassword_old)
         $sHTML .= '<INPUT TYPE="hidden" NAME="password_old" />';
@@ -840,7 +840,7 @@ class UPwdChg
       // ... password (confirm)
       $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:password_confirm')).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="password" NAME="password_confirm" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
       // ... password (policy)
-      $sHTML .= '<TR><TD CLASS="label">&nbsp;</TD><TD CLASS="link"><A HREF="?view=policy">'.htmlentities($this->getText('label:password_policy')).'</A></TD></TR>';
+      $sHTML .= '<TR><TD CLASS="label">&nbsp;</TD><TD CLASS="link"><A HREF="?view=password-policy">'.htmlentities($this->getText('label:password_policy')).'</A></TD></TR>';
 
       // ... submit
       $sHTML .= '<TR><TD CLASS="button" COLSPAN="2"><BUTTON TYPE="submit" TABINDEX="'.$iTabIndex.'">'.htmlentities($this->getText('label:submit')).'</BUTTON></TD></TR>';

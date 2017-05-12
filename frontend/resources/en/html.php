@@ -16,27 +16,27 @@ $sView = $oUPwdChg->getFormData('VIEW');
 </DIV>
 <?php } ?>
 
-<?php if($sView == 'default') { ?>
-<H2>Credentials</H2>
+<?php if($sView == 'default' or $sView == 'password-change') { ?>
+<H2>Password Change</H2>
 <DIV CLASS="text">
 <P>Please provide your old and new password in the form below.<BR/>
 <I>Note: all fields are required.</I></P>
 </DIV>
 <DIV CLASS="form">
-<?php echo $oUPwdChg->getFormHtml('credentials'); ?>
+<?php echo $oUPwdChg->getFormHtml('password-change'); ?>
 </DIV>
 
-<?php } elseif($sView == 'policy') { ?>
-<H2>Password Policy</H2>
-<DIV CLASS="text">
-<?php echo $oUPwdChg->getFormHtml('policy'); ?>
-</DIV>
-
-<?php } elseif($sView == 'confirm') { ?>
+<?php } elseif($sView == 'password-change-confirm') { ?>
 <H2>Success!</H2>
 <DIV CLASS="text">
 <B>Your password change should be effective within a few minutes.</B></P>
 <P><I>(please check your e-mail inbox for further information)</I></P>
+</DIV>
+
+<?php } elseif($sView == 'password-policy') { ?>
+<H2>Password Policy</H2>
+<DIV CLASS="text">
+<?php echo $oUPwdChg->getFormHtml('password-policy'); ?>
 </DIV>
 <?php } ?>
 
