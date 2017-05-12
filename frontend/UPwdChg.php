@@ -793,7 +793,7 @@ class UPwdChg
       if($bFormUsername)
         $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:username')).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="text" NAME="username" TABINDEX="'.$iTabIndex++.'" VALUE="'.htmlentities($this->getFormData('username')).'" /></SPAN></TD></TR>';
       else
-        $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:username')).':</TD><TD CLASS="input"><SPAN CLASS="readon  ly"><INPUT TYPE="text" NAME="username" VALUE="'.htmlentities($this->getFormData('username')).'" READONLY="1" /></SPAN></TD></TR>';
+        $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:username')).':</TD><TD CLASS="input"><SPAN CLASS="readonly"><INPUT TYPE="text" NAME="username" VALUE="'.htmlentities($this->getFormData('username')).'" READONLY="1" /></SPAN></TD></TR>';
 
       // Note: we do not enforce password maximum length during input,
       // for it would be confusing given the obfuscated data.
