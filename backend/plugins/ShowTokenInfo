@@ -24,16 +24,16 @@ from UPwdChg import TokenPlugin
 # Plugin
 class ShowTokenInfo(TokenPlugin):
 
-    def __init__( self ):
+    def __init__(self):
         global UPWDCHG_PLUGIN_INFO_CRITICAL
-        TokenPlugin.__init__( self, 'ShowTokenInfo' )
+        TokenPlugin.__init__(self, 'ShowTokenInfo')
 
-    def process( self ):
+    def process(self):
         # Get token (data)
         dToken = self._getToken()
 
         # Done
-        self._EXIT_OK( 'Got a password request change for user %s (created at %s)' % ( dToken['username'], dToken['timestamp'] ) )
+        self._EXIT_OK('Got a password request change for user %s (created at %s)' % (dToken['username'], dToken['timestamp']))
 
 # Process
 ShowTokenInfo().process()

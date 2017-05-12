@@ -66,12 +66,12 @@ UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL=False
 # Plugin
 class SynchGroupsMemberLdap(TokenPlugin):
 
-    def __init__( self ):
+    def __init__(self):
         global UPWDCHG_PLUGIN_CRITICAL
-        TokenPlugin.__init__( self, 'SynchGroupsMemberLdap', UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG )
+        TokenPlugin.__init__(self, 'SynchGroupsMemberLdap', UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
 
 
-    def __ldapSrcBind( self ):
+    def __ldapSrcBind(self):
         global \
             UPWDCHG_PLUGIN_LDAP_SRC_URI, \
             UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_DN, \
@@ -79,11 +79,11 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
         # Check parameters
         if not UPWDCHG_PLUGIN_LDAP_SRC_URI:
-            self._DEBUG( 'Missing (source LDAP) server address (URI)' )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            self._DEBUG('Missing (source LDAP) server address (URI)')
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
         if not UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_DN:
-            self._DEBUG( 'Missing (source LDAP) administrator distinguished name (DN)' )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            self._DEBUG('Missing (source LDAP) administrator distinguished name (DN)')
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # Bind to server
 
@@ -91,34 +91,34 @@ class SynchGroupsMemberLdap(TokenPlugin):
         sBindDn = UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_DN
         if not UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD:
             sBindPwd=''  # Really!?!
-        elif UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD.startswith( 'file://' ):
+        elif UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD.startswith('file://'):
             __sFile = UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD[7:]
             try:
-                __oFile = open( __sFile, 'r' )
+                __oFile = open(__sFile, 'r')
                 sBindPwd = __oFile.readline()
                 __oFile.close()
             except Exception as e:
-                self._DEBUG( 'Failed to retrieve (source LDAP) bind password from file; %s' % str( e ) )
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+                self._DEBUG('Failed to retrieve (source LDAP) bind password from file; %s' % str(e))
+                self._EXIT_ERROR('Internal error; please contact your system administrator')
         else:
             sBindPwd = UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD
-        self._DEBUG( 'Binding to server as (DN): %s' % sBindDn, TokenPlugin.DEBUG_TRACE )
+        self._DEBUG('Binding to server as (DN): %s' % sBindDn, TokenPlugin.DEBUG_TRACE)
 
         # ... bind
         try:
-            oLdap = ldap.initialize( UPWDCHG_PLUGIN_LDAP_SRC_URI )
+            oLdap = ldap.initialize(UPWDCHG_PLUGIN_LDAP_SRC_URI)
             oLdap.protocol_version = ldap.VERSION3
-            oLdap.bind_s( sBindDn, sBindPwd, ldap.AUTH_SIMPLE )
+            oLdap.bind_s(sBindDn, sBindPwd, ldap.AUTH_SIMPLE)
         except Exception as e:
-            self._DEBUG( 'Failed to bind to (source LDAP) server; %s' % str( e ) )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-        self._DEBUG( 'Successfully bound to (source LDAP) server', TokenPlugin.DEBUG_NOTICE )
+            self._DEBUG('Failed to bind to (source LDAP) server; %s' % str(e))
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
+        self._DEBUG('Successfully bound to (source LDAP) server', TokenPlugin.DEBUG_NOTICE)
 
         # Done
         return oLdap
 
 
-    def __ldapSrcGetUserDn( self, oLdap, sUsername ):
+    def __ldapSrcGetUserDn(self, oLdap, sUsername):
         global \
             UPWDCHG_PLUGIN_LDAP_SRC_USER_DN, \
             UPWDCHG_PLUGIN_LDAP_SRC_USER_SEARCH_DN, \
@@ -131,39 +131,39 @@ class SynchGroupsMemberLdap(TokenPlugin):
                 lLdapResults = oLdap.search_ext_s(
                     UPWDCHG_PLUGIN_LDAP_SRC_USER_SEARCH_DN,
                     UPWDCHG_PLUGIN_LDAP_SRC_USER_SEARCH_SCOPE,
-                    UPWDCHG_PLUGIN_LDAP_SRC_USER_SEARCH_FILTER.replace( '%{USERNAME}', sUsername ),
+                    UPWDCHG_PLUGIN_LDAP_SRC_USER_SEARCH_FILTER.replace('%{USERNAME}', sUsername),
                     attrlist=None, attrsonly=1, sizelimit=2
                     )
                 if not lLdapResults:
-                    raise Exception( 'user not found: %s' % sUsername )
-                elif len( lLdapResults ) > 1:
-                    raise Exception( 'too many match: %s' % sUsername )
+                    raise Exception('user not found: %s' % sUsername)
+                elif len(lLdapResults) > 1:
+                    raise Exception('too many match: %s' % sUsername)
             except Exception as e:
-                self._DEBUG( 'Failed to perform (destination LDAP) user search; %s' % str( e ) )
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+                self._DEBUG('Failed to perform (destination LDAP) user search; %s' % str(e))
+                self._EXIT_ERROR('Internal error; please contact your system administrator')
         else:
             try:
                 lLdapResults = oLdap.search_ext_s(
-                    UPWDCHG_PLUGIN_LDAP_SRC_USER_DN.replace( '%{USERNAME}', sUsername ),
+                    UPWDCHG_PLUGIN_LDAP_SRC_USER_DN.replace('%{USERNAME}', sUsername),
                     ldap.SCOPE_BASE,
                     '(objectClass=*)',
                     attrlist=None, attrsonly=1, sizelimit=2
                     )
                 if not lLdapResults:
-                    raise Exception( 'user not found: %s' % sUsername )
-                elif len( lLdapResults ) > 1:
-                    raise Exception( 'too many match: %s' % sUsername )
+                    raise Exception('user not found: %s' % sUsername)
+                elif len(lLdapResults) > 1:
+                    raise Exception('too many match: %s' % sUsername)
             except Exception as e:
-                self._DEBUG( 'Failed to perform (source LDAP) user search; %s' % str( e ) )
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+                self._DEBUG('Failed to perform (source LDAP) user search; %s' % str(e))
+                self._EXIT_ERROR('Internal error; please contact your system administrator')
         sUserDn = lLdapResults[0][0]
-        self._DEBUG( 'Successfully got (source LDAP) user distinguished name (DN): %s' % sUserDn, TokenPlugin.DEBUG_TRACE )
+        self._DEBUG('Successfully got (source LDAP) user distinguished name (DN): %s' % sUserDn, TokenPlugin.DEBUG_TRACE)
 
         # Done
         return sUserDn
 
 
-    def __ldapSrcGetGroups( self, oLdap, sUsername, sUserDn ):
+    def __ldapSrcGetGroups(self, oLdap, sUsername, sUserDn):
         global \
             UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_DN, \
             UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_SCOPE, \
@@ -175,8 +175,8 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
         # Check parameters
         if not UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_DN:
-            self._DEBUG( 'Missing (source LDAP) group search base (DN)' )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            self._DEBUG('Missing (source LDAP) group search base (DN)')
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # Retrieve user groups
 
@@ -185,30 +185,30 @@ class SynchGroupsMemberLdap(TokenPlugin):
             lLdapResults = oLdap.search_ext_s(
                 UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_DN,
                 UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_SCOPE,
-                UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_FILTER_MEMBERSHIP.replace( '%{USERNAME}', sUsername ).replace( '%{USERDN}', sUserDn ),
+                UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_FILTER_MEMBERSHIP.replace('%{USERNAME}', sUsername).replace('%{USERDN}', sUserDn),
                 attrlist=[UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME], attrsonly=0
                 )
             for tLdapResult in lLdapResults:
                 dGroups[ tLdapResult[1][UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME][0] ] = tLdapResult[0]
         except Exception as e:
-            self._DEBUG( 'Failed to perform (source LDAP) group search; %s' % str( e ) )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-        self._DEBUG( 'Successfully retrieved user groups from (source LDAP) server:\n%s' % str( dGroups ), TokenPlugin.DEBUG_TRACE )
+            self._DEBUG('Failed to perform (source LDAP) group search; %s' % str(e))
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
+        self._DEBUG('Successfully retrieved user groups from (source LDAP) server:\n%s' % str(dGroups), TokenPlugin.DEBUG_TRACE)
 
         # Done
         return dGroups
 
 
-    def __ldapSrcUnbind( self, oLdap ):
+    def __ldapSrcUnbind(self, oLdap):
 
         # Unbind
         try:
             oLdap.unbind_s()
         except Exception as e:
-            self._DEBUG( 'Failed to unbind from (source LDAP) server; %s' % str( e ) )
+            self._DEBUG('Failed to unbind from (source LDAP) server; %s' % str(e))
 
 
-    def __ldapDstBind( self ):
+    def __ldapDstBind(self):
         global \
             UPWDCHG_PLUGIN_LDAP_DST_URI, \
             UPWDCHG_PLUGIN_LDAP_DST_ADMIN_DN, \
@@ -216,11 +216,11 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
         # Check parameters
         if not UPWDCHG_PLUGIN_LDAP_DST_URI:
-            self._DEBUG( 'Missing (destination LDAP) server address (URI)' )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            self._DEBUG('Missing (destination LDAP) server address (URI)')
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
         if not UPWDCHG_PLUGIN_LDAP_DST_ADMIN_DN:
-            self._DEBUG( 'Missing (destination LDAP) administrator distinguished name (DN)' )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            self._DEBUG('Missing (destination LDAP) administrator distinguished name (DN)')
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # Bind to server
 
@@ -228,34 +228,34 @@ class SynchGroupsMemberLdap(TokenPlugin):
         sBindDn = UPWDCHG_PLUGIN_LDAP_DST_ADMIN_DN
         if not UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD:
             sBindPwd=''  # Really!?!
-        elif UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD.startswith( 'file://' ):
+        elif UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD.startswith('file://'):
             __sFile = UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD[7:]
             try:
-                __oFile = open( __sFile, 'r' )
+                __oFile = open(__sFile, 'r')
                 sBindPwd = __oFile.readline()
                 __oFile.close()
             except Exception as e:
-                self._DEBUG( 'Failed to retrieve (destination LDAP) bind password from file; %s' % str( e ) )
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+                self._DEBUG('Failed to retrieve (destination LDAP) bind password from file; %s' % str(e))
+                self._EXIT_ERROR('Internal error; please contact your system administrator')
         else:
             sBindPwd = UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD
-        self._DEBUG( 'Binding to (destination LDAP) server as (DN): %s' % sBindDn, TokenPlugin.DEBUG_TRACE )
+        self._DEBUG('Binding to (destination LDAP) server as (DN): %s' % sBindDn, TokenPlugin.DEBUG_TRACE)
 
         # ... bind
         try:
-            oLdap = ldap.initialize( UPWDCHG_PLUGIN_LDAP_DST_URI )
+            oLdap = ldap.initialize(UPWDCHG_PLUGIN_LDAP_DST_URI)
             oLdap.protocol_version = ldap.VERSION3
-            oLdap.bind_s( sBindDn, sBindPwd, ldap.AUTH_SIMPLE )
+            oLdap.bind_s(sBindDn, sBindPwd, ldap.AUTH_SIMPLE)
         except Exception as e:
-            self._DEBUG( 'Failed to bind to (destination LDAP) server; %s' % str( e ) )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-        self._DEBUG( 'Successfully bound to (destination LDAP) server', TokenPlugin.DEBUG_NOTICE )
+            self._DEBUG('Failed to bind to (destination LDAP) server; %s' % str(e))
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
+        self._DEBUG('Successfully bound to (destination LDAP) server', TokenPlugin.DEBUG_NOTICE)
 
         # Done
         return oLdap
 
 
-    def __ldapDstGetUserDn( self, oLdap, sUsername ):
+    def __ldapDstGetUserDn(self, oLdap, sUsername):
         global \
             UPWDCHG_PLUGIN_LDAP_DST_USER_DN, \
             UPWDCHG_PLUGIN_LDAP_DST_USER_SEARCH_DN, \
@@ -268,39 +268,39 @@ class SynchGroupsMemberLdap(TokenPlugin):
                 lLdapResults = oLdap.search_ext_s(
                     UPWDCHG_PLUGIN_LDAP_DST_USER_SEARCH_DN,
                     UPWDCHG_PLUGIN_LDAP_DST_USER_SEARCH_SCOPE,
-                    UPWDCHG_PLUGIN_LDAP_DST_USER_SEARCH_FILTER.replace( '%{USERNAME}', sUsername ),
+                    UPWDCHG_PLUGIN_LDAP_DST_USER_SEARCH_FILTER.replace('%{USERNAME}', sUsername),
                     attrlist=None, attrsonly=1, sizelimit=2
                     )
                 if not lLdapResults:
-                    raise Exception( 'user not found: %s' % sUsername )
-                elif len( lLdapResults ) > 1:
-                    raise Exception( 'too many match: %s' % sUsername )
+                    raise Exception('user not found: %s' % sUsername)
+                elif len(lLdapResults) > 1:
+                    raise Exception('too many match: %s' % sUsername)
             except Exception as e:
-                self._DEBUG( 'Failed to perform (destination LDAP) user search; %s' % str( e ) )
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+                self._DEBUG('Failed to perform (destination LDAP) user search; %s' % str(e))
+                self._EXIT_ERROR('Internal error; please contact your system administrator')
         else:
             try:
                 lLdapResults = oLdap.search_ext_s(
-                    UPWDCHG_PLUGIN_LDAP_DST_USER_DN.replace( '%{USERNAME}', sUsername ),
+                    UPWDCHG_PLUGIN_LDAP_DST_USER_DN.replace('%{USERNAME}', sUsername),
                     ldap.SCOPE_BASE,
                     '(objectClass=*)',
                     attrlist=None, attrsonly=1, sizelimit=2
                     )
                 if not lLdapResults:
-                    raise Exception( 'user not found: %s' % sUsername )
-                elif len( lLdapResults ) > 1:
-                    raise Exception( 'too many match: %s' % sUsername )
+                    raise Exception('user not found: %s' % sUsername)
+                elif len(lLdapResults) > 1:
+                    raise Exception('too many match: %s' % sUsername)
             except Exception as e:
-                self._DEBUG( 'Failed to perform (destination LDAP) user search; %s' % str( e ) )
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+                self._DEBUG('Failed to perform (destination LDAP) user search; %s' % str(e))
+                self._EXIT_ERROR('Internal error; please contact your system administrator')
         sUserDn = lLdapResults[0][0]
-        self._DEBUG( 'Successfully got (destination LDAP) user distinguished name (DN): %s' % sUserDn, TokenPlugin.DEBUG_TRACE )
+        self._DEBUG('Successfully got (destination LDAP) user distinguished name (DN): %s' % sUserDn, TokenPlugin.DEBUG_TRACE)
 
         # Done
         return sUserDn
 
 
-    def __ldapDstGetGroups( self, oLdap, sUsername, sUserDn ):
+    def __ldapDstGetGroups(self, oLdap, sUsername, sUserDn):
         global \
             UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN, \
             UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_SCOPE, \
@@ -312,8 +312,8 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
         # Check parameters
         if not UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN:
-            self._DEBUG( 'Missing (destination LDAP) group search base (DN)' )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            self._DEBUG('Missing (destination LDAP) group search base (DN)')
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # Retrieve user groups
 
@@ -322,21 +322,21 @@ class SynchGroupsMemberLdap(TokenPlugin):
             lLdapResults = oLdap.search_ext_s(
                 UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN,
                 UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_SCOPE,
-                UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER_MEMBERSHIP.replace( '%{USERNAME}', sUsername ).replace( '%{USERDN}', sUserDn ),
+                UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER_MEMBERSHIP.replace('%{USERNAME}', sUsername).replace('%{USERDN}', sUserDn),
                 attrlist=[UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_NAME], attrsonly=0
                 )
             for tLdapResult in lLdapResults:
                 dGroups[ tLdapResult[1][UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_NAME][0] ] = tLdapResult[0]
         except Exception as e:
-            self._DEBUG( 'Failed to perform (destination LDAP) group search; %s' % str( e ) )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-        self._DEBUG( 'Successfully retrieved user groups from (destination LDAP) server:\n%s' % str( dGroups ), TokenPlugin.DEBUG_TRACE )
+            self._DEBUG('Failed to perform (destination LDAP) group search; %s' % str(e))
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
+        self._DEBUG('Successfully retrieved user groups from (destination LDAP) server:\n%s' % str(dGroups), TokenPlugin.DEBUG_TRACE)
 
         # Done
         return dGroups
 
 
-    def __ldapDstAddUserToGroup( self, oLdap, sGroupname, sUsername, sUserDn ):
+    def __ldapDstAddUserToGroup(self, oLdap, sGroupname, sUsername, sUserDn):
         global \
             UPWDCHG_PLUGIN_DRYRUN, \
             UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN, \
@@ -353,39 +353,39 @@ class SynchGroupsMemberLdap(TokenPlugin):
             lLdapResults = oLdap.search_ext_s(
                 UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN,
                 UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_SCOPE,
-                UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER.replace( '%{GROUPNAME}', sGroupname ),
+                UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER.replace('%{GROUPNAME}', sGroupname),
                 attrlist=None, attrsonly=1, sizelimit=2
                 )
             if not lLdapResults:
-                raise Exception( 'group not found: %s' % sGroupname )
-            elif len( lLdapResults ) > 1:
-                raise Exception( 'too many match: %s' % sGroupname )
+                raise Exception('group not found: %s' % sGroupname)
+            elif len(lLdapResults) > 1:
+                raise Exception('too many match: %s' % sGroupname)
         except Exception as e:
-            self._DEBUG( 'Failed to perform (destination LDAP) group search; %s' % str( e ) )
+            self._DEBUG('Failed to perform (destination LDAP) group search; %s' % str(e))
             if UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL:
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+                self._EXIT_ERROR('Internal error; please contact your system administrator')
             else:
                 return
         sGroupDn = lLdapResults[0][0]
 
         # ... add user to group
         sMembershipAttr = UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER
-        sMembershipAttrValue = UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER_VALUE.replace( '%{USERNAME}', sUsername ).replace( '%{USERDN}', sUserDn )
+        sMembershipAttrValue = UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER_VALUE.replace('%{USERNAME}', sUsername).replace('%{USERDN}', sUserDn)
         if UPWDCHG_PLUGIN_DRYRUN:
             return
         try:
-            lLDIF = [ ( ldap.MOD_ADD, sMembershipAttr, sMembershipAttrValue ) ]
-            oLdap.modify_s( sGroupDn, lLDIF )
+            lLDIF = [ (ldap.MOD_ADD, sMembershipAttr, sMembershipAttrValue) ]
+            oLdap.modify_s(sGroupDn, lLDIF)
         except Exception as e:
-            self._DEBUG( 'Failed to add (destination LDAP) group membership; %s' % str( e ) )
+            self._DEBUG('Failed to add (destination LDAP) group membership; %s' % str(e))
             if UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL:
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+                self._EXIT_ERROR('Internal error; please contact your system administrator')
             else:
                 return
-        self._DEBUG( 'Successfully added (destination LDAP) group membership (DN): %s' % sGroupDn, TokenPlugin.DEBUG_INFO )
+        self._DEBUG('Successfully added (destination LDAP) group membership (DN): %s' % sGroupDn, TokenPlugin.DEBUG_INFO)
 
 
-    def __ldapDstRemoveUserFromGroup( self, oLdap, sGroupDn, sUsername, sUserDn ):
+    def __ldapDstRemoveUserFromGroup(self, oLdap, sGroupDn, sUsername, sUserDn):
         global \
             UPWDCHG_PLUGIN_DRYRUN, \
             UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER, \
@@ -394,39 +394,39 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
         # Remove user from group
         sMembershipAttr = UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER
-        sMembershipAttrValue = UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER_VALUE.replace( '%{USERNAME}', sUsername ).replace( '%{USERDN}', sUserDn )
+        sMembershipAttrValue = UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER_VALUE.replace('%{USERNAME}', sUsername).replace('%{USERDN}', sUserDn)
         if UPWDCHG_PLUGIN_DRYRUN:
             return
         try:
-            lLDIF = [ ( ldap.MOD_DELETE, sMembershipAttr, sMembershipAttrValue ) ]
-            oLdap.modify_s( sGroupDn, lLDIF )
+            lLDIF = [ (ldap.MOD_DELETE, sMembershipAttr, sMembershipAttrValue) ]
+            oLdap.modify_s(sGroupDn, lLDIF)
         except Exception as e:
-            self._DEBUG( 'Failed to remove (destination LDAP) group membership; %s' % str( e ) )
+            self._DEBUG('Failed to remove (destination LDAP) group membership; %s' % str(e))
             if UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL:
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+                self._EXIT_ERROR('Internal error; please contact your system administrator')
             else:
                 return
-        self._DEBUG( 'Successfully removed (destination LDAP) group membership (DN): %s' % sGroupDn, TokenPlugin.DEBUG_INFO )
+        self._DEBUG('Successfully removed (destination LDAP) group membership (DN): %s' % sGroupDn, TokenPlugin.DEBUG_INFO)
 
 
-    def __ldapDstUnbind( self, oLdap ):
+    def __ldapDstUnbind(self, oLdap):
 
         # Unbind
         try:
             oLdap.unbind_s()
         except Exception as e:
-            self._DEBUG( 'Failed to unbind from (destination LDAP) server; %s' % str( e ) )
+            self._DEBUG('Failed to unbind from (destination LDAP) server; %s' % str(e))
 
 
-    def process( self ):
+    def process(self):
         global \
             UPWDCHG_PLUGIN_LDAP_DST_GROUP_ADD, \
             UPWDCHG_PLUGIN_LDAP_DST_GROUP_REMOVE
 
         # Get token (data)
         dToken = self._getToken()
-        sUsername = dToken['username'].encode( 'utf-8' )
-        sPasswordOld = dToken['password-old'].encode( 'utf-8' )
+        sUsername = dToken['username'].encode('utf-8')
+        sPasswordOld = dToken['password-old'].encode('utf-8')
 
         # Process token data
 
@@ -435,27 +435,27 @@ class SynchGroupsMemberLdap(TokenPlugin):
         oLdapDst = self.__ldapDstBind()
 
         # ... user DN
-        sUserDnSrc = self.__ldapSrcGetUserDn( oLdapSrc, sUsername )
-        sUserDnDst = self.__ldapDstGetUserDn( oLdapDst, sUsername )
+        sUserDnSrc = self.__ldapSrcGetUserDn(oLdapSrc, sUsername)
+        sUserDnDst = self.__ldapDstGetUserDn(oLdapDst, sUsername)
 
         # ... groups membership synchronization
-        dGroupsSrc = self.__ldapSrcGetGroups( oLdapSrc, sUsername, sUserDnSrc )
-        dGroupsDst = self.__ldapDstGetGroups( oLdapDst, sUsername, sUserDnDst )
+        dGroupsSrc = self.__ldapSrcGetGroups(oLdapSrc, sUsername, sUserDnSrc)
+        dGroupsDst = self.__ldapDstGetGroups(oLdapDst, sUsername, sUserDnDst)
         if UPWDCHG_PLUGIN_LDAP_DST_GROUP_ADD:
             for sGroupname in [ s for s in dGroupsSrc if s not in dGroupsDst ]:
-                self._DEBUG( 'Add group membership: %s' % sGroupname, TokenPlugin.DEBUG_NOTICE )
-                self.__ldapDstAddUserToGroup( oLdapDst, sGroupname, sUsername, sUserDnDst )
+                self._DEBUG('Add group membership: %s' % sGroupname, TokenPlugin.DEBUG_NOTICE)
+                self.__ldapDstAddUserToGroup(oLdapDst, sGroupname, sUsername, sUserDnDst)
         if UPWDCHG_PLUGIN_LDAP_DST_GROUP_REMOVE:
             for sGroupname in [ s for s in dGroupsDst if s not in dGroupsSrc ]:
-                self._DEBUG( 'Remove group membership: %s' % sGroupname, TokenPlugin.DEBUG_NOTICE )
-                self.__ldapDstRemoveUserFromGroup( oLdapDst, dGroupsDst[sGroupname], sUsername, sUserDnDst )
+                self._DEBUG('Remove group membership: %s' % sGroupname, TokenPlugin.DEBUG_NOTICE)
+                self.__ldapDstRemoveUserFromGroup(oLdapDst, dGroupsDst[sGroupname], sUsername, sUserDnDst)
 
         # ... unbind
-        self.__ldapSrcUnbind( oLdapSrc )
-        self.__ldapDstUnbind( oLdapDst )
+        self.__ldapSrcUnbind(oLdapSrc)
+        self.__ldapDstUnbind(oLdapDst)
 
         # Done
-        self._EXIT_OK( 'Groups membership successfully synchronized' )
+        self._EXIT_OK('Groups membership successfully synchronized')
 
 # Process
 SynchGroupsMemberLdap().process()

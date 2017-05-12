@@ -36,11 +36,11 @@ UPWDCHG_PLUGIN_KRB5_ADMSRV='root@krb5adm.example.org'  # if not None, SSH to spe
 # Plugin
 class CreateAccountKrb5(TokenPlugin):
 
-    def __init__( self ):
+    def __init__(self):
         global UPWDCHG_PLUGIN_CRITICAL
-        TokenPlugin.__init__( self, 'CreateAccountKrb5', UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG )
+        TokenPlugin.__init__(self, 'CreateAccountKrb5', UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
 
-    def process( self ):
+    def process(self):
         global \
             UPWDCHG_PLUGIN_DRYRUN, \
             UPWDCHG_PLUGIN_KRB5_PRINCIPAL, \
@@ -50,80 +50,80 @@ class CreateAccountKrb5(TokenPlugin):
 
         # Check parameters
         if not UPWDCHG_PLUGIN_KRB5_PRINCIPAL:
-            self._DEBUG( 'Missing principal' )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            self._DEBUG('Missing principal')
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
         if not UPWDCHG_PLUGIN_KRB5_ADD_USER_DN:
-            self._DEBUG( 'Missing user distinguished name (DN)' )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            self._DEBUG('Missing user distinguished name (DN)')
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # Get token (data)
         dToken = self._getToken()
-        sUsername = dToken['username'].encode( 'utf-8' )
-        sPasswordNew = dToken['password-new'].encode( 'utf-8' )
+        sUsername = dToken['username'].encode('utf-8')
+        sPasswordNew = dToken['password-new'].encode('utf-8')
 
         # Process token data
 
         # ... Kerberos principal
-        sPrincipal = UPWDCHG_PLUGIN_KRB5_PRINCIPAL.replace( '%{USERNAME}', sUsername )
+        sPrincipal = UPWDCHG_PLUGIN_KRB5_PRINCIPAL.replace('%{USERNAME}', sUsername)
 
         # ... Check principal existency
         bPrincipalExists = True
         try:
             lCommand = [ 'kadmin.local', '-q', "'get_principal -terse \"%s\"'" % sPrincipal.replace('"', '""') ]
             if UPWDCHG_PLUGIN_KRB5_ADMSRV:
-                lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join( lCommand ) ]
-            oPopen = SP.Popen( lCommand, stdout=SP.PIPE, stderr=SP.PIPE )
-            ( sStdOut, sStdErr ) = oPopen.communicate()
+                lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join(lCommand) ]
+            oPopen = SP.Popen(lCommand, stdout=SP.PIPE, stderr=SP.PIPE)
+            (sStdOut, sStdErr) = oPopen.communicate()
             if oPopen.returncode != 0 or sStdErr:
-                if sStdErr.lower().find( 'principal does not exist' ) < 0:
-                    raise Exception( sStdErr )
+                if sStdErr.lower().find('principal does not exist') < 0:
+                    raise Exception(sStdErr)
                 bPrincipalExists = False
         except Exception as e:
-            self._DEBUG( 'Failed to change password; %s' % str( e ) )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            self._DEBUG('Failed to change password; %s' % str(e))
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
         if bPrincipalExists:
-            self._DEBUG( 'Principal already exists (its password will be updated): %s' % sPrincipal, TokenPlugin.DEBUG_NOTICE )
+            self._DEBUG('Principal already exists (its password will be updated): %s' % sPrincipal, TokenPlugin.DEBUG_NOTICE)
         else:
-            self._DEBUG( 'Principal does not exists (and will be created): %s' % sPrincipal, TokenPlugin.DEBUG_NOTICE )
+            self._DEBUG('Principal does not exists (and will be created): %s' % sPrincipal, TokenPlugin.DEBUG_NOTICE)
 
         # ... Kerberos password change (?)
         if bPrincipalExists and not UPWDCHG_PLUGIN_DRYRUN:
             try:
-                lCommand = [ 'kadmin.local', '-q', "'change_password -pw \"%s\" \"%s\"'" % ( sPasswordNew.replace('"', '""'), sPrincipal.replace('"', '""') ) ]
+                lCommand = [ 'kadmin.local', '-q', "'change_password -pw \"%s\" \"%s\"'" % (sPasswordNew.replace('"', '""'), sPrincipal.replace('"', '""')) ]
                 if UPWDCHG_PLUGIN_KRB5_ADMSRV:
-                    lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join( lCommand ) ]
-                oPopen = SP.Popen( lCommand, stdout=SP.PIPE, stderr=SP.PIPE )
-                ( sStdOut, sStdErr ) = oPopen.communicate()
+                    lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join(lCommand) ]
+                oPopen = SP.Popen(lCommand, stdout=SP.PIPE, stderr=SP.PIPE)
+                (sStdOut, sStdErr) = oPopen.communicate()
                 if oPopen.returncode != 0 or sStdErr:
-                    raise Exception( sStdErr )
+                    raise Exception(sStdErr)
             except Exception as e:
-                self._DEBUG( 'Failed to change password; %s' % str( e ) )
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-            self._DEBUG( 'Successfully changed password for principal: %s' % sPrincipal, TokenPlugin.DEBUG_INFO )
+                self._DEBUG('Failed to change password; %s' % str(e))
+                self._EXIT_ERROR('Internal error; please contact your system administrator')
+            self._DEBUG('Successfully changed password for principal: %s' % sPrincipal, TokenPlugin.DEBUG_INFO)
 
         # ... Create principal (?)
         if not bPrincipalExists and not UPWDCHG_PLUGIN_DRYRUN:
             try:
-                sUserDn = UPWDCHG_PLUGIN_KRB5_ADD_USER_DN.replace( '%{USERNAME}', sUsername )
-                self._DEBUG( 'Creating principal (DN): %s (%s)' % ( sPrincipal, sUserDn ), TokenPlugin.DEBUG_TRACE )
+                sUserDn = UPWDCHG_PLUGIN_KRB5_ADD_USER_DN.replace('%{USERNAME}', sUsername)
+                self._DEBUG('Creating principal (DN): %s (%s)' % (sPrincipal, sUserDn), TokenPlugin.DEBUG_TRACE)
                 sOptions = UPWDCHG_PLUGIN_KRB5_ADD_OPTIONS
-                lCommand = [ 'kadmin.local', '-q', "'add_principal -x dn=\"%s\" -pw \"%s\" %s \"%s\"'" % ( sUserDn.replace('"', '""'), sPasswordNew.replace('"', '""'), sOptions, sPrincipal.replace('"', '""') ) ]
+                lCommand = [ 'kadmin.local', '-q', "'add_principal -x dn=\"%s\" -pw \"%s\" %s \"%s\"'" % (sUserDn.replace('"', '""'), sPasswordNew.replace('"', '""'), sOptions, sPrincipal.replace('"', '""')) ]
                 if UPWDCHG_PLUGIN_KRB5_ADMSRV:
-                    lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join( lCommand ) ]
-                oPopen = SP.Popen( lCommand, stdout=SP.PIPE, stderr=SP.PIPE )
-                ( sStdOut, sStdErr ) = oPopen.communicate()
+                    lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join(lCommand) ]
+                oPopen = SP.Popen(lCommand, stdout=SP.PIPE, stderr=SP.PIPE)
+                (sStdOut, sStdErr) = oPopen.communicate()
                 if oPopen.returncode != 0 or sStdErr:
-                    raise Exception( sStdErr )
+                    raise Exception(sStdErr)
             except Exception as e:
-                self._DEBUG( 'Failed to create principal; %s' % str( e ) )
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-            self._DEBUG( 'Successfully created principal: %s' % sPrincipal, TokenPlugin.DEBUG_INFO )
+                self._DEBUG('Failed to create principal; %s' % str(e))
+                self._EXIT_ERROR('Internal error; please contact your system administrator')
+            self._DEBUG('Successfully created principal: %s' % sPrincipal, TokenPlugin.DEBUG_INFO)
 
         # Done
         if bPrincipalExists:
-            self._EXIT_OK( 'Password successfully changed' )
+            self._EXIT_OK('Password successfully changed')
         else:
-            self._EXIT_OK( 'Account successfully created' )
+            self._EXIT_OK('Account successfully created')
 
 # Process
 CreateAccountKrb5().process()

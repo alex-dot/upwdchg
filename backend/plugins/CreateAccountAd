@@ -72,14 +72,14 @@ UPWDCHG_PLUGIN_AD_USER_CONTROL_FLAGS=0  # 'userAccountControl' additional flags 
 # Plugin
 class CreateAccountAd(TokenPlugin):
 
-    def __init__( self ):
+    def __init__(self):
         global UPWDCHG_PLUGIN_CRITICAL
-        TokenPlugin.__init__( self, 'CreateAccountAd', UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG )
+        TokenPlugin.__init__(self, 'CreateAccountAd', UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
         # ... fields
-        self.__reLdapVariables = re.compile( '%{LDAP:[^}]*}' )
+        self.__reLdapVariables = re.compile('%{LDAP:[^}]*}')
 
 
-    def __ldapBind( self ):
+    def __ldapBind(self):
         global \
             UPWDCHG_PLUGIN_LDAP_URI, \
             UPWDCHG_PLUGIN_LDAP_ADMIN_DN, \
@@ -92,8 +92,8 @@ class CreateAccountAd(TokenPlugin):
         if not UPWDCHG_PLUGIN_LDAP_URI:
             return oLdap
         if not UPWDCHG_PLUGIN_LDAP_ADMIN_DN:
-            self._DEBUG( 'Missing (LDAP) administrator distinguished name (DN)' )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            self._DEBUG('Missing (LDAP) administrator distinguished name (DN)')
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # Bind to server
 
@@ -101,34 +101,34 @@ class CreateAccountAd(TokenPlugin):
         sBindDn = UPWDCHG_PLUGIN_LDAP_ADMIN_DN
         if not UPWDCHG_PLUGIN_LDAP_ADMIN_PWD:
             sBindPwd=''  # Really!?!
-        elif UPWDCHG_PLUGIN_LDAP_ADMIN_PWD.startswith( 'file://' ):
+        elif UPWDCHG_PLUGIN_LDAP_ADMIN_PWD.startswith('file://'):
             __sFile = UPWDCHG_PLUGIN_LDAP_ADMIN_PWD[7:]
             try:
-                __oFile = open( __sFile, 'r' )
+                __oFile = open(__sFile, 'r')
                 sBindPwd = __oFile.readline()
                 __oFile.close()
             except Exception as e:
-                self._DEBUG( 'Failed to retrieve (LDAP) bind password from file; %s' % str( e ) )
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+                self._DEBUG('Failed to retrieve (LDAP) bind password from file; %s' % str(e))
+                self._EXIT_ERROR('Internal error; please contact your system administrator')
         else:
             sBindPwd = UPWDCHG_PLUGIN_LDAP_ADMIN_PWD
-        self._DEBUG( 'Binding to (LDAP) server as (DN): %s' % sBindDn, TokenPlugin.DEBUG_TRACE )
+        self._DEBUG('Binding to (LDAP) server as (DN): %s' % sBindDn, TokenPlugin.DEBUG_TRACE)
 
         # ... bind
         try:
-            oLdap = ldap.initialize( UPWDCHG_PLUGIN_LDAP_URI )
+            oLdap = ldap.initialize(UPWDCHG_PLUGIN_LDAP_URI)
             oLdap.protocol_version = ldap.VERSION3
-            oLdap.bind_s( sBindDn, sBindPwd, ldap.AUTH_SIMPLE )
+            oLdap.bind_s(sBindDn, sBindPwd, ldap.AUTH_SIMPLE)
         except Exception as e:
-            self._DEBUG( 'Failed to bind to (LDAP) server; %s' % str( e ) )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-        self._DEBUG( 'Successfully bound to (LDAP) server', TokenPlugin.DEBUG_NOTICE )
+            self._DEBUG('Failed to bind to (LDAP) server; %s' % str(e))
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
+        self._DEBUG('Successfully bound to (LDAP) server', TokenPlugin.DEBUG_NOTICE)
 
         # Done
         return oLdap
 
 
-    def __ldapGetAttributes( self, oLdap, sUsername ):
+    def __ldapGetAttributes(self, oLdap, sUsername):
         global \
             UPWDCHG_PLUGIN_LDAP_USER_DN, \
             UPWDCHG_PLUGIN_LDAP_USER_SEARCH_DN, \
@@ -146,48 +146,48 @@ class CreateAccountAd(TokenPlugin):
                 lLdapResults = oLdap.search_ext_s(
                     UPWDCHG_PLUGIN_LDAP_USER_SEARCH_DN,
                     UPWDCHG_PLUGIN_LDAP_USER_SEARCH_SCOPE,
-                    UPWDCHG_PLUGIN_LDAP_USER_SEARCH_FILTER.replace( '%{USERNAME}', sUsername ),
+                    UPWDCHG_PLUGIN_LDAP_USER_SEARCH_FILTER.replace('%{USERNAME}', sUsername),
                     attrlist=None, attrsonly=0, sizelimit=2
                     )
                 if not lLdapResults:
-                    raise Exception( 'user not found: %s' % sUsername )
-                elif len( lLdapResults ) > 1:
-                    raise Exception( 'too many match: %s' % sUsername )
+                    raise Exception('user not found: %s' % sUsername)
+                elif len(lLdapResults) > 1:
+                    raise Exception('too many match: %s' % sUsername)
             except Exception as e:
-                self._DEBUG( 'Failed to perform (LDAP) user search; %s' % str( e ) )
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+                self._DEBUG('Failed to perform (LDAP) user search; %s' % str(e))
+                self._EXIT_ERROR('Internal error; please contact your system administrator')
         else:
             try:
                 lLdapResults = oLdap.search_ext_s(
-                    UPWDCHG_PLUGIN_LDAP_USER_DN.replace( '%{USERNAME}', sUsername ),
+                    UPWDCHG_PLUGIN_LDAP_USER_DN.replace('%{USERNAME}', sUsername),
                     ldap.SCOPE_BASE,
                     '(objectClass=*)',
                     attrlist=None, attrsonly=0, sizelimit=2
                     )
                 if not lLdapResults:
-                    raise Exception( 'user not found: %s' % sUsername )
-                elif len( lLdapResults ) > 1:
-                    raise Exception( 'too many match: %s' % sUsername )
+                    raise Exception('user not found: %s' % sUsername)
+                elif len(lLdapResults) > 1:
+                    raise Exception('too many match: %s' % sUsername)
             except Exception as e:
-                self._DEBUG( 'Failed to perform (LDAP) user search; %s' % str( e ) )
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+                self._DEBUG('Failed to perform (LDAP) user search; %s' % str(e))
+                self._EXIT_ERROR('Internal error; please contact your system administrator')
         dAttrs = lLdapResults[0][1]
-        self._DEBUG( 'Successfully retrieved user attributes from (LDAP) server:\n%s' % str( dAttrs ), TokenPlugin.DEBUG_TRACE )
+        self._DEBUG('Successfully retrieved user attributes from (LDAP) server:\n%s' % str(dAttrs), TokenPlugin.DEBUG_TRACE)
 
         # Done
         return dAttrs
 
 
-    def __ldapUnbind( self, oLdap ):
+    def __ldapUnbind(self, oLdap):
 
         # Unbind
         try:
             oLdap.unbind_s()
         except Exception as e:
-            self._DEBUG( 'Failed to unbind from (LDAP) server; %s' % str( e ) )
+            self._DEBUG('Failed to unbind from (LDAP) server; %s' % str(e))
 
 
-    def __adBind( self ):
+    def __adBind(self):
         global \
             UPWDCHG_PLUGIN_AD_URI, \
             UPWDCHG_PLUGIN_AD_ADMIN_DN, \
@@ -195,8 +195,8 @@ class CreateAccountAd(TokenPlugin):
 
         # Check parameters
         if not UPWDCHG_PLUGIN_AD_ADMIN_DN:
-            self._DEBUG( 'Missing (AD) administrator distinguished name (DN)' )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            self._DEBUG('Missing (AD) administrator distinguished name (DN)')
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # Bind to server
 
@@ -204,34 +204,34 @@ class CreateAccountAd(TokenPlugin):
         sBindDn = UPWDCHG_PLUGIN_AD_ADMIN_DN
         if not UPWDCHG_PLUGIN_AD_ADMIN_PWD:
             sBindPwd=''  # Really!?!
-        elif UPWDCHG_PLUGIN_AD_ADMIN_PWD.startswith( 'file://' ):
+        elif UPWDCHG_PLUGIN_AD_ADMIN_PWD.startswith('file://'):
             __sFile = UPWDCHG_PLUGIN_AD_ADMIN_PWD[7:]
             try:
-                __oFile = open( __sFile, 'r' )
+                __oFile = open(__sFile, 'r')
                 sBindPwd = __oFile.readline()
                 __oFile.close()
             except Exception as e:
-                self._DEBUG( 'Failed to retrieve (AD) bind password from file; %s' % str( e ) )
-                self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+                self._DEBUG('Failed to retrieve (AD) bind password from file; %s' % str(e))
+                self._EXIT_ERROR('Internal error; please contact your system administrator')
         else:
             sBindPwd = UPWDCHG_PLUGIN_AD_ADMIN_PWD
-        self._DEBUG( 'Binding to (AD) server as (DN): %s' % sBindDn, TokenPlugin.DEBUG_TRACE )
+        self._DEBUG('Binding to (AD) server as (DN): %s' % sBindDn, TokenPlugin.DEBUG_TRACE)
 
         # ... bind
         try:
-            oAd = ldap.initialize( UPWDCHG_PLUGIN_AD_URI )
+            oAd = ldap.initialize(UPWDCHG_PLUGIN_AD_URI)
             oAd.protocol_version = ldap.VERSION3
-            oAd.bind_s( sBindDn, sBindPwd, ldap.AUTH_SIMPLE )
+            oAd.bind_s(sBindDn, sBindPwd, ldap.AUTH_SIMPLE)
         except Exception as e:
-            self._DEBUG( 'Failed to bind to (AD) server; %s' % str( e ) )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-        self._DEBUG( 'Successfully bound to (AD) server', TokenPlugin.DEBUG_NOTICE )
+            self._DEBUG('Failed to bind to (AD) server; %s' % str(e))
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
+        self._DEBUG('Successfully bound to (AD) server', TokenPlugin.DEBUG_NOTICE)
 
         # Done
         return oAd
 
 
-    def __adGetUserDn( self, oAd, sUsername ):
+    def __adGetUserDn(self, oAd, sUsername):
         global \
             UPWDCHG_PLUGIN_AD_USER_SEARCH_DN, \
             UPWDCHG_PLUGIN_AD_USER_SEARCH_SCOPE, \
@@ -242,24 +242,24 @@ class CreateAccountAd(TokenPlugin):
             lAdResults = oAd.search_ext_s(
                 UPWDCHG_PLUGIN_AD_USER_SEARCH_DN,
                 UPWDCHG_PLUGIN_AD_USER_SEARCH_SCOPE,
-                UPWDCHG_PLUGIN_AD_USER_SEARCH_FILTER.replace( '%{USERNAME}', sUsername ),
+                UPWDCHG_PLUGIN_AD_USER_SEARCH_FILTER.replace('%{USERNAME}', sUsername),
                 attrlist=None, attrsonly=1, sizelimit=2
                 )
             if not lAdResults:
                 return None
-            elif len( lAdResults ) > 1:
-                raise Exception( 'too many match' )
+            elif len(lAdResults) > 1:
+                raise Exception('too many match')
         except Exception as e:
-            self._DEBUG( 'Failed to perform (AD) user search; %s' % str( e ) )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            self._DEBUG('Failed to perform (AD) user search; %s' % str(e))
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
         sUserDn = lAdResults[0][0]
-        self._DEBUG( 'Successfully got (AD) user distinguished name (DN): %s' % sUserDn, TokenPlugin.DEBUG_TRACE )
+        self._DEBUG('Successfully got (AD) user distinguished name (DN): %s' % sUserDn, TokenPlugin.DEBUG_TRACE)
 
         # Done
         return sUserDn
 
 
-    def __adCreateAccount( self, oAd, sUsername, oLdap=None ):
+    def __adCreateAccount(self, oAd, sUsername, oLdap=None):
         global \
             UPWDCHG_PLUGIN_DRYRUN, \
             UPWDCHG_PLUGIN_AD_USER_CLASSES, \
@@ -267,27 +267,27 @@ class CreateAccountAd(TokenPlugin):
 
         # Check parameters
         if not 'dn' in UPWDCHG_PLUGIN_AD_USER_ATTRS:
-            self._DEBUG( 'Missing (AD) user distinguished name (DN) attribute' )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
+            self._DEBUG('Missing (AD) user distinguished name (DN) attribute')
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # User account creation
 
         # ... populate "custom" attributes
         dAttrsLdap = dict()
         if oLdap:
-            dAttrsLdap = self.__ldapGetAttributes( oLdap, sUsername )
+            dAttrsLdap = self.__ldapGetAttributes(oLdap, sUsername)
         dAttrsAd = dict()
         for sKeyAd in UPWDCHG_PLUGIN_AD_USER_ATTRS.iterkeys():
             sAttr = UPWDCHG_PLUGIN_AD_USER_ATTRS[sKeyAd]
-            sAttr = sAttr.replace( '%{USERNAME}', sUsername )
+            sAttr = sAttr.replace('%{USERNAME}', sUsername)
             for sKeyLdap in dAttrsLdap.iterkeys():
-                sAttr = sAttr.replace( '%%{LDAP:%s}' % sKeyLdap, dAttrsLdap[sKeyLdap][0] )
-            sAttr = self.__reLdapVariables.sub( '', sAttr )
+                sAttr = sAttr.replace('%%{LDAP:%s}' % sKeyLdap, dAttrsLdap[sKeyLdap][0])
+            sAttr = self.__reLdapVariables.sub('', sAttr)
             dAttrsAd[sKeyAd] = sAttr
 
         # ... populate "system" attributes
         sUserDn = dAttrsAd['dn']
-        dAttrsAd.pop( 'dn', None )
+        dAttrsAd.pop('dn', None)
         dAttrsAd['objectClass'] = UPWDCHG_PLUGIN_AD_USER_CLASSES
         dAttrsAd['userAccountControl'] = '514'
 
@@ -295,18 +295,18 @@ class CreateAccountAd(TokenPlugin):
         if UPWDCHG_PLUGIN_DRYRUN:
             return sUserDn
         try:
-            lLDIF = ldap.modlist.addModlist( dAttrsAd )
-            oAd.add_s( sUserDn, lLDIF )
+            lLDIF = ldap.modlist.addModlist(dAttrsAd)
+            oAd.add_s(sUserDn, lLDIF)
         except Exception as e:
-            self._DEBUG( 'Failed to create (AD) user account; %s' % str( e ) )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-        self._DEBUG( 'Successfully created (AD) user (DN): %s' % sUserDn, TokenPlugin.DEBUG_INFO )
+            self._DEBUG('Failed to create (AD) user account; %s' % str(e))
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
+        self._DEBUG('Successfully created (AD) user (DN): %s' % sUserDn, TokenPlugin.DEBUG_INFO)
 
         # Done
         return sUserDn
 
 
-    def __adChangePassword( self, oAd, sUserDn, uPasswordNew ):
+    def __adChangePassword(self, oAd, sUserDn, uPasswordNew):
         global \
             UPWDCHG_PLUGIN_DRYRUN
 
@@ -317,16 +317,16 @@ class CreateAccountAd(TokenPlugin):
         # REF: http://support.microsoft.com/kb/263991
         try:
             lLDIF = [
-                ( ldap.MOD_REPLACE, 'unicodePwd', ( '"%s"' % uPasswordNew ).encode( 'utf-16-le' ) ),
+                (ldap.MOD_REPLACE, 'unicodePwd', ('"%s"' % uPasswordNew).encode('utf-16-le')),
                 ]
-            oAd.modify_s( sUserDn, lLDIF )
+            oAd.modify_s(sUserDn, lLDIF)
         except Exception as e:
-            self._DEBUG( 'Failed to change (AD) password; %s' % str( e ) )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-        self._DEBUG( 'Successfully changed (AD) password for user (DN): %s' % sUserDn, TokenPlugin.DEBUG_INFO )
+            self._DEBUG('Failed to change (AD) password; %s' % str(e))
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
+        self._DEBUG('Successfully changed (AD) password for user (DN): %s' % sUserDn, TokenPlugin.DEBUG_INFO)
 
 
-    def __adEnableAccount( self, oAd, sUserDn ):
+    def __adEnableAccount(self, oAd, sUserDn):
         global \
             UPWDCHG_PLUGIN_DRYRUN, \
             UPWDCHG_PLUGIN_AD_USER_CONTROL_FLAGS
@@ -338,30 +338,30 @@ class CreateAccountAd(TokenPlugin):
         # REF: http://support.microsoft.com/kb/305144
         try:
             lLDIF = [
-                ( ldap.MOD_REPLACE, 'userAccountControl', ( '%d' % ( 512 | UPWDCHG_PLUGIN_AD_USER_CONTROL_FLAGS ) ) ),
+                (ldap.MOD_REPLACE, 'userAccountControl', ('%d' % (512 | UPWDCHG_PLUGIN_AD_USER_CONTROL_FLAGS))),
                 ]
-            oAd.modify_s( sUserDn, lLDIF )
+            oAd.modify_s(sUserDn, lLDIF)
         except Exception as e:
-            self._DEBUG( 'Failed to activate (AD) user account; %s' % str( e ) )
-            self._EXIT_ERROR( 'Internal error; please contact your system administrator' )
-        self._DEBUG( 'Successfully enabled (AD) user account (DN): %s' % sUserDn, TokenPlugin.DEBUG_INFO )
+            self._DEBUG('Failed to activate (AD) user account; %s' % str(e))
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
+        self._DEBUG('Successfully enabled (AD) user account (DN): %s' % sUserDn, TokenPlugin.DEBUG_INFO)
 
 
-    def __adUnbind( self, oAd ):
+    def __adUnbind(self, oAd):
 
         # Unbind
         try:
             oAd.unbind_s()
         except Exception as e:
-            self._DEBUG( 'Failed to unbind from (AD) server; %s' % str( e ) )
+            self._DEBUG('Failed to unbind from (AD) server; %s' % str(e))
 
 
-    def process( self ):
+    def process(self):
 
         # Get token (data)
         dToken = self._getToken()
-        sUsername = dToken['username'].encode( 'utf-8' )
-        sPasswordOld = dToken['password-old'].encode( 'utf-8' )
+        sUsername = dToken['username'].encode('utf-8')
+        sPasswordOld = dToken['password-old'].encode('utf-8')
         uPasswordNew = dToken['password-new']
 
         # Process token data
@@ -372,35 +372,35 @@ class CreateAccountAd(TokenPlugin):
 
         # ... Active directory user DN
         bUserExists = False
-        sUserDn = self.__adGetUserDn( oAd, sUsername )
+        sUserDn = self.__adGetUserDn(oAd, sUsername)
         if sUserDn:
             bUserExists = True
-            self._DEBUG( '(AD) user account (DN) already exists (its password will be updated): %s' % sUserDn, TokenPlugin.DEBUG_NOTICE )
+            self._DEBUG('(AD) user account (DN) already exists (its password will be updated): %s' % sUserDn, TokenPlugin.DEBUG_NOTICE)
         else:
-            self._DEBUG( '(AD) user account (username) does not exists (and will be created): %s' % sUsername, TokenPlugin.DEBUG_NOTICE )
+            self._DEBUG('(AD) user account (username) does not exists (and will be created): %s' % sUsername, TokenPlugin.DEBUG_NOTICE)
 
         # ... Active Directory user account creation
         if not bUserExists or UPWDCHG_PLUGIN_DRYRUN:
             oLdap = self.__ldapBind()
-            sUserDn = self.__adCreateAccount( oAd, sUsername, oLdap )
+            sUserDn = self.__adCreateAccount(oAd, sUsername, oLdap)
 
         # ... Active Directory password change
-        self.__adChangePassword( oAd, sUserDn, uPasswordNew )
+        self.__adChangePassword(oAd, sUserDn, uPasswordNew)
 
         # ... Active Directory user account activation
         if not bUserExists or UPWDCHG_PLUGIN_DRYRUN:
-            self.__adEnableAccount( oAd, sUserDn )
+            self.__adEnableAccount(oAd, sUserDn)
             if oLdap:
-                self.__ldapUnbind( oLdap )
+                self.__ldapUnbind(oLdap)
 
         # ... Active Directory unbind
-        self.__adUnbind( oAd )
+        self.__adUnbind(oAd)
 
         # Done
         if bUserExists:
-            self._EXIT_OK( 'Password successfully changed' )
+            self._EXIT_OK('Password successfully changed')
         else:
-            self._EXIT_OK( 'Account successfully created' )
+            self._EXIT_OK('Account successfully created')
 
 # Process
 CreateAccountAd().process()

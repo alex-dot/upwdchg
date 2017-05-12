@@ -48,21 +48,21 @@ import sys
 # Plugin
 class MyTokenPlugin(TokenPlugin):
 
-    def __init__( self ):
-        TokenPlugin.__init__( self, '00SAMPLE' )
+    def __init__(self):
+        TokenPlugin.__init__(self, '00SAMPLE')
 
-    def process( self ):
+    def process(self):
         # Get token (data)
         dToken = self._getToken()
 
         # Process token data
-        sys.stdout.write( 'Got a password request change for user "%s" at "%s"\n' % ( dToken['username'], dToken['timestamp'] ) )
-        sys.stdout.write( 'Available token fields are:\n' )
-        for __sKey in sorted( dToken.iterkeys() ):
-            sys.stdout.write( ' - %s\n' % __sKey )
+        sys.stdout.write('Got a password request change for user "%s" at "%s"\n' % (dToken['username'], dToken['timestamp']))
+        sys.stdout.write('Available token fields are:\n')
+        for __sKey in sorted(dToken.iterkeys()):
+            sys.stdout.write(' - %s\n' % __sKey)
 
         # Done
-        self._EXIT_OK( 'Done' )
+        self._EXIT_OK('Done')
 
 # Process
 MyTokenPlugin().process()
