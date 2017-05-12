@@ -6,18 +6,17 @@
  */
 
 // Check configuration path
-if( !isset( $_SERVER['PHP_UPWDCHG_CONFIG'] ) )
-{
-  trigger_error( 'Missing configuration path. Please set the PHP_UPWDCHG_CONFIG environment variable.', E_USER_ERROR );
+if(!isset($_SERVER['PHP_UPWDCHG_CONFIG'])) {
+  trigger_error('Missing configuration path. Please set the PHP_UPWDCHG_CONFIG environment variable.', E_USER_ERROR);
 }
 
 // Disable error display (to prevent session data corruption)
 // WARNING: Allowing errors to be displayed is a security risk!
 //          Do not display errors on a production site!
-ini_set( 'display_errors', 0 );
+ini_set('display_errors', 0);
 
 // Set internal character encoding
-mb_internal_encoding( 'UTF-8' );
+mb_internal_encoding('UTF-8');
 
 // Start session (required)
 session_start();
@@ -25,7 +24,7 @@ session_start();
 /** Load and instantiate UPwdChg resources
  */
 require_once 'UPwdChg.php';
-$oUPwdChg = new UPwdChg( $_SERVER['PHP_UPWDCHG_CONFIG'] );
+$oUPwdChg = new UPwdChg($_SERVER['PHP_UPWDCHG_CONFIG']);
 
 // Controller / View
 $oUPwdChg->controlPage(); // We MUST do this before anything is sent to the browser (cf. HTTP headers)
@@ -34,7 +33,7 @@ $oUPwdChg->controlPage(); // We MUST do this before anything is sent to the brow
 <HTML>
 <HEAD>
 <META HTTP-EQUIV="content-type" CONTENT="text/html; charset=UTF-8" />
-<TITLE><?php echo htmlentities( $oUPwdChg->getText( 'title' ) ); ?></TITLE>
+<TITLE><?php echo htmlentities($oUPwdChg->getText('title')); ?></TITLE>
 <STYLE TYPE="text/css">
 DIV.UPwdChg { WIDTH:600px; MARGIN:auto; FONT:12px sans-serif; BACKGROUND:#FFFFFF; }
 DIV.UPwdChg DIV.error { WIDTH:500px; MARGIN:auto; PADDING:5px 10px; BORDER:solid 2px #A00000; BACKGROUND:#FFE0E0; COLOR:#800000; }

@@ -18,16 +18,16 @@
 # Resources (localized HTML snippets, e-mail templates, text lables/messages;
 # fonts) directory.
 # ATTENTION: This directory MUST be readable (but NOT writable) by PHP!
-#$_CONFIG['resources_directory'] = dirname( __FILE__ ).'/data/UPwdChg/resources'; // is_readable( path )
+#$_CONFIG['resources_directory'] = dirname(__FILE__).'/data/UPwdChg/resources'; // is_readable(path)
 
 # Tokens directory.
 # ATTENTION: This directory MUST be writable (and readable) by PHP!
 # CRITICAL: THIS DIRECTORY MUST NOT BE ACCESSIBLE FROM THE WEB!!!
-#$_CONFIG['tokens_directory'] = dirname( __FILE__ ).'/data/UPwdChg/tokens'; // is_writable( path )
+#$_CONFIG['tokens_directory'] = dirname(__FILE__).'/data/UPwdChg/tokens'; // is_writable(path)
 $_CONFIG['tokens_directory'] = '/var/lib/upwdchg/tokens.d';
 
 # RSA public key file (PEM formatted).
-#$_CONFIG['public_key_file'] = '/etc/upwdchg/public.pem'; // is_readable( path )
+#$_CONFIG['public_key_file'] = '/etc/upwdchg/public.pem'; // is_readable(path)
 
 # PHP-MCrypt random source (used to generate encryption data key/IV)
 #$_CONFIG['random_source'] = MCRYPT_DEV_URANDOM; // integer

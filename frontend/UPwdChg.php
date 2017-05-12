@@ -78,10 +78,9 @@ class UPwdChg
    *
    * @param string $sConfigurationPath Configuration file path
    */
-  public function __construct( $sConfigurationPath )
-  {
+  public function __construct($sConfigurationPath) {
     // Fields
-    $this->initConfig( $sConfigurationPath );
+    $this->initConfig($sConfigurationPath);
   }
 
 
@@ -94,14 +93,13 @@ class UPwdChg
    * @param string $sConfigurationPath Configuration file path (see the sample <SAMP>config.php</SAMP> file for further details)
    * @return array|mixed View data
    */
-  private function initConfig( $sConfigurationPath )
-  {
+  private function initConfig($sConfigurationPath) {
     // Set defaults
     $_CONFIG = array();
     $_CONFIG['locales'] = 'en,fr';
     $_CONFIG['force_ssl'] = 1;
-    $_CONFIG['resources_directory'] = dirname( __FILE__ ).'/data/UPwdChg/resources';
-    $_CONFIG['tokens_directory'] = dirname( __FILE__ ).'/data/UPwdChg/tokens';
+    $_CONFIG['resources_directory'] = dirname(__FILE__).'/data/UPwdChg/resources';
+    $_CONFIG['tokens_directory'] = dirname(__FILE__).'/data/UPwdChg/tokens';
     $_CONFIG['public_key_file'] = '/etc/upwdchg/public.pem';
     $_CONFIG['random_source'] = MCRYPT_DEV_URANDOM;
     $_CONFIG['authentication_method'] = 'http';
@@ -126,38 +124,37 @@ class UPwdChg
     $_CONFIG['ldap_protocol_version'] = 0;
 
     // Load user configuration
-    if( ( include $sConfigurationPath ) === false )
-    {
-      trigger_error( '['.__METHOD__.'] Failed to load configuration', E_USER_WARNING );
-      throw new Exception( $this->getText( 'error:internal_error' ) );
+    if((include $sConfigurationPath) === false) {
+      trigger_error('['.__METHOD__.'] Failed to load configuration', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
     }
 
     // Validation
-    //echo nl2br( var_export( $_CONFIG, true ) ); // DEBUG
+    //echo nl2br(var_export($_CONFIG, true)); // DEBUG
     // ... is integer
-    foreach( array( 'force_ssl', 'random_source',
-                    'password_length_minimum', 'password_length_maximum', 'password_charset_notascii',
-                    'password_type_lower', 'password_type_upper', 'password_type_digit',
-                    'password_type_punct', 'password_type_other', 'password_type_minimum',
-                    'ldap_port', 'ldap_protocol_version',
-                    ) as $p )
-      if( !is_int( $_CONFIG[$p] ) )
-        trigger_error( '['.__METHOD__.'] Parameter must be an integer ('.$p.')', E_USER_ERROR );
+    foreach(array('force_ssl', 'random_source',
+                  'password_length_minimum', 'password_length_maximum', 'password_charset_notascii',
+                  'password_type_lower', 'password_type_upper', 'password_type_digit',
+                  'password_type_punct', 'password_type_other', 'password_type_minimum',
+                  'ldap_port', 'ldap_protocol_version',
+    ) as $p)
+      if(!is_int($_CONFIG[$p]))
+        trigger_error('['.__METHOD__.'] Parameter must be an integer ('.$p.')', E_USER_ERROR);
     // ... is string
-    foreach( array( 'locales', 'authentication_method', 'credentials_check_method',
-                    'ldap_host', 'ldap_user_dn', 'ldap_user_base_dn', 'ldap_user_search_scope',
-                    'ldap_user_filter', 'ldap_bind_dn', 'ldap_bind_password',
-                    ) as $p )
-      if( !is_string( $_CONFIG[$p] ) )
-        trigger_error( '['.__METHOD__.'] Parameter must be a string ('.$p.')', E_USER_ERROR );
+    foreach(array('locales', 'authentication_method', 'credentials_check_method',
+                  'ldap_host', 'ldap_user_dn', 'ldap_user_base_dn', 'ldap_user_search_scope',
+                  'ldap_user_filter', 'ldap_bind_dn', 'ldap_bind_password',
+    ) as $p)
+      if(!is_string($_CONFIG[$p]))
+        trigger_error('['.__METHOD__.'] Parameter must be a string ('.$p.')', E_USER_ERROR);
     // ... is readable
-    foreach( array( 'resources_directory', 'public_key_file' ) as $p )
-      if( !is_readable( $_CONFIG[$p] ) )
-        trigger_error( '['.__METHOD__.'] Parameter must be a readable path ('.$p.')', E_USER_ERROR );
+    foreach(array('resources_directory', 'public_key_file') as $p)
+      if(!is_readable($_CONFIG[$p]))
+        trigger_error('['.__METHOD__.'] Parameter must be a readable path ('.$p.')', E_USER_ERROR);
     // ... is writeable
-    foreach( array( 'tokens_directory' ) as $p )
-      if( !is_writable( $_CONFIG[$p] ) )
-        trigger_error( '['.__METHOD__.'] Parameter must be a writable path ('.$p.')', E_USER_ERROR );
+    foreach(array('tokens_directory') as $p)
+      if(!is_writable($_CONFIG[$p]))
+        trigger_error('['.__METHOD__.'] Parameter must be a writable path ('.$p.')', E_USER_ERROR);
 
     // Done
     $this->amCONFIG = $_CONFIG;
@@ -167,23 +164,22 @@ class UPwdChg
    *
    * @return array|string Array of locale IDs
    */
-  public function getSupportedLocales()
-  {
-    return explode( ',', $this->amCONFIG['locales'] );
+  public function getSupportedLocales() {
+    return explode(',', $this->amCONFIG['locales']);
   }
 
   /** Retrieve the default locale
    *
    * @return string Locale ID
    */
-  public function getDefaultLocale()
-  {
+  public function getDefaultLocale() {
     static $sLocale;
-    if( is_null( $sLocale ) )
-    {
-      $i = strpos( $this->amCONFIG['locales'], ',' );
-      if( $i === false ) $sLocale = $this->amCONFIG['locales'];
-      else $sLocale = substr( $this->amCONFIG['locales'], 0, $i );
+    if(is_null($sLocale)) {
+      $i = strpos($this->amCONFIG['locales'], ',');
+      if($i === false)
+        $sLocale = $this->amCONFIG['locales'];
+      else
+        $sLocale = substr($this->amCONFIG['locales'], 0, $i);
     }
     return $sLocale;
   }
@@ -192,19 +188,13 @@ class UPwdChg
    *
    * @return string Locale ID
    */
-  public function getCurrentLocale()
-  {
+  public function getCurrentLocale() {
     static $sLocale;
-    if( is_null( $sLocale ) )
-    {
-      if( isset( $_SESSION['UPwdChg_Locale'] ) )
-      {
+    if(is_null($sLocale)) {
+      if(isset($_SESSION['UPwdChg_Locale']))
         $sLocale = $_SESSION['UPwdChg_Locale'];
-      }
       else
-      {
         $sLocale = $this->getDefaultLocale();
-      }
     }
     return $sLocale;
   }
@@ -213,8 +203,7 @@ class UPwdChg
    *
    * @return string Directory path
    */
-  public function getResourcesDirectory()
-  {
+  public function getResourcesDirectory() {
     return $this->amCONFIG['resources_directory'];
   }
 
@@ -222,8 +211,7 @@ class UPwdChg
    *
    * @return string Reset URL
    */
-  public function getResetURL()
-  {
+  public function getResetURL() {
     return '?';
   }
 
@@ -232,13 +220,11 @@ class UPwdChg
    * @param string $sTextID Text ID
    * @return string Text
    */
-  public function getText( $sTextID )
-  {
+  public function getText($sTextID) {
     static $_TEXT;
 
     // Initialize message array
-    if( is_null( $_TEXT ) )
-    {
+    if(is_null($_TEXT)) {
       // Default (English messages)
       $_TEXT = array();
       $_TEXT['title'] = 'Password Change';
@@ -280,7 +266,7 @@ class UPwdChg
 
       // Include localized messages
       $sLocale = $this->getCurrentLocale();
-      if( $sLocale != 'en' )
+      if($sLocale != 'en')
         include_once $this->amCONFIG['resources_directory'].'/'.$sLocale.'/text.php';
     }
 
@@ -293,8 +279,7 @@ class UPwdChg
    * @param string $sPassword Password
    * @return array|int Types array (lower, upper, digit, punct, other, count)
    */
-  private static function getPasswordTypes( $sPassword )
-  {
+  private static function getPasswordTypes($sPassword) {
     $bNotAscii = false;
     $bLower = false;
     $bUpper = false;
@@ -302,58 +287,47 @@ class UPwdChg
     $bPunct = false;
     $bOther = false;
     $iType = 0;
-    foreach( str_split( $sPassword ) as $sCharacter )
-    {
-      if( ord( $sCharacter ) > 127 )
+    foreach(str_split($sPassword) as $sCharacter) {
+      if(ord($sCharacter) > 127)
         $bNotAscii = true;
-      if( ctype_lower( $sCharacter ) )
-      {
-        if( !$bLower )
-        {
+      if(ctype_lower($sCharacter)) {
+        if(!$bLower) {
           $bLower = true;
           $iType++;
         }
       }
-      elseif( ctype_upper( $sCharacter ) )
-      {
-        if( !$bUpper )
-        {
+      elseif(ctype_upper($sCharacter)) {
+        if(!$bUpper) {
           $bUpper = true;
           $iType++;
         }
       }
-      elseif( ctype_digit( $sCharacter ) )
-      {
-        if( !$bDigit )
-        {
+      elseif(ctype_digit($sCharacter)) {
+        if(!$bDigit) {
           $bDigit = true;
           $iType++;
         }
       }
-      elseif( ctype_punct( $sCharacter ) )
-      {
-        if( !$bPunct )
-        {
+      elseif(ctype_punct($sCharacter)) {
+        if(!$bPunct) {
           $bPunct = true;
           $iType++;
         }
       }
-      else
-      {
-        if( !$bOther )
-        {
+      else {
+        if(!$bOther) {
           $bOther = true;
           $iType++;
         }
       }
     }
-    return array( 'notascii' => $bNotAscii,
-                  'lower' => $bLower,
-                  'upper' => $bUpper,
-                  'digit' => $bDigit,
-                  'punct' => $bPunct,
-                  'other' => $bOther,
-                  'count' => $iType );
+    return array('notascii' => $bNotAscii,
+                 'lower' => $bLower,
+                 'upper' => $bUpper,
+                 'digit' => $bDigit,
+                 'punct' => $bPunct,
+                 'other' => $bOther,
+                 'count' => $iType);
   }
 
 
@@ -365,10 +339,8 @@ class UPwdChg
    *
    * @return array|string User credentials (username, password), Null if no authentication is configured
    */
-  private function authenticate()
-  {
-    switch( $this->amCONFIG['authentication_method'] )
-    {
+  private function authenticate() {
+    switch($this->amCONFIG['authentication_method']) {
     case 'http':
       return $this->authenticateHttp();
     case 'ldap':
@@ -378,36 +350,32 @@ class UPwdChg
     default:
       break;
     }
-    trigger_error( '['.__METHOD__.'] Invalid authentication method', E_USER_WARNING );
-    throw new Exception( $this->getText( 'error:internal_error' ) );
+    trigger_error('['.__METHOD__.'] Invalid authentication method', E_USER_WARNING);
+    throw new Exception($this->getText('error:internal_error'));
   }
 
   /** Authenticate via HTTP
    *
    * @return array|string User credentials (username, password)
    */
-  private function authenticateHttp()
-  {
+  private function authenticateHttp() {
     // Check HTTP authenticated user
-    if( !isset( $_SERVER['PHP_AUTH_USER'] ) )
-    {
-      trigger_error( '['.__METHOD__.'] HTTP credentials not available', E_USER_WARNING );
-      throw new Exception( $this->getText( 'error:internal_error' ) );
+    if(!isset($_SERVER['PHP_AUTH_USER'])) {
+      trigger_error('['.__METHOD__.'] HTTP credentials not available', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
     }
 
     // End
-    return array( 'username' => $_SERVER['PHP_AUTH_USER'], 'password' => $_SERVER['PHP_AUTH_PW'] );
+    return array('username' => $_SERVER['PHP_AUTH_USER'], 'password' => $_SERVER['PHP_AUTH_PW']);
   }
 
   /** Authenticate via LDAP
    *
    * @return array|string User credentials (username, password)
    */
-  private function authenticateLdap()
-  {
+  private function authenticateLdap() {
     // Retrieve credentials
-    if( !isset( $_SERVER['PHP_AUTH_USER'] ) )
-    {
+    if(!isset($_SERVER['PHP_AUTH_USER'])) {
       header('WWW-Authenticate: Basic');
       header('HTTP/1.0 401 Unauthorized');
       exit;
@@ -416,15 +384,14 @@ class UPwdChg
     $sPassword = $_SERVER['PHP_AUTH_PW'];
 
     // Check crendentials
-    if( !$this->checkCredentialsLdap( $sUsername, $sPassword ) )
-    {
+    if(!$this->checkCredentialsLdap($sUsername, $sPassword)) {
       header('WWW-Authenticate: Basic');
       header('HTTP/1.0 401 Unauthorized');
       exit;
     }
 
     // End
-    return array( 'username' => $sUsername, 'password' => $sPassword );
+    return array('username' => $sUsername, 'password' => $sPassword);
 
   }
 
@@ -434,19 +401,17 @@ class UPwdChg
    * @param string $sPassword Password
    * @return boolean True for valid credentials, False otherwise
    */
-  private function checkCredentials( $sUsername, $sPassword )
-  {
-    switch( $this->amCONFIG['credentials_check_method'] )
-    {
+  private function checkCredentials($sUsername, $sPassword) {
+    switch($this->amCONFIG['credentials_check_method']) {
     case 'ldap':
-      return $this->checkCredentialsLdap( $sUsername, $sPassword );
+      return $this->checkCredentialsLdap($sUsername, $sPassword);
     case 'none':
       return true;
     default:
       break;
     }
-    trigger_error( '['.__METHOD__.'] Invalid password check method', E_USER_WARNING );
-    throw new Exception( $this->getText( 'error:internal_error' ) );
+    trigger_error('['.__METHOD__.'] Invalid password check method', E_USER_WARNING);
+    throw new Exception($this->getText('error:internal_error'));
   }
 
   /** Check credentials via LDAP
@@ -455,8 +420,7 @@ class UPwdChg
    * @param string $sPassword Password
    * @return boolean True for valid credentials, False otherwise
    */
-  private function checkCredentialsLdap( $sUsername, $sPassword )
-  {
+  private function checkCredentialsLdap($sUsername, $sPassword) {
     // Check crendentials
     $hLdap = null;
     try
@@ -465,82 +429,78 @@ class UPwdChg
       // Authentication
 
       // ... connect to server
-      $hLdap = ldap_connect( $this->amCONFIG['ldap_host'],
-                             $this->amCONFIG['ldap_port'] );
-      if( $hLdap === false )
-        throw new Exception( 'Failed to connect to LDAP server' );
+      $hLdap = ldap_connect($this->amCONFIG['ldap_host'],
+                            $this->amCONFIG['ldap_port']);
+      if($hLdap === false)
+        throw new Exception('Failed to connect to LDAP server');
 
       // ... set protocol version
-      if( $this->amCONFIG['ldap_protocol_version'] > 0
-          and !ldap_set_option( $hLdap,
-                                LDAP_OPT_PROTOCOL_VERSION,
-                                $this->amCONFIG['ldap_protocol_version'] ) )
-        throw new Exception( 'Failed to set LDAP protocol version' );
+      if($this->amCONFIG['ldap_protocol_version'] > 0
+         and !ldap_set_option($hLdap,
+                              LDAP_OPT_PROTOCOL_VERSION,
+                              $this->amCONFIG['ldap_protocol_version']))
+        throw new Exception('Failed to set LDAP protocol version');
 
       // ... search for user (?)
-      if( !empty( $this->amCONFIG['ldap_user_base_dn'] )
-          and !empty( $this->amCONFIG['ldap_user_filter'] ) )
-      {
+      if(!empty($this->amCONFIG['ldap_user_base_dn'])
+         and !empty($this->amCONFIG['ldap_user_filter'])) {
         // ... bind
-        if( !empty( $this->amCONFIG['ldap_bind_dn'] )
-            and !ldap_bind( $hLdap,
-                            $this->amCONFIG['ldap_bind_dn'],
-                            $this->amCONFIG['ldap_bind_password'] ) )
-          throw new Exception( 'Failed to bind to LDAP server' );
+        if(!empty($this->amCONFIG['ldap_bind_dn'])
+           and !ldap_bind($hLdap,
+                          $this->amCONFIG['ldap_bind_dn'],
+                          $this->amCONFIG['ldap_bind_password']))
+          throw new Exception('Failed to bind to LDAP server');
 
         // ... search
-        switch( $this->amCONFIG['ldap_user_search_scope'] )
-        {
+        switch($this->amCONFIG['ldap_user_search_scope']) {
         case 'base': $fLdapSearch = 'ldap_read'; break;
         case 'one': $fLdapSearch = 'ldap_list'; break;
         default: $fLdapSearch = 'ldap_search'; break;
         }
-        $hLdapSearch = $fLdapSearch( $hLdap,
-                                     $this->amCONFIG['ldap_user_base_dn'],
-                                     str_ireplace( '%{USERNAME}',
-                                                   $sUsername,
-                                                   $this->amCONFIG['ldap_user_filter'] ),
-                                     array(), 0, 2 );
-        if( $hLdapSearch === false )
-          throw new Exception( 'Failed to perform LDAP user DN search' );
+        $hLdapSearch = $fLdapSearch($hLdap,
+                                    $this->amCONFIG['ldap_user_base_dn'],
+                                    str_ireplace('%{USERNAME}',
+                                                 $sUsername,
+                                                 $this->amCONFIG['ldap_user_filter']),
+                                    array(), 0, 2);
+        if($hLdapSearch === false)
+          throw new Exception('Failed to perform LDAP user DN search');
 
-        $iCount = ldap_count_entries( $hLdap, $hLdapSearch );
-        if( $iCount == 0 )
-          throw new Exception( 'Failed to perform LDAP user DN search; user not found' );
-        if( $iCount > 1 )
-          throw new Exception( 'Failed to perform LDAP user DN search; too many match' );
+        $iCount = ldap_count_entries($hLdap, $hLdapSearch);
+        if($iCount == 0)
+          throw new Exception('Failed to perform LDAP user DN search; user not found');
+        if($iCount > 1)
+          throw new Exception('Failed to perform LDAP user DN search; too many match');
 
-        $hEntry = ldap_first_entry( $hLdap, $hLdapSearch );
-        if( $hEntry === false )
-          throw new Exception( 'Failed to retrieve LDAP search result' );
+        $hEntry = ldap_first_entry($hLdap, $hLdapSearch);
+        if($hEntry === false)
+          throw new Exception('Failed to retrieve LDAP search result');
 
-        $sBindDn = ldap_get_dn( $hLdap, $hEntry );
-        if( $sBindDn === false )
-          throw new Exception( 'Failed to retrieve LDAP user DN' );
+        $sBindDn = ldap_get_dn($hLdap, $hEntry);
+        if($sBindDn === false)
+          throw new Exception('Failed to retrieve LDAP user DN');
         $sBindPassword = $sPassword;
 
         // ... free resouces
-        ldap_free_result( $hLdapSearch );
+        ldap_free_result($hLdapSearch);
 
       }
-      else
-      {
-        $sBindDn = str_ireplace( '%{USERNAME}', $sUsername, $this->amCONFIG['ldap_user_dn'] );
+      else {
+        $sBindDn = str_ireplace('%{USERNAME}', $sUsername, $this->amCONFIG['ldap_user_dn']);
         $sBindPassword = $sPassword;
       }
 
       // ... bind as user
-      if( !@ldap_bind( $hLdap, $sBindDn, $sBindPassword ) )
-        throw new Exception( 'Failed to bind to LDAP server; user='.$sUsername );
+      if(!@ldap_bind($hLdap, $sBindDn, $sBindPassword))
+        throw new Exception('Failed to bind to LDAP server; user='.$sUsername);
 
       // ... unbind
-      @ldap_unbind( $hLdap );
+      @ldap_unbind($hLdap);
 
     }
-    catch( Exception $e )
-    {
-      @ldap_unbind( $hLdap );
-      trigger_error( '['.__METHOD__.'] '.$e->getMessage(), E_USER_WARNING );
+    catch(Exception $e) {
+      @ldap_unbind($hLdap);
+      trigger_error('['.__METHOD__.'] '.$e->getMessage(), E_USER_WARNING);
       return false;
     }
 
@@ -562,19 +522,17 @@ class UPwdChg
    *
    * @return string View ID (to display)
    */
-  public function controlPage()
-  {
+  public function controlPage() {
     // Controller
     $sError = null;
     $sView = 'default';
     $amFormData = array();
-    $sDo = isset( $_POST['do'] ) ? $_POST['do'] : ( isset( $_GET['view'] ) ? $_GET['view'] : null );
+    $sDo = isset($_POST['do']) ? $_POST['do'] : (isset($_GET['view']) ? $_GET['view'] : null);
     try
     {
       // Check encryption
-      if( $this->amCONFIG['force_ssl'] and !isset( $_SERVER['HTTPS'] ) )
-      {
-        throw new Exception( $this->getText( 'error:unsecure_channel' ) );
+      if($this->amCONFIG['force_ssl'] and !isset($_SERVER['HTTPS'])) {
+        throw new Exception($this->getText('error:unsecure_channel'));
       }
 
       // Credentials
@@ -583,37 +541,33 @@ class UPwdChg
       $sPassword_new = '';
 
       // Check authentication
-      if( $this->amCONFIG['authentication_method'] != 'none' )
-      {
+      if($this->amCONFIG['authentication_method'] != 'none') {
         $asCredentials = $this->authenticate();
         $sUsername = $amFormData['username'] = $asCredentials['username'];
         $sPassword_old = $asCredentials['password'];
       }
 
       // Form submission handling
-      switch( $sDo )
-      {
+      switch($sDo) {
 
       case 'locale':
         // Retrieve form variables
-        if( !isset( $_POST['locale'] ) or !is_scalar( $_POST['locale'] ) )
-        {
-          trigger_error( '['.__METHOD__.'] Invalid form data (locale); IP='.( isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown' ), E_USER_WARNING );
-          throw new Exception( $this->getText( 'error:invalid_form_data' ) );
+        if(!isset($_POST['locale']) or !is_scalar($_POST['locale'])) {
+          trigger_error('['.__METHOD__.'] Invalid form data (locale); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          throw new Exception($this->getText('error:invalid_form_data'));
         }
-        $sLocale = trim( $_POST['locale'] );
+        $sLocale = trim($_POST['locale']);
 
         // Check and set locale
-        if( !in_array( $sLocale, $this->getSupportedLocales() ) )
-        {
-          trigger_error( '['.__METHOD__.'] Invalid locale; IP='.( isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown' ), E_USER_WARNING );
-          throw new Exception( $this->getText( 'error:invalid_form_data' ) );
+        if(!in_array($sLocale, $this->getSupportedLocales())) {
+          trigger_error('['.__METHOD__.'] Invalid locale; IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          throw new Exception($this->getText('error:invalid_form_data'));
         }
         $_SESSION['UPwdChg_Locale'] = $sLocale;
 
         // View
-        if( isset( $_GET['view'] ) )
-            $sView = $_GET['view'];
+        if(isset($_GET['view']))
+          $sView = $_GET['view'];
         break;
 
       case 'policy':
@@ -623,104 +577,92 @@ class UPwdChg
 
       case 'credentials':
         // Retrieve arguments
-        if( !isset( $_POST['username'], $_POST['password_old'], $_POST['password_new'], $_POST['password_confirm'] )
-            or !is_scalar( $_POST['username'] ) or strlen( $_POST['username'] ) > 1000
-            or !is_scalar( $_POST['password_old'] ) or strlen( $_POST['password_old'] ) > 1000
-            or !is_scalar( $_POST['password_new'] ) or strlen( $_POST['password_new'] ) > 1000
-            or !is_scalar( $_POST['password_confirm'] ) or strlen( $_POST['password_confirm'] ) > 1000 )
-        {
-          trigger_error( '['.__METHOD__.'] Invalid form data (request:arguments); IP='.( isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown' ), E_USER_WARNING );
-          throw new Exception( $this->getText( 'error:invalid_form_data' ) );
+        if(!isset($_POST['username'], $_POST['password_old'], $_POST['password_new'], $_POST['password_confirm'])
+           or !is_scalar($_POST['username']) or strlen($_POST['username']) > 1000
+           or !is_scalar($_POST['password_old']) or strlen($_POST['password_old']) > 1000
+           or !is_scalar($_POST['password_new']) or strlen($_POST['password_new']) > 1000
+           or !is_scalar($_POST['password_confirm']) or strlen($_POST['password_confirm']) > 1000) {
+          trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          throw new Exception($this->getText('error:invalid_form_data'));
         }
-        if( $this->amCONFIG['authentication_method'] == 'none' )
+        if($this->amCONFIG['authentication_method'] == 'none')
           $sUsername = $_POST['username'];
-        if( $this->amCONFIG['authentication_method'] == 'none'
-            or $this->amCONFIG['credentials_check_method'] != 'none' )
+        if($this->amCONFIG['authentication_method'] == 'none'
+           or $this->amCONFIG['credentials_check_method'] != 'none')
           $sPassword_old = $_POST['password_old'];
         $sPassword_new = $_POST['password_new'];
         $sPassword_confirm = $_POST['password_confirm'];
 
         // Check credentials
-        if( $this->amCONFIG['credentials_check_method'] != 'none' )
-        {
-          if( !$this->checkCredentials( $sUsername, $sPassword_old ) )
-            throw new Exception( $this->getText( 'error:invalid_credentials' ) );
+        if($this->amCONFIG['credentials_check_method'] != 'none') {
+          if(!$this->checkCredentials($sUsername, $sPassword_old))
+            throw new Exception($this->getText('error:invalid_credentials'));
         }
 
         // Check password
         $asPasswordErrors = array();
-        if( $sPassword_new != $sPassword_confirm )
-          throw new Exception( $this->getText( 'error:password_mismatch' ) );
-        if( $sPassword_new == $sPassword_old )
-          throw new Exception( $this->getText( 'error:password_identical' ) );
-        if( $this->amCONFIG['password_length_minimum'] )
-        {
-          if( mb_strlen( $sPassword_new ) < $this->amCONFIG['password_length_minimum'] )
-            array_push( $asPasswordErrors, $this->getText( 'error:password_length_minimum' ) );
+        if($sPassword_new != $sPassword_confirm)
+          throw new Exception($this->getText('error:password_mismatch'));
+        if($sPassword_new == $sPassword_old)
+          throw new Exception($this->getText('error:password_identical'));
+        if($this->amCONFIG['password_length_minimum']) {
+          if(mb_strlen($sPassword_new) < $this->amCONFIG['password_length_minimum'])
+            array_push($asPasswordErrors, $this->getText('error:password_length_minimum'));
         }
-        if( $this->amCONFIG['password_length_maximum'] )
-        {
-          if( mb_strlen( $sPassword_new ) > $this->amCONFIG['password_length_maximum'] )
-            array_push( $asPasswordErrors, $this->getText( 'error:password_length_maximum' ) );
+        if($this->amCONFIG['password_length_maximum']) {
+          if(mb_strlen($sPassword_new) > $this->amCONFIG['password_length_maximum'])
+            array_push($asPasswordErrors, $this->getText('error:password_length_maximum'));
         }
-        $aiPasswordTypes = $this->getPasswordTypes( $sPassword_new );
-        if( $this->amCONFIG['password_charset_notascii'] )
-        {
-          if( $aiPasswordTypes['notascii'] and $this->amCONFIG['password_charset_notascii']<0 )
-            array_push( $asPasswordErrors, $this->getText( 'error:password_charset_notascii_forbidden' ) );
-          elseif( !$aiPasswordTypes['notascii'] and $this->amCONFIG['password_charset_notascii']>0 )
-            array_push( $asPasswordErrors, $this->getText( 'error:password_charset_notascii_required' ) );
+        $aiPasswordTypes = $this->getPasswordTypes($sPassword_new);
+        if($this->amCONFIG['password_charset_notascii']) {
+          if($aiPasswordTypes['notascii'] and $this->amCONFIG['password_charset_notascii']<0)
+            array_push($asPasswordErrors, $this->getText('error:password_charset_notascii_forbidden'));
+          elseif(!$aiPasswordTypes['notascii'] and $this->amCONFIG['password_charset_notascii']>0)
+            array_push($asPasswordErrors, $this->getText('error:password_charset_notascii_required'));
         }
-        if( $this->amCONFIG['password_type_lower'] )
-        {
-          if( $aiPasswordTypes['lower'] and $this->amCONFIG['password_type_lower']<0 )
-            array_push( $asPasswordErrors, $this->getText( 'error:password_type_lower_forbidden' ) );
-          elseif( !$aiPasswordTypes['lower'] and $this->amCONFIG['password_type_lower']>0 )
-            array_push( $asPasswordErrors, $this->getText( 'error:password_type_lower_required' ) );
+        if($this->amCONFIG['password_type_lower']) {
+          if($aiPasswordTypes['lower'] and $this->amCONFIG['password_type_lower']<0)
+            array_push($asPasswordErrors, $this->getText('error:password_type_lower_forbidden'));
+          elseif(!$aiPasswordTypes['lower'] and $this->amCONFIG['password_type_lower']>0)
+            array_push($asPasswordErrors, $this->getText('error:password_type_lower_required'));
         }
-        if( $this->amCONFIG['password_type_upper'] )
-        {
-          if( $aiPasswordTypes['upper'] and $this->amCONFIG['password_type_upper']<0 )
-            array_push( $asPasswordErrors, $this->getText( 'error:password_type_upper_forbidden' ) );
-          elseif( !$aiPasswordTypes['upper'] and $this->amCONFIG['password_type_upper']>0 )
-            array_push( $asPasswordErrors, $this->getText( 'error:password_type_upper_required' ) );
+        if($this->amCONFIG['password_type_upper']) {
+          if($aiPasswordTypes['upper'] and $this->amCONFIG['password_type_upper']<0)
+            array_push($asPasswordErrors, $this->getText('error:password_type_upper_forbidden'));
+          elseif(!$aiPasswordTypes['upper'] and $this->amCONFIG['password_type_upper']>0)
+            array_push($asPasswordErrors, $this->getText('error:password_type_upper_required'));
         }
-        if( $this->amCONFIG['password_type_digit'] )
-        {
-          if( $aiPasswordTypes['digit'] and $this->amCONFIG['password_type_digit']<0 )
-            array_push( $asPasswordErrors, $this->getText( 'error:password_type_digit_forbidden' ) );
-          elseif( !$aiPasswordTypes['digit'] and $this->amCONFIG['password_type_digit']>0 )
-            array_push( $asPasswordErrors, $this->getText( 'error:password_type_digit_required' ) );
+        if($this->amCONFIG['password_type_digit']) {
+          if($aiPasswordTypes['digit'] and $this->amCONFIG['password_type_digit']<0)
+            array_push($asPasswordErrors, $this->getText('error:password_type_digit_forbidden'));
+          elseif(!$aiPasswordTypes['digit'] and $this->amCONFIG['password_type_digit']>0)
+            array_push($asPasswordErrors, $this->getText('error:password_type_digit_required'));
         }
-        if( $this->amCONFIG['password_type_punct'] )
-        {
-          if( $aiPasswordTypes['punct'] and $this->amCONFIG['password_type_punct']<0 )
-            array_push( $asPasswordErrors, $this->getText( 'error:password_type_punct_forbidden' ) );
-          elseif( !$aiPasswordTypes['punct'] and $this->amCONFIG['password_type_punct']>0 )
-            array_push( $asPasswordErrors, $this->getText( 'error:password_type_punct_required' ) );
+        if($this->amCONFIG['password_type_punct']) {
+          if($aiPasswordTypes['punct'] and $this->amCONFIG['password_type_punct']<0)
+            array_push($asPasswordErrors, $this->getText('error:password_type_punct_forbidden'));
+          elseif(!$aiPasswordTypes['punct'] and $this->amCONFIG['password_type_punct']>0)
+            array_push($asPasswordErrors, $this->getText('error:password_type_punct_required'));
         }
-        if( $this->amCONFIG['password_type_other'] )
-        {
-          if( $aiPasswordTypes['other'] and $this->amCONFIG['password_type_other']<0 )
-            array_push( $asPasswordErrors, $this->getText( 'error:password_type_other_forbidden' ) );
-          elseif( !$aiPasswordTypes['other'] and $this->amCONFIG['password_type_other']>0 )
-            array_push( $asPasswordErrors, $this->getText( 'error:password_type_other_required' ) );
+        if($this->amCONFIG['password_type_other']) {
+          if($aiPasswordTypes['other'] and $this->amCONFIG['password_type_other']<0)
+            array_push($asPasswordErrors, $this->getText('error:password_type_other_forbidden'));
+          elseif(!$aiPasswordTypes['other'] and $this->amCONFIG['password_type_other']>0)
+            array_push($asPasswordErrors, $this->getText('error:password_type_other_required'));
         }
-        if( $this->amCONFIG['password_type_minimum'] )
-        {
-          if( $aiPasswordTypes['count'] < $this->amCONFIG['password_type_minimum'] )
-            array_push( $asPasswordErrors, $this->getText( 'error:password_type_minimum' ) );
+        if($this->amCONFIG['password_type_minimum']) {
+          if($aiPasswordTypes['count'] < $this->amCONFIG['password_type_minimum'])
+            array_push($asPasswordErrors, $this->getText('error:password_type_minimum'));
         }
-        if( count( $asPasswordErrors ) )
-        {
-          throw new Exception( implode( "\n", $asPasswordErrors ) );
+        if(count($asPasswordErrors)) {
+          throw new Exception(implode("\n", $asPasswordErrors));
         }
 
         // Write token
-        $this->writeToken( $sUsername, $sPassword_old, $sPassword_new );
+        $this->writeToken($sUsername, $sPassword_old, $sPassword_new);
 
         // Clear session (prevent replay of current session)
-        session_regenerate_id( true );
+        session_regenerate_id(true);
 
         // Redirect (prevent form resubmission)
         echo '<SCRIPT TYPE="text/javascript">document.location.replace(\'?view=confirm\')</SCRIPT>';
@@ -739,14 +681,13 @@ class UPwdChg
       }
 
     }
-    catch( Exception $e )
-    {
+    catch(Exception $e) {
       // Save the error message
       $sError = $e->getMessage();
     }
 
     // Save form data
-    $this->amFORMDATA = array_merge( array( 'VIEW' => $sView, 'ERROR' => $sError ), $amFormData );
+    $this->amFORMDATA = array_merge(array('VIEW' => $sView, 'ERROR' => $sError), $amFormData);
 
     // Done
     return $this->amFORMDATA['VIEW'];
@@ -757,8 +698,7 @@ class UPwdChg
    * @param string $sID Data (variable) ID
    * @return mixed Data (variable) value
    */
-  public function getFormData( $sID )
-  {
+  public function getFormData($sID) {
     return $this->amFORMDATA[ $sID ];
   }
 
@@ -767,24 +707,21 @@ class UPwdChg
    * @param string $sID Form ID
    * @return string Form's HTML code
    */
-  public function getFormHtml( $sID )
-  {
+  public function getFormHtml($sID) {
     // Build form
     $sHTML = '';
-    switch( $sID )
-    {
+    switch($sID) {
 
     case 'locale':
-      $sView = isset( $_GET['view'] ) ? $_GET['view'] : null;
+      $sView = isset($_GET['view']) ? $_GET['view'] : null;
       $sCurrentLocale = $this->getCurrentLocale();
-      $sHTML .= '<FORM METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].( $sView ? '?view='.$sView : null ).'">';
+      $sHTML .= '<FORM METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].($sView ? '?view='.$sView : null).'">';
       $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="locale" />';
       $sHTML .= '<TABLE CELLSPACING="0"><TR>';
-      $sHTML .= '<TD CLASS="label">'.htmlentities( $this->getText( 'label:language' ) ).':</TD>';
+      $sHTML .= '<TD CLASS="label">'.htmlentities($this->getText('label:language')).':</TD>';
       $sHTML .= '<TD CLASS="input"><SELECT NAME="locale" ONCHANGE="javascript:submit();" STYLE="WIDTH:50px;">';
-      foreach( $this->getSupportedLocales() as $sLocale )
-      {
-        $sHTML .= '<OPTION VALUE="'.$sLocale.'"'.( $sLocale == $sCurrentLocale ? ' SELECTED' : null ).'>'.$sLocale.'</OPTION>';
+      foreach($this->getSupportedLocales() as $sLocale) {
+        $sHTML .= '<OPTION VALUE="'.$sLocale.'"'.($sLocale == $sCurrentLocale ? ' SELECTED' : null).'>'.$sLocale.'</OPTION>';
       }
       $sHTML .= '</SELECT></TD>';
       $sHTML .= '</TR></TABLE>';
@@ -794,85 +731,85 @@ class UPwdChg
     case 'policy':
       $sCurrentLocale = $this->getCurrentLocale();
       $sHTML .= '<UL>';
-      if( $this->amCONFIG['password_length_minimum'] )
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'error:password_length_minimum' ) ).'</LI>';
-      if( $this->amCONFIG['password_length_maximum'] )
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'error:password_length_maximum' ) ).'</LI>';
-      if( $this->amCONFIG['password_charset_notascii']<0 )
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'error:password_charset_notascii_forbidden' ) ).'</LI>';
-      elseif( $this->amCONFIG['password_charset_notascii']>0 )
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'error:password_charset_notascii_required' ) ).'</LI>';
+      if($this->amCONFIG['password_length_minimum'])
+        $sHTML .= '<LI>'.htmlentities($this->getText('error:password_length_minimum')).'</LI>';
+      if($this->amCONFIG['password_length_maximum'])
+        $sHTML .= '<LI>'.htmlentities($this->getText('error:password_length_maximum')).'</LI>';
+      if($this->amCONFIG['password_charset_notascii']<0)
+        $sHTML .= '<LI>'.htmlentities($this->getText('error:password_charset_notascii_forbidden')).'</LI>';
+      elseif($this->amCONFIG['password_charset_notascii']>0)
+        $sHTML .= '<LI>'.htmlentities($this->getText('error:password_charset_notascii_required')).'</LI>';
       else
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'info:password_charset_notascii' ) ).'</LI>';
-      if( $this->amCONFIG['password_type_lower']<0 )
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'error:password_type_lower_forbidden' ) ).'</LI>';
-      elseif( $this->amCONFIG['password_type_lower']>0 )
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'error:password_type_lower_required' ) ).'</LI>';
+        $sHTML .= '<LI>'.htmlentities($this->getText('info:password_charset_notascii')).'</LI>';
+      if($this->amCONFIG['password_type_lower']<0)
+        $sHTML .= '<LI>'.htmlentities($this->getText('error:password_type_lower_forbidden')).'</LI>';
+      elseif($this->amCONFIG['password_type_lower']>0)
+        $sHTML .= '<LI>'.htmlentities($this->getText('error:password_type_lower_required')).'</LI>';
       else
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'info:password_type_lower' ) ).'</LI>';
-      if( $this->amCONFIG['password_type_upper']<0 )
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'error:password_type_upper_forbidden' ) ).'</LI>';
-      elseif( $this->amCONFIG['password_type_upper']>0 )
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'error:password_type_upper_required' ) ).'</LI>';
+        $sHTML .= '<LI>'.htmlentities($this->getText('info:password_type_lower')).'</LI>';
+      if($this->amCONFIG['password_type_upper']<0)
+        $sHTML .= '<LI>'.htmlentities($this->getText('error:password_type_upper_forbidden')).'</LI>';
+      elseif($this->amCONFIG['password_type_upper']>0)
+        $sHTML .= '<LI>'.htmlentities($this->getText('error:password_type_upper_required')).'</LI>';
       else
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'info:password_type_upper' ) ).'</LI>';
-      if( $this->amCONFIG['password_type_digit']<0 )
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'error:password_type_digit_forbidden' ) ).'</LI>';
-      elseif( $this->amCONFIG['password_type_digit']>0 )
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'error:password_type_digit_required' ) ).'</LI>';
+        $sHTML .= '<LI>'.htmlentities($this->getText('info:password_type_upper')).'</LI>';
+      if($this->amCONFIG['password_type_digit']<0)
+        $sHTML .= '<LI>'.htmlentities($this->getText('error:password_type_digit_forbidden')).'</LI>';
+      elseif($this->amCONFIG['password_type_digit']>0)
+        $sHTML .= '<LI>'.htmlentities($this->getText('error:password_type_digit_required')).'</LI>';
       else
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'info:password_type_digit' ) ).'</LI>';
-      if( $this->amCONFIG['password_type_punct']<0 )
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'error:password_type_punct_forbidden' ) ).'</LI>';
-      elseif( $this->amCONFIG['password_type_punct']>0 )
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'error:password_type_punct_required' ) ).'</LI>';
+        $sHTML .= '<LI>'.htmlentities($this->getText('info:password_type_digit')).'</LI>';
+      if($this->amCONFIG['password_type_punct']<0)
+        $sHTML .= '<LI>'.htmlentities($this->getText('error:password_type_punct_forbidden')).'</LI>';
+      elseif($this->amCONFIG['password_type_punct']>0)
+        $sHTML .= '<LI>'.htmlentities($this->getText('error:password_type_punct_required')).'</LI>';
       else
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'info:password_type_punct' ) ).'</LI>';
-      if( $this->amCONFIG['password_type_other']<0 )
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'error:password_type_other_forbidden' ) ).'</LI>';
-      elseif( $this->amCONFIG['password_type_other']>0 )
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'error:password_type_other_required' ) ).'</LI>';
+        $sHTML .= '<LI>'.htmlentities($this->getText('info:password_type_punct')).'</LI>';
+      if($this->amCONFIG['password_type_other']<0)
+        $sHTML .= '<LI>'.htmlentities($this->getText('error:password_type_other_forbidden')).'</LI>';
+      elseif($this->amCONFIG['password_type_other']>0)
+        $sHTML .= '<LI>'.htmlentities($this->getText('error:password_type_other_required')).'</LI>';
       else
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'info:password_type_other' ) ).'</LI>';
-      if( $this->amCONFIG['password_type_minimum'] )
-        $sHTML .= '<LI>'.htmlentities( $this->getText( 'error:password_type_minimum' ) ).'</LI>';
+        $sHTML .= '<LI>'.htmlentities($this->getText('info:password_type_other')).'</LI>';
+      if($this->amCONFIG['password_type_minimum'])
+        $sHTML .= '<LI>'.htmlentities($this->getText('error:password_type_minimum')).'</LI>';
       $sHTML .= '</UL>';
-      $sHTML .= '<P CLASS="link"><A HREF="?">'.htmlentities( $this->getText( 'label:password_policy_back' ) ).'</A></P>';
+      $sHTML .= '<P CLASS="link"><A HREF="?">'.htmlentities($this->getText('label:password_policy_back')).'</A></P>';
       break;
 
     case 'credentials':
-      $bFormUsername = ( $this->amCONFIG['authentication_method'] == 'none' );
-      $bFormPassword_old = ( $this->amCONFIG['authentication_method'] == 'none'
-                              or $this->amCONFIG['credentials_check_method'] != 'none' );
+      $bFormUsername = ($this->amCONFIG['authentication_method'] == 'none');
+      $bFormPassword_old = ($this->amCONFIG['authentication_method'] == 'none'
+                            or $this->amCONFIG['credentials_check_method'] != 'none');
       $sHTML .= '<FORM METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'">';
       $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="credentials" />';
       $sHTML .= '<INPUT TYPE="password" NAME="autocomplete_off" STYLE="DISPLAY:none;" />';
-      if( !$bFormPassword_old )
+      if(!$bFormPassword_old)
         $sHTML .= '<INPUT TYPE="hidden" NAME="password_old" />';
       $sHTML .= '<TABLE CELLSPACING="0">';
       $iTabIndex = 1;
 
       // ... username
-      if( $bFormUsername )
-        $sHTML .= '<TR><TD CLASS="label">'.htmlentities( $this->getText( 'label:username' ) ).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="text" NAME="username" TABINDEX="'.$iTabIndex++.'" VALUE="'.htmlentities( $this->getFormData( 'username' ) ).'" /></SPAN></TD></TR>';
+      if($bFormUsername)
+        $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:username')).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="text" NAME="username" TABINDEX="'.$iTabIndex++.'" VALUE="'.htmlentities($this->getFormData('username')).'" /></SPAN></TD></TR>';
       else
-        $sHTML .= '<TR><TD CLASS="label">'.htmlentities( $this->getText( 'label:username' ) ).':</TD><TD CLASS="input"><SPAN CLASS="readon  ly"><INPUT TYPE="text" NAME="username" VALUE="'.htmlentities( $this->getFormData( 'username' ) ).'" READONLY="1" /></SPAN></TD></TR>';
+        $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:username')).':</TD><TD CLASS="input"><SPAN CLASS="readon  ly"><INPUT TYPE="text" NAME="username" VALUE="'.htmlentities($this->getFormData('username')).'" READONLY="1" /></SPAN></TD></TR>';
 
       // Note: we do not enforce password maximum length during input,
       // for it would be confusing given the obfuscated data.
 
       // ... password (old)
-      if( $bFormPassword_old )
-        $sHTML .= '<TR><TD CLASS="label">'.htmlentities( $this->getText( 'label:password_old' ) ).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="password" NAME="password_old" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
+      if($bFormPassword_old)
+        $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:password_old')).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="password" NAME="password_old" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
       // ... password (new)
-      $sHTML .= '<TR><TD CLASS="label">'.htmlentities( $this->getText( 'label:password_new' ) ).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="password" NAME="password_new" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
+      $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:password_new')).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="password" NAME="password_new" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
       // ... password (confirm)
-      $sHTML .= '<TR><TD CLASS="label">'.htmlentities( $this->getText( 'label:password_confirm' ) ).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="password" NAME="password_confirm" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
+      $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:password_confirm')).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="password" NAME="password_confirm" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
       // ... password (policy)
-      $sHTML .= '<TR><TD CLASS="label">&nbsp;</TD><TD CLASS="link"><A HREF="?view=policy">'.htmlentities( $this->getText( 'label:password_policy' ) ).'</A></TD></TR>';
+      $sHTML .= '<TR><TD CLASS="label">&nbsp;</TD><TD CLASS="link"><A HREF="?view=policy">'.htmlentities($this->getText('label:password_policy')).'</A></TD></TR>';
 
       // ... submit
-      $sHTML .= '<TR><TD CLASS="button" COLSPAN="2"><BUTTON TYPE="submit" TABINDEX="'.$iTabIndex.'">'.htmlentities( $this->getText( 'label:submit' ) ).'</BUTTON></TD></TR>';
+      $sHTML .= '<TR><TD CLASS="button" COLSPAN="2"><BUTTON TYPE="submit" TABINDEX="'.$iTabIndex.'">'.htmlentities($this->getText('label:submit')).'</BUTTON></TD></TR>';
       $sHTML .= '</TABLE>';
       $sHTML .= '</FORM>';
       break;
@@ -887,13 +824,12 @@ class UPwdChg
    *
    *  Clear the current session and regenerate a new session ID.
    */
-  private function resetSession()
-  {
+  private function resetSession() {
     // Save session locale and login URL
     $sLocale = $this->getCurrentLocale();
 
     // Clear session and start a new one.
-    session_regenerate_id( true );
+    session_regenerate_id(true);
 
     // Restore session locale and login URL
     $_SESSION['UPwdChg_Locale'] = $sLocale;
@@ -910,74 +846,67 @@ class UPwdChg
    * @param string $sPassword_old Old password
    * @param string $sPassword_new New password
    */
-  private function writeToken( $sUsername, $sPassword_old, $sPassword_new )
-  {
+  private function writeToken($sUsername, $sPassword_old, $sPassword_new) {
     $iNow = time();
 
     // Random material
-    $sCipherKey = mcrypt_create_iv( UPwdChg::CIPHER_KEY_LENGTH, $this->amCONFIG['random_source'] );
-    $sCipherIv = mcrypt_create_iv( UPwdChg::CIPHER_IV_LENGTH, $this->amCONFIG['random_source'] );
+    $sCipherKey = mcrypt_create_iv(UPwdChg::CIPHER_KEY_LENGTH, $this->amCONFIG['random_source']);
+    $sCipherIv = mcrypt_create_iv(UPwdChg::CIPHER_IV_LENGTH, $this->amCONFIG['random_source']);
     $sCipherKeyIv = $sCipherKey.$sCipherIv;
 
     // Load the RSA public key
-    $sPublicKey = file_get_contents( $this->amCONFIG['public_key_file'] );
-    if( $sPublicKey === false )
-    {
-      trigger_error( '['.__METHOD__.'] Failed to load RSA public key', E_USER_WARNING );
-      throw new Exception( $this->getText( 'error:internal_error' ) );
+    $sPublicKey = file_get_contents($this->amCONFIG['public_key_file']);
+    if($sPublicKey === false) {
+      trigger_error('['.__METHOD__.'] Failed to load RSA public key', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
     }
-    $mPublicKey = openssl_pkey_get_public( $sPublicKey );
-    if( $mPublicKey === false )
-    {
-      trigger_error( '['.__METHOD__.'] Invalid RSA public key', E_USER_WARNING );
-      throw new Exception( $this->getText( 'error:internal_error' ) );
+    $mPublicKey = openssl_pkey_get_public($sPublicKey);
+    if($mPublicKey === false) {
+      trigger_error('['.__METHOD__.'] Invalid RSA public key', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
     }
 
     // Encrypt the (symmetric) data key and initialization vector (IV)
-    if( openssl_public_encrypt( $sCipherKeyIv, $sCipherKeyIvEncrypted, $sPublicKey, OPENSSL_PKCS1_OAEP_PADDING ) === false )
-    {
-      trigger_error( '['.__METHOD__.'] Failed to encrypt data key/IV', E_USER_WARNING );
-      throw new Exception( $this->getText( 'error:internal_error' ) );
+    if(openssl_public_encrypt($sCipherKeyIv, $sCipherKeyIvEncrypted, $sPublicKey, OPENSSL_PKCS1_OAEP_PADDING) === false) {
+      trigger_error('['.__METHOD__.'] Failed to encrypt data key/IV', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
     }
 
     // Data
-    $asData = array( 'timestamp' => gmstrftime( '%Y-%m-%dT%H:%M:%SZ', $iNow ),
-                     'username' => $sUsername,
-                     'password-old' => $sPassword_old,
-                     'password-new' => $sPassword_new );
-    $sData = implode( "\n", $asData );
+    $asData = array('timestamp' => gmstrftime('%Y-%m-%dT%H:%M:%SZ', $iNow),
+                    'username' => $sUsername,
+                    'password-old' => $sPassword_old,
+                    'password-new' => $sPassword_new);
+    $sData = implode("\n", $asData);
     # ... digest
-    $sDataDigest = openssl_digest( $sData, UPwdChg::DIGEST_ALGO, true );
-    if( $sDataDigest === false )
-    {
-      trigger_error( '['.__METHOD__.'] Failed to compute data digest', E_USER_WARNING );
-      throw new Exception( $this->getText( 'error:internal_error' ) );
+    $sDataDigest = openssl_digest($sData, UPwdChg::DIGEST_ALGO, true);
+    if($sDataDigest === false) {
+      trigger_error('['.__METHOD__.'] Failed to compute data digest', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
     }
-    $sData = base64_encode( $sDataDigest )."\n".$sData;
+    $sData = base64_encode($sDataDigest)."\n".$sData;
 
     // Encrypt the data
-    $sDataEncrypted = openssl_encrypt( $sData, UPwdChg::CIPHER_ALGO, $sCipherKey, true, $sCipherIv );
-    if( $sDataEncrypted === false )
-    {
-      trigger_error( '['.__METHOD__.'] Failed to encrypt data', E_USER_WARNING );
-      throw new Exception( $this->getText( 'error:internal_error' ) );
+    $sDataEncrypted = openssl_encrypt($sData, UPwdChg::CIPHER_ALGO, $sCipherKey, true, $sCipherIv);
+    if($sDataEncrypted === false) {
+      trigger_error('['.__METHOD__.'] Failed to encrypt data', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
     }
 
     // Write the token
-    $asToken = array( 'format' => '# UNIVERSAL PASSWORD CHANGER TOKEN, V1.0',
-                      'key' => base64_encode( $sCipherKeyIvEncrypted ),
-                      'data' => base64_encode( $sDataEncrypted ) );
-    $sToken = implode( "\n", $asToken );
-    $sFileToken = $this->amCONFIG['tokens_directory'].DIRECTORY_SEPARATOR.gmstrftime( '%Y%m%d%H%M%S-', $iNow ).sha1( $sUsername ).'.token';
+    $asToken = array('format' => '# UNIVERSAL PASSWORD CHANGER TOKEN, V1.0',
+                     'key' => base64_encode($sCipherKeyIvEncrypted),
+                     'data' => base64_encode($sDataEncrypted));
+    $sToken = implode("\n", $asToken);
+    $sFileToken = $this->amCONFIG['tokens_directory'].DIRECTORY_SEPARATOR.gmstrftime('%Y%m%d%H%M%S-', $iNow).sha1($sUsername).'.token';
     $iUMask_old = umask();
-    umask( 0137 );
-    if( file_put_contents( $sFileToken, $sToken ) != strlen( $sToken ) )
-    {
-      umask( $iUMask_old );
-      trigger_error( '['.__METHOD__.'] Failed to write token to file', E_USER_WARNING );
-      throw new Exception( $this->getText( 'error:internal_error' ) );
+    umask(0137);
+    if(file_put_contents($sFileToken, $sToken) != strlen($sToken)) {
+      umask($iUMask_old);
+      trigger_error('['.__METHOD__.'] Failed to write token to file', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
     }
-    umask( $iUMask_old );
+    umask($iUMask_old);
   }
 
 }
