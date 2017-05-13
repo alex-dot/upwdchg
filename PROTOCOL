@@ -93,9 +93,9 @@ In details:
     digest = HASH( data )
     key = RANDOM()
     iv = RANDOM()
-    key-encrypted = PUBLIC_ENCRYPT( key, public-key )
+    key+iv-encrypted = PUBLIC_ENCRYPT( { key, iv }, public-key )
     data-encrypted = SYMMETRIC_ENCRYPT( { data, digest }, key, iv )
-    token = { key-encrypted, iv, data-encrypted }
+    token = { key+iv-encrypted, data-encrypted }
     token-file = timestamp + HASH( username )
     WRITE( token-file, token )
 
@@ -117,8 +117,8 @@ In details:
 * [MUST] BACKEND decrypts the token:
 
   PSEUDO CODE:
-    { key-encrypted, iv, data-encrypted } = token = READ( token-file )
-    key = PRIVATE_DECRYPT( key-encrypted, private-key )
+    { key+iv-encrypted, data-encrypted } = token = READ( token-file )
+    { key, iv } = PRIVATE_DECRYPT( key+iv-encrypted, private-key )
     { data, digest } = SYMMETRIC_DECRYPT( data-encrypted, key, iv )
     HASH( data ) == digest ?
     { timestamp, username, password-old, password-new } = data
