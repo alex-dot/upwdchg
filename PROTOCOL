@@ -129,3 +129,19 @@ In details:
     - new password according to password policy
 
 * [MUST] BACKEND performs the actual password change
+
+
+Forward Secrecy
+---------------
+
+The exchange taking place between the BACKEND and the FRONTEND being asynchro-
+nous and connection-less, it is not possible to guarantee its forward secrecy,
+e.g. thanks to the Diffie-Hellman type of algorithms.
+
+Currently, only RSA asymmetric cryptography is supported, with plans to add
+ECDSA (when supported by underlying dependencies).
+
+This means that if an attacker gets hold:
+- of "password change" tokens (temporarily stored on both BACKEND and FRONTEND)
+- of the RSA private key (stored on the BACKEND)
+He can decrypt any past tokens and access the corresponding credentials.
