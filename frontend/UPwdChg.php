@@ -657,7 +657,7 @@ class UPwdChg
     $sData = implode("\n", $asData);
 
     // Digest
-    $sDataDigest = openssl_digest($sData, UPwdChg::DIGEST_ALGO, true);
+    $sDataDigest = hash(UPwdChg::DIGEST_ALGO, $sData, true);
     if($sDataDigest === false) {
       trigger_error('['.__METHOD__.'] Failed to compute data digest', E_USER_WARNING);
       throw new Exception($this->getText('error:internal_error'));
