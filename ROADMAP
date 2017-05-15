@@ -6,5 +6,25 @@ TODO
 
 The following features are already in the pipe for short-/mid-term development:
 
-  (empty list)
+* Allow use of ECDSA cryptography
+
+  NOTE:
+  - as of PHP 7.0 (Debian/Stretch):
+    "key type not supported in this PHP build!"
+  - as of Python M2Crypto 0.24.0 (Debian/Stretch):
+    only RSA asymmetric cryptography supported (as per source code)
+
+  README.keys (addendum):
+
+  ECDSA private/public keys
+  -------------------------
+
+  Start by picking a curve (see http://safecurves.cr.yp.to/ for help):
+
+    $ openssl ecparam -list openssl ecparam -list_curves
+
+  To generated the required private/public keys/files, in PEM format:
+
+    $ touch private.pem && chmod go= private.pem && openssl ecparam -name brainpoolP384t1 -genkey -noout -out private.pem
+    $ openssl ec -in private.pem -out public.pem -outform PEM -pubout
 
