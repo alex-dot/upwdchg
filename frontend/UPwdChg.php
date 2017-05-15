@@ -616,7 +616,7 @@ class UPwdChg
   {
     // Associative array
     return array(
-      'timestamp' => gmstrftime('%Y-%m-%dT%H:%M:%SZ', $iNow),
+      'timestamp' => gmdate('Y-m-d\TH:i:s\Z', $iNow),
       'username' => $sUsername,
       'password-old' => $sPassword_old,
       'password-new' => $sPassword_new,
@@ -686,7 +686,7 @@ class UPwdChg
   private function writeToken($iNow, $sToken)
   {
     // Write the token to storage
-    $sFile = $this->amCONFIG['tokens_directory'].DIRECTORY_SEPARATOR.gmstrftime('%Y%m%dT%H%M%SZ-', $iNow).bin2hex(openssl_random_pseudo_bytes(8)).'.token';
+    $sFile = $this->amCONFIG['tokens_directory'].DIRECTORY_SEPARATOR.gmdate('Ymd\THis\Z-', $iNow).bin2hex(openssl_random_pseudo_bytes(8)).'.token';
     $iUMask_old = umask();
     umask(0137);
     if(file_put_contents($sFile, $sToken) != strlen($sToken)) {
