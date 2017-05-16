@@ -56,7 +56,7 @@ $_CONFIG['tokens_directory'] = '/var/lib/upwdchg/tokens.d';
 
 # Non-ASCII character requirement.
 # -1 = forbid; 1 = require; 0 = ignore
-#$_CONFIG['password_charset_nonascii'] = -1; // integer
+#$_CONFIG['password_charset_notascii'] = -1; // integer
 
 # Lowercase character requirement.
 # -1 = forbid; 1 = require; 0 = ignore
