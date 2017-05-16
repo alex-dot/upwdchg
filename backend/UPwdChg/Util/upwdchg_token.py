@@ -51,11 +51,11 @@ class Token:
     # METHODS
     #------------------------------------------------------------------------------
 
-    def write(self, _sFileToken, _sFilePublicKey, _sFileRandom,
+    def writeToken_PasswordChange(self, _sFileToken, _sFilePublicKey, _sFileRandom,
         _sUsername = None, _sPasswordNew = None, _sPasswordOld = None, _bPasswordOldPrompt = False,
         _sEncoding = None):
         """
-        Write token; returns a non-zero exit code in case of failure.
+        Write a 'password-change' token; returns a non-zero exit code in case of failure.
         """
 
         # Token data
@@ -89,8 +89,8 @@ class Token:
         oToken = TokenWriter()
         if _sEncoding:
             oToken.setEncoding(_sEncoding)
-        oToken.setData(sUsername, sPasswordOld, sPasswordNew)
-        iReturn = oToken.write(_sFileToken, _sFilePublicKey, _sFileRandom)
+        oToken.setData_PasswordChange(sUsername, sPasswordOld, sPasswordNew)
+        iReturn = oToken.writeToken(_sFileToken, _sFilePublicKey, _sFileRandom)
         if iReturn:
             return iReturn
 
@@ -98,7 +98,7 @@ class Token:
         return 0
 
 
-    def read(self, _sFileToken, _sFilePrivateKey, _bPasswordShow = False, _sEncoding = None):
+    def readToken(self, _sFileToken, _sFilePrivateKey, _bPasswordShow = False, _sEncoding = None):
         """
         Read token; returns a non-zero exit code in case of failure.
         """
@@ -107,16 +107,14 @@ class Token:
         oToken = TokenReader()
         if _sEncoding:
             oToken.setEncoding(_sEncoding)
-        iReturn = oToken.read(_sFileToken, _sFilePrivateKey)
+        iReturn = oToken.readToken(_sFileToken, _sFilePrivateKey)
         if iReturn:
             return iReturn
         dToken = oToken.getData()
-        if _bPasswordShow:
-            lFields = ('timestamp', 'username', 'password-old', 'password-new')
-        else:
-            lFields = ('timestamp', 'username')
-        for sField in lFields:
-            sys.stdout.write('%s\n' % dToken[ sField ])
+        for sField in sorted(dToken.keys()):
+            if not _bPasswordShow and sField in ('password-old', 'password-new'):
+                continue
+            sys.stdout.write('%s: %s\n' % (sField, dToken[ sField ]))
 
         # Done
         return 0
@@ -271,7 +269,7 @@ class TokenMain(Token):
 
         # ... write
         if self.__oArguments.write:
-            iReturn = self.write(
+            iReturn = self.writeToken_PasswordChange(
                 self.__oArguments.token,
                 self.__oArguments.key_public,
                 self.__oArguments.random,
@@ -288,7 +286,7 @@ class TokenMain(Token):
         # ... read
         if not self.__oArguments.write \
             or (self.__oArguments.read and self.__oArguments.token):
-            iReturn = self.read(
+            iReturn = self.readToken(
                 self.__oArguments.token,
                 self.__oArguments.key_private,
                 self.__oArguments.password_show,

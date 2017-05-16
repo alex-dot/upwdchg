@@ -616,6 +616,7 @@ class UPwdChg
   {
     // Associative array
     return array(
+      'type' => 'password-change',
       'timestamp' => gmdate('Y-m-d\TH:i:s\Z', $iNow),
       'username' => $sUsername,
       'password-old' => $sPassword_old,
@@ -630,7 +631,24 @@ class UPwdChg
    */
   private function encryptToken($asData)
   {
-    // Load the RSA public key
+    // Compute the data digest
+    $asData_digest = $asData; ksort($asData_digest);
+    $sDataDigest = hash(UPwdChg::DIGEST_ALGO, mb_convert_encoding(implode('|', $asData_digest), 'utf-8'), true);
+    if($sDataDigest === false) {
+      trigger_error('['.__METHOD__.'] Failed to compute data digest', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    $asData['digest'] = array(
+      'algorithm' => UPwdChg::DIGEST_ALGO,
+      'base64' => base64_encode($sDataDigest),
+    );
+
+    // Encode the data (JSON)
+    $sData = json_encode($asData, JSON_PRETTY_PRINT);
+
+    // Encrypt the (symmetric) data key
+    $sDataKey = mcrypt_create_iv(UPwdChg::CIPHER_KEY_LENGTH, $this->amCONFIG['random_source']);
+    // ... load the RSA public key
     $sPublicKey = file_get_contents($this->amCONFIG['public_key_file']);
     if($sPublicKey === false) {
       trigger_error('['.__METHOD__.'] Failed to load RSA public key', E_USER_WARNING);
@@ -641,41 +659,42 @@ class UPwdChg
       trigger_error('['.__METHOD__.'] Invalid RSA public key', E_USER_WARNING);
       throw new Exception($this->getText('error:internal_error'));
     }
-
-    // Random material
-    $sCipherKey = mcrypt_create_iv(UPwdChg::CIPHER_KEY_LENGTH, $this->amCONFIG['random_source']);
-    $sCipherIv = mcrypt_create_iv(UPwdChg::CIPHER_IV_LENGTH, $this->amCONFIG['random_source']);
-    $sCipherKeyIv = $sCipherKey.$sCipherIv;
-
-    // Encrypt the symmetric key and initialization vector (IV)
-    if(openssl_public_encrypt($sCipherKeyIv, $sCipherKeyIvEncrypted, $mPublicKey, OPENSSL_PKCS1_OAEP_PADDING) === false) {
-      trigger_error('['.__METHOD__.'] Failed to encrypt symmetric key/IV', E_USER_WARNING);
+    // ... encrypt the data key using the RSA public key
+    if(openssl_public_encrypt($sDataKey, $sDataKeyEncrypted, $mPublicKey, OPENSSL_PKCS1_OAEP_PADDING) === false) {
+      trigger_error('['.__METHOD__.'] Failed to encrypt data key', E_USER_WARNING);
       throw new Exception($this->getText('error:internal_error'));
     }
 
-    // Data
-    $sData = implode("\n", $asData);
-
-    // Digest
-    $sDataDigest = hash(UPwdChg::DIGEST_ALGO, $sData, true);
-    if($sDataDigest === false) {
-      trigger_error('['.__METHOD__.'] Failed to compute data digest', E_USER_WARNING);
-      throw new Exception($this->getText('error:internal_error'));
-    }
-    $sData = base64_encode($sDataDigest)."\n".$sData;
-
-    // Encrypt
-    $sDataEncrypted = openssl_encrypt($sData, UPwdChg::CIPHER_ALGO, $sCipherKey, true, $sCipherIv);
+    // Encrypt the data
+    $sDataIv = mcrypt_create_iv(UPwdChg::CIPHER_IV_LENGTH, $this->amCONFIG['random_source']);
+    $sDataEncrypted = openssl_encrypt($sData, UPwdChg::CIPHER_ALGO, $sDataKey, true, $sDataIv);
     if($sDataEncrypted === false) {
       trigger_error('['.__METHOD__.'] Failed to encrypt data', E_USER_WARNING);
       throw new Exception($this->getText('error:internal_error'));
     }
 
-    // Token
-    $asToken = array('format' => '# UNIVERSAL PASSWORD CHANGER TOKEN, V1.0',
-                     'key' => base64_encode($sCipherKeyIvEncrypted),
-                     'data' => base64_encode($sDataEncrypted));
-    return implode("\n", $asToken);
+    // Encode the token (JSON)
+    return json_encode(
+      array(
+        'type' => 'application/x.upwdchg-token+json',
+        'data' => array(
+          'cipher' => array(
+            'algorithm' => UPwdChg::CIPHER_ALGO,
+            'iv' => array(
+              'base64' => base64_encode($sDataIv),
+            ),
+            'key' => array(
+              'cipher' => array(
+                'algorithm' => 'public',
+              ),
+              'base64' => base64_encode($sDataKeyEncrypted),
+            ),
+          ),
+          'base64' => base64_encode($sDataEncrypted),
+        ),
+      ),
+      JSON_PRETTY_PRINT
+    );
   }
 
   /** Write the given token to file

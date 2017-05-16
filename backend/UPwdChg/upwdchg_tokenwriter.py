@@ -27,6 +27,7 @@ from UPwdChg import \
     UPWDCHG_CIPHER_IV_LENGTH, \
     UPWDCHG_DIGEST_ALGO
 import base64 as B64
+import json as JSON
 import M2Crypto as M2C
 import os
 import sys
@@ -69,7 +70,7 @@ class TokenWriter(TokenData):
     # Data
     #
 
-    def write(self, _sFileToken, _sFilePublicKey, _sFileRandom):
+    def writeToken(self, _sFileToken, _sFilePublicKey, _sFileRandom):
         """
         Builds, encrypts and writes a UPwdChg token; returns a non-zero exit code in case of failure.
         """
@@ -77,60 +78,78 @@ class TokenWriter(TokenData):
         # Initialization
         self.error = 0
 
-        # Random material
-        try:
-            M2C.Rand.load_file(_sFileRandom, UPWDCHG_CIPHER_KEY_LENGTH+UPWDCHG_CIPHER_IV_LENGTH)
-        except Exception as e:
-            self.__ERROR('Failed to seed random number generator; %s' % str(e), 1001)
-            return self.error
-        sCipherKey = M2C.Rand.rand_bytes(UPWDCHG_CIPHER_KEY_LENGTH,);
-        sCipherIv = M2C.Rand.rand_bytes(UPWDCHG_CIPHER_IV_LENGTH,);
-
-        # Load the RSA public key
-        try:
-            oPublicKey = M2C.RSA.load_pub_key(_sFilePublicKey)
-        except Exception as e:
-            self.__ERROR('Failed to load RSA public key; %s' % str(e), 1011)
-            return self.error
-
-        # Encrypt the (symmetric) data key and initialization vector (IV)
-        try:
-            sCipherKeyIvEncrypted = oPublicKey.public_encrypt(sCipherKey+sCipherIv, M2C.RSA.pkcs1_oaep_padding)
-        except Exception as e:
-            self.__ERROR('Failed to encrypt data key/IV; %s' % str(e), 1021)
-            return self.error
-
-        # Data
-        sData = '\n'.join(map(lambda _u:_u.encode('utf-8'), [ self._uTimestamp, self._uUsername, self._uPasswordOld, self._uPasswordNew ]))
+        # Compute the data digest
         try:
             oMessageDigest = M2C.EVP.MessageDigest(algo=UPWDCHG_DIGEST_ALGO)
+            if oMessageDigest.update('|'.join([v for k,v in sorted(self._dData.items())]).encode('utf-8')) != 1:
+                raise Exception('failed to compute digest')
+            sDataDigest = oMessageDigest.final()
         except Exception as e:
-            self.__ERROR('Failed to initialize data digest; %s' % str(e), 1031)
+            self.__ERROR('Failed to compute data digest; %s' % str(e), 1001)
             return self.error
-        if oMessageDigest.update(sData) != 1:
-            self.__ERROR('Failed to compute data digest', 1032)
-            return self.error
-        sDataDigest = oMessageDigest.final()
-        sData = B64.b64encode(sDataDigest)+'\n'+sData
 
+        # Encode the data (JSON)
+        try:
+            dData_digest = self._dData
+            dData_digest['digest'] = { \
+                'algorithm': UPWDCHG_DIGEST_ALGO, \
+                'base64': B64.b64encode(sDataDigest), \
+            }
+            sData = JSON.dumps(dData_digest, indent=4)
+        except Exception as e:
+            self.__ERROR('Failed to encode data; %s' % str(e), 1011)
+            return self.error
+
+        # Encrypt the (symmetric) data key
+        try:
+            M2C.Rand.load_file(_sFileRandom, UPWDCHG_CIPHER_KEY_LENGTH+UPWDCHG_CIPHER_IV_LENGTH)
+            sDataKey = M2C.Rand.rand_bytes(UPWDCHG_CIPHER_KEY_LENGTH)
+            if self._dData['type'] in ('password-change'):
+                # ... load the RSA public key
+                oPublicKey = M2C.RSA.load_pub_key(_sFilePublicKey)
+                # ... encrypt the data key using the RSA public key
+                sDataKeyEncrypted = oPublicKey.public_encrypt(sDataKey, M2C.RSA.pkcs1_oaep_padding)
+            else:
+                raise Exception('unexpected token/data type; %s' % self._dData['type'])
+        except Exception as e:
+            self.__ERROR('Failed to encrypt data key; %s' % str(e), 1021)
+            return self.error
 
         # Encrypt the data
         try:
-            oCipher = M2C.EVP.Cipher(alg=UPWDCHG_CIPHER_ALGO, key=sCipherKey, iv=sCipherIv, op=M2C.encrypt)
+            sDataIv = M2C.Rand.rand_bytes(UPWDCHG_CIPHER_IV_LENGTH);
+            oDataCipher = M2C.EVP.Cipher(alg=UPWDCHG_CIPHER_ALGO, key=sDataKey, iv=sDataIv, op=M2C.encrypt)
+            sDataEncrypted = oDataCipher.update(sData)
+            sDataEncrypted += oDataCipher.final()
         except Exception as e:
-            self.__ERROR('Failed to initialize data encryption; %s' % str(e), 1041)
-            return self.error
-        try:
-            sDataEncrypted = oCipher.update(sData)
-            sDataEncrypted += oCipher.final()
-        except Exception as e:
-            self.__ERROR('Failed to encrypt data; %s' % str(e), 1042)
+            self.__ERROR('Failed to encrypt data; %s' % str(e), 1031)
             return self.error
 
-        # Write the token
-        sToken = '# UNIVERSAL PASSWORD CHANGER TOKEN, V1.0\n'
-        sToken += B64.b64encode(sCipherKeyIvEncrypted)+'\n'
-        sToken += B64.b64encode(sDataEncrypted)+'\n'
+        # Encode the token (JSON)
+        try:
+            sToken = JSON.dumps( { \
+                'type': 'application/x.upwdchg-token+json', \
+                'data': { \
+                    'cipher': { \
+                        'algorithm': UPWDCHG_CIPHER_ALGO.replace('_', '-'), \
+                        'iv': { \
+                            'base64': B64.b64encode(sDataIv), \
+                        }, \
+                        'key': { \
+                            'cipher': { \
+                                'algorithm': 'public', \
+                            }, \
+                            'base64': B64.b64encode(sDataKeyEncrypted), \
+                        }, \
+                    }, \
+                    'base64': B64.b64encode(sDataEncrypted), \
+                }, \
+            }, indent=4 )
+        except Exception as e:
+            self.__ERROR('Failed to encode token; %s' % str(e), 1041)
+            return self.error
+
+        # Write the token to file
         try:
             if _sFileToken == '-':
                 oFile = sys.stdout

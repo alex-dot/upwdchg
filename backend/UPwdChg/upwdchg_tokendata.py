@@ -19,6 +19,7 @@
 #
 
 # Modules
+import json as JSON
 from time import gmtime, strftime
 
 
@@ -38,10 +39,8 @@ class TokenData:
     def __init__(self):
         # Fields
         self.__sEncoding = 'utf-8'
-        self._uTimestamp = None
-        self._uUsername = None
-        self._uPasswordOld = None
-        self._uPasswordNew = None
+        self._dData = None
+        self._sData = None
 
 
     #------------------------------------------------------------------------------
@@ -56,38 +55,42 @@ class TokenData:
         self.__sEncoding = _sEncoding
 
 
-    def setData(self, _suUsername, _suPasswordOld, _suPasswordNew):
+    def setData_PasswordChange(self, _suUsername, _suPasswordOld, _suPasswordNew):
         """
         Sets the token data
         """
 
-        self._uTimestamp = unicode(strftime('%Y-%m-%dT%H:%M:%SZ', gmtime()), self.__sEncoding)
-        if isinstance(_suUsername, unicode):
-            self._uUsername = _suUsername
-        else:
-            self._uUsername = _suUsername.decode(self.__sEncoding)
-        if isinstance(_suPasswordOld, unicode):
-            self._uPasswordOld = _suPasswordOld
-        else:
-            self._uPasswordOld = _suPasswordOld.decode(self.__sEncoding)
-        if isinstance(_suPasswordNew, unicode):
-            self._uPasswordNew = _suPasswordNew
-        else:
-            self._uPasswordNew = _suPasswordNew.decode(self.__sEncoding)
+        self._dData = { \
+            'type': 'password-change', \
+            'timestamp': unicode(strftime('%Y-%m-%dT%H:%M:%SZ', gmtime()), self.__sEncoding), \
+            'username': _suUsername if isinstance(_suUsername, unicode) else _suUsername.decode(self.__sEncoding), \
+            'password-old': _suPasswordOld if isinstance(_suPasswordOld, unicode) else _suPasswordOld.decode(self.__sEncoding), \
+            'password-new': _suPasswordNew if isinstance(_suPasswordNew, unicode) else _suPasswordNew.decode(self.__sEncoding), \
+        }
+        self._sData = None
 
 
-    def getData(self):
+    def getData(self, _bAsJson=False):
         """
         Returns the token (unicode) data (dictionary), mapping:
+         'type': 'password-change'
          'timestamp': token creation timestamp
          'username': user name
          'password-old': old password
          'password-new': new password
+        Or the corresponding JSON (string), if specified
         """
 
-        return {
-            'timestamp' : self._uTimestamp,
-            'username' : self._uUsername,
-            'password-old' : self._uPasswordOld,
-            'password-new' : self._uPasswordNew,
-        }
+        if _bAsJson:
+            if self._sData is None:
+                self._sData = JSON.dumps(self._dData, indent=4)
+            return self._sData
+        return self._dData
+
+
+    def getType(self):
+        """
+        Returns the token type (string)
+        """
+
+        return self._dData['type']
