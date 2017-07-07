@@ -3,6 +3,7 @@
 *~
 semantic.cache
 
-# Ignore Python byte-compiled files
+# Ignore Python byte-compiled files (and related files)
+PYTHONDONTWRITEBYTECODE
 *.pyc
 
