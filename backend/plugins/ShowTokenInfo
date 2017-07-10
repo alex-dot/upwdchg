@@ -30,11 +30,10 @@ class ShowTokenInfo(TokenPlugin):
 
     def process(self):
         # Get token (data)
-        dToken = self._getToken()
+        oToken = self._getToken()
 
         # Done
-        self._EXIT_OK('Got a password request change for user %s (created at %s)' % (dToken['username'], dToken['timestamp']))
+        self._EXIT_OK('Got a "%s" token for user %s (created at %s)' % (oToken['type'], oToken['username'], oToken['timestamp']))
 
 # Process
 ShowTokenInfo().process()
-

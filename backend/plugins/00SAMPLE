@@ -53,12 +53,12 @@ class MyTokenPlugin(TokenPlugin):
 
     def process(self):
         # Get token (data)
-        dToken = self._getToken()
+        oToken = self._getToken()
 
         # Process token data
-        sys.stdout.write('Got a password request change for user "%s" at "%s"\n' % (dToken['username'], dToken['timestamp']))
+        sys.stdout.write('Got a password change request for user "%s" at "%s"\n' % (oToken['username'], oToken['timestamp']))
         sys.stdout.write('Available token fields are:\n')
-        for sKey in sorted(dToken.iterkeys()):
+        for sKey in sorted(oToken.keys()):
             sys.stdout.write(' - %s\n' % sKey)
 
         # Done

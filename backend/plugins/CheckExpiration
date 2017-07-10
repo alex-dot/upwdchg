@@ -25,36 +25,29 @@ from UPwdChg import TokenPlugin
 UPWDCHG_PLUGIN_CRITICAL=True
 UPWDCHG_PLUGIN_DEBUG=TokenPlugin.DEBUG_INFO
 
-# ... Time-to-Live (in seconds); int: 0/None=ignore
-UPWDCHG_PLUGIN_TIMESTAMP_TTL=3600
-
 # Plugin
-class CheckTimestamp(TokenPlugin):
+class CheckExpiration(TokenPlugin):
 
     def __init__(self):
         global UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG
-        TokenPlugin.__init__(self, 'CheckTimestamp', UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
+        TokenPlugin.__init__(self, 'CheckExpiration', UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
 
     def process(self):
-        global \
-            UPWDCHG_PLUGIN_TIMESTAMP_TTL
-
         # Get token (data)
         oToken = self._getToken()
 
-        # Check timestamp
+        # Check expiration
         try:
-            # ... TTL
-            if UPWDCHG_PLUGIN_TIMESTAMP_TTL and oToken.checkData_Timestamp(UPWDCHG_PLUGIN_TIMESTAMP_TTL) != 0:
-                self._DEBUG('Token is too old; %s (TTL: %d seconds)' % (oToken['timestamp'], UPWDCHG_PLUGIN_TIMESTAMP_TTL))
+            if oToken.checkData_Expiration() != 0:
+                self._DEBUG('Token has expired; %s' % oToken['expiration'])
                 self._EXIT_ERROR('Internal error; please contact your system administrator')
-            self._DEBUG('Valid timestamp', TokenPlugin.DEBUG_NOTICE)
+            self._DEBUG('Valid expiration', TokenPlugin.DEBUG_NOTICE)
         except Exception as e:
-            self._DEBUG('Failed to check token timestamp; %s' % str(e))
+            self._DEBUG('Failed to check token expiration; %s' % str(e))
             self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # Done
-        self._EXIT_OK('Valid creation date/time')
+        self._EXIT_OK('Valid expiration date/time')
 
 # Process
-CheckTimestamp().process()
+CheckExpiration().process()

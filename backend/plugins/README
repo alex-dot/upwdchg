@@ -11,6 +11,51 @@ Plugins examples can be found in:
 
   /usr/share/upwdchg/backend/plugins
 
-Files that are marked as executable (chmod a+x) will be considered as plugins.
+Actual plugins must be placed, in lexical order, in the directory matching the
+token *type* they have to process, typically:
+
+  /etc/upwdchg/backend/plugins/%{type}.d
+
+Only files that are marked as executable (chmod a+x) will be considered.
 Non-executable files - such as this README file - will be ignored.
 
+Password change or reset plugins hierarchy would typically look like:
+
+  /etc/upwdchg/backend/plugins/password-nonce-request.d/
+    00-ShowTokenInfo
+    01-CheckTimestamp
+    02-SendPasswordNonceLdap
+
+  /etc/upwdchg/backend/plugins/password-change.d/
+    00-ShowTokenInfo
+    01-CheckTimestamp
+    02-CheckCredentialsLdap
+    03-CheckPasswordChange
+    04-CheckPasswordPolicy
+    05-ChangePasswordLdap
+
+  /etc/upwdchg/backend/plugins/password-reset.d/
+    00-ShowTokenInfo
+    01-CheckTimestamp
+    02-CheckPasswordNonce
+    03-NukePasswordNonce
+    04-CheckPasswordChange
+    05-CheckPasswordPolicy
+    06-ChangePasswordLdap
+
+While two-factor password change plugins hierarchy would look like:
+
+  /etc/upwdchg/backend/plugins/password-nonce-request.d/
+    00-ShowTokenInfo
+    01-CheckTimestamp
+    02-SendPasswordNonceLdap
+
+  /etc/upwdchg/backend/plugins/password-change.d/
+    00-ShowTokenInfo
+    01-CheckTimestamp
+    02-CheckPasswordNonce
+    03-CheckCredentialsLdap
+    04-NukePasswordNonce
+    05-CheckPasswordChange
+    06-CheckPasswordPolicy
+    07-ChangePasswordLdap

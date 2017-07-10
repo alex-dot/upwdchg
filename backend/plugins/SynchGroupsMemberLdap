@@ -25,8 +25,8 @@ import ldap
 
 # Parameters
 UPWDCHG_PLUGIN_CRITICAL=True
-UPWDCHG_PLUGIN_DRYRUN=True
 UPWDCHG_PLUGIN_DEBUG=TokenPlugin.DEBUG_INFO
+UPWDCHG_PLUGIN_DRYRUN=True
 
 # ... (source) LDAP directory
 UPWDCHG_PLUGIN_LDAP_SRC_URI='ldap://ldap.example.org:389'
@@ -67,7 +67,7 @@ UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL=False
 class SynchGroupsMemberLdap(TokenPlugin):
 
     def __init__(self):
-        global UPWDCHG_PLUGIN_CRITICAL
+        global UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG
         TokenPlugin.__init__(self, 'SynchGroupsMemberLdap', UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
 
 
@@ -87,6 +87,15 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
         # Bind to server
 
+        # ... initialize connection
+        try:
+            oLdap = ldap.initialize(UPWDCHG_PLUGIN_LDAP_SRC_URI)
+            oLdap.protocol_version = ldap.VERSION3
+            self._DEBUG('Successfully initialized (source LDAP) connection', TokenPlugin.DEBUG_NOTICE)
+        except Exception as e:
+            self._DEBUG('Failed to initialize (source LDAP) connection; %s' % str(e))
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
+
         # ... bind credentials
         sBindDn = UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_DN
         if not UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD:
@@ -102,17 +111,15 @@ class SynchGroupsMemberLdap(TokenPlugin):
                 self._EXIT_ERROR('Internal error; please contact your system administrator')
         else:
             sBindPwd = UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD
-        self._DEBUG('Binding to server as (DN): %s' % sBindDn, TokenPlugin.DEBUG_TRACE)
+        self._DEBUG('Binding to server as: %s' % sBindDn, TokenPlugin.DEBUG_TRACE)
 
-        # ... bind
+        # ... bind to server
         try:
-            oLdap = ldap.initialize(UPWDCHG_PLUGIN_LDAP_SRC_URI)
-            oLdap.protocol_version = ldap.VERSION3
             oLdap.bind_s(sBindDn, sBindPwd, ldap.AUTH_SIMPLE)
+            self._DEBUG('Successfully bound to (source LDAP) server', TokenPlugin.DEBUG_NOTICE)
         except Exception as e:
             self._DEBUG('Failed to bind to (source LDAP) server; %s' % str(e))
             self._EXIT_ERROR('Internal error; please contact your system administrator')
-        self._DEBUG('Successfully bound to (source LDAP) server', TokenPlugin.DEBUG_NOTICE)
 
         # Done
         return oLdap
@@ -126,38 +133,30 @@ class SynchGroupsMemberLdap(TokenPlugin):
             UPWDCHG_PLUGIN_LDAP_SRC_USER_SEARCH_FILTER
 
         # Retrieve user DN
-        if not UPWDCHG_PLUGIN_LDAP_SRC_USER_DN:
-            try:
+        try:
+            if not UPWDCHG_PLUGIN_LDAP_SRC_USER_DN:
                 lLdapResults = oLdap.search_ext_s(
                     UPWDCHG_PLUGIN_LDAP_SRC_USER_SEARCH_DN,
                     UPWDCHG_PLUGIN_LDAP_SRC_USER_SEARCH_SCOPE,
                     UPWDCHG_PLUGIN_LDAP_SRC_USER_SEARCH_FILTER.replace('%{USERNAME}', sUsername),
                     attrlist=None, attrsonly=1, sizelimit=2
                     )
-                if not lLdapResults:
-                    raise Exception('user not found: %s' % sUsername)
-                elif len(lLdapResults) > 1:
-                    raise Exception('too many match: %s' % sUsername)
-            except Exception as e:
-                self._DEBUG('Failed to perform (destination LDAP) user search; %s' % str(e))
-                self._EXIT_ERROR('Internal error; please contact your system administrator')
-        else:
-            try:
+            else:
                 lLdapResults = oLdap.search_ext_s(
                     UPWDCHG_PLUGIN_LDAP_SRC_USER_DN.replace('%{USERNAME}', sUsername),
                     ldap.SCOPE_BASE,
                     '(objectClass=*)',
                     attrlist=None, attrsonly=1, sizelimit=2
                     )
-                if not lLdapResults:
-                    raise Exception('user not found: %s' % sUsername)
-                elif len(lLdapResults) > 1:
-                    raise Exception('too many match: %s' % sUsername)
-            except Exception as e:
-                self._DEBUG('Failed to perform (source LDAP) user search; %s' % str(e))
-                self._EXIT_ERROR('Internal error; please contact your system administrator')
-        sUserDn = lLdapResults[0][0]
-        self._DEBUG('Successfully got (source LDAP) user distinguished name (DN): %s' % sUserDn, TokenPlugin.DEBUG_TRACE)
+            if not lLdapResults:
+                raise Exception('user not found: %s' % sUsername)
+            elif len(lLdapResults) > 1:
+                raise Exception('too many match: %s' % sUsername)
+            sUserDn = lLdapResults[0][0]
+            self._DEBUG('Successfully retrieved (source LDAP) user: %s' % sUserDn, TokenPlugin.DEBUG_TRACE)
+        except Exception as e:
+            self._DEBUG('Failed to retrieve (source LDAP) user; %s' % str(e))
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # Done
         return sUserDn
@@ -190,10 +189,10 @@ class SynchGroupsMemberLdap(TokenPlugin):
                 )
             for tLdapResult in lLdapResults:
                 dGroups[ tLdapResult[1][UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME][0] ] = tLdapResult[0]
+            self._DEBUG('Successfully retrieved user groups from (source LDAP) server:\n%s' % str(dGroups), TokenPlugin.DEBUG_TRACE)
         except Exception as e:
-            self._DEBUG('Failed to perform (source LDAP) group search; %s' % str(e))
+            self._DEBUG('Failed to retrieve user groups from (source LDAP) server; %s' % str(e))
             self._EXIT_ERROR('Internal error; please contact your system administrator')
-        self._DEBUG('Successfully retrieved user groups from (source LDAP) server:\n%s' % str(dGroups), TokenPlugin.DEBUG_TRACE)
 
         # Done
         return dGroups
@@ -201,9 +200,10 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
     def __ldapSrcUnbind(self, oLdap):
 
-        # Unbind
+        # Unbind from server
         try:
             oLdap.unbind_s()
+            self._DEBUG('Succesfully unbound from (source LDAP) server', TokenPlugin.DEBUG_NOTICE)
         except Exception as e:
             self._DEBUG('Failed to unbind from (source LDAP) server; %s' % str(e))
 
@@ -224,6 +224,15 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
         # Bind to server
 
+        # ... initialize connection
+        try:
+            oLdap = ldap.initialize(UPWDCHG_PLUGIN_LDAP_DST_URI)
+            oLdap.protocol_version = ldap.VERSION3
+            self._DEBUG('Successfully initialized (destination LDAP) connection', TokenPlugin.DEBUG_NOTICE)
+        except Exception as e:
+            self._DEBUG('Failed to initialize (destination LDAP) connection; %s' % str(e))
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
+
         # ... bind credentials
         sBindDn = UPWDCHG_PLUGIN_LDAP_DST_ADMIN_DN
         if not UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD:
@@ -239,17 +248,15 @@ class SynchGroupsMemberLdap(TokenPlugin):
                 self._EXIT_ERROR('Internal error; please contact your system administrator')
         else:
             sBindPwd = UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD
-        self._DEBUG('Binding to (destination LDAP) server as (DN): %s' % sBindDn, TokenPlugin.DEBUG_TRACE)
+        self._DEBUG('Binding to (destination LDAP) server as: %s' % sBindDn, TokenPlugin.DEBUG_TRACE)
 
-        # ... bind
+        # ... bind to server
         try:
-            oLdap = ldap.initialize(UPWDCHG_PLUGIN_LDAP_DST_URI)
-            oLdap.protocol_version = ldap.VERSION3
             oLdap.bind_s(sBindDn, sBindPwd, ldap.AUTH_SIMPLE)
+            self._DEBUG('Successfully bound to (destination LDAP) server', TokenPlugin.DEBUG_NOTICE)
         except Exception as e:
             self._DEBUG('Failed to bind to (destination LDAP) server; %s' % str(e))
             self._EXIT_ERROR('Internal error; please contact your system administrator')
-        self._DEBUG('Successfully bound to (destination LDAP) server', TokenPlugin.DEBUG_NOTICE)
 
         # Done
         return oLdap
@@ -263,38 +270,30 @@ class SynchGroupsMemberLdap(TokenPlugin):
             UPWDCHG_PLUGIN_LDAP_DST_USER_SEARCH_FILTER
 
         # Retrieve user DN
-        if not UPWDCHG_PLUGIN_LDAP_DST_USER_DN:
-            try:
+        try:
+            if not UPWDCHG_PLUGIN_LDAP_DST_USER_DN:
                 lLdapResults = oLdap.search_ext_s(
                     UPWDCHG_PLUGIN_LDAP_DST_USER_SEARCH_DN,
                     UPWDCHG_PLUGIN_LDAP_DST_USER_SEARCH_SCOPE,
                     UPWDCHG_PLUGIN_LDAP_DST_USER_SEARCH_FILTER.replace('%{USERNAME}', sUsername),
                     attrlist=None, attrsonly=1, sizelimit=2
                     )
-                if not lLdapResults:
-                    raise Exception('user not found: %s' % sUsername)
-                elif len(lLdapResults) > 1:
-                    raise Exception('too many match: %s' % sUsername)
-            except Exception as e:
-                self._DEBUG('Failed to perform (destination LDAP) user search; %s' % str(e))
-                self._EXIT_ERROR('Internal error; please contact your system administrator')
-        else:
-            try:
+            else:
                 lLdapResults = oLdap.search_ext_s(
                     UPWDCHG_PLUGIN_LDAP_DST_USER_DN.replace('%{USERNAME}', sUsername),
                     ldap.SCOPE_BASE,
                     '(objectClass=*)',
                     attrlist=None, attrsonly=1, sizelimit=2
                     )
-                if not lLdapResults:
-                    raise Exception('user not found: %s' % sUsername)
-                elif len(lLdapResults) > 1:
-                    raise Exception('too many match: %s' % sUsername)
-            except Exception as e:
-                self._DEBUG('Failed to perform (destination LDAP) user search; %s' % str(e))
-                self._EXIT_ERROR('Internal error; please contact your system administrator')
-        sUserDn = lLdapResults[0][0]
-        self._DEBUG('Successfully got (destination LDAP) user distinguished name (DN): %s' % sUserDn, TokenPlugin.DEBUG_TRACE)
+            if not lLdapResults:
+                raise Exception('user not found: %s' % sUsername)
+            elif len(lLdapResults) > 1:
+                raise Exception('too many match: %s' % sUsername)
+            sUserDn = lLdapResults[0][0]
+            self._DEBUG('Successfully retrieved (destination LDAP) user: %s' % sUserDn, TokenPlugin.DEBUG_TRACE)
+        except Exception as e:
+            self._DEBUG('Failed to retrieve (destination LDAP) user; %s' % str(e))
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # Done
         return sUserDn
@@ -327,10 +326,11 @@ class SynchGroupsMemberLdap(TokenPlugin):
                 )
             for tLdapResult in lLdapResults:
                 dGroups[ tLdapResult[1][UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_NAME][0] ] = tLdapResult[0]
+            self._DEBUG('Successfully retrieved user groups from (destination LDAP) server', TokenPlugin.DEBUG_NOTICE)
+            self._DEBUG('> user groups:\n%s' % str(dGroups), TokenPlugin.DEBUG_TRACE)
         except Exception as e:
-            self._DEBUG('Failed to perform (destination LDAP) group search; %s' % str(e))
+            self._DEBUG('Failed to retrieve user groups from (destination LDAP) server; %s' % str(e))
             self._EXIT_ERROR('Internal error; please contact your system administrator')
-        self._DEBUG('Successfully retrieved user groups from (destination LDAP) server:\n%s' % str(dGroups), TokenPlugin.DEBUG_TRACE)
 
         # Done
         return dGroups
@@ -360,13 +360,14 @@ class SynchGroupsMemberLdap(TokenPlugin):
                 raise Exception('group not found: %s' % sGroupname)
             elif len(lLdapResults) > 1:
                 raise Exception('too many match: %s' % sGroupname)
+            sGroupDn = lLdapResults[0][0]
+            self._DEBUG('Successfully retrieved group from (destination LDAP) server: %s' % sGroupDN, TokenPlugin.DEBUG_NOTICE)
         except Exception as e:
-            self._DEBUG('Failed to perform (destination LDAP) group search; %s' % str(e))
+            self._DEBUG('Failed to retrieve group from (destination LDAP) server; %s' % str(e))
             if UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL:
                 self._EXIT_ERROR('Internal error; please contact your system administrator')
             else:
                 return
-        sGroupDn = lLdapResults[0][0]
 
         # ... add user to group
         sMembershipAttr = UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER
@@ -376,13 +377,13 @@ class SynchGroupsMemberLdap(TokenPlugin):
         try:
             lLDIF = [ (ldap.MOD_ADD, sMembershipAttr, sMembershipAttrValue) ]
             oLdap.modify_s(sGroupDn, lLDIF)
+            self._DEBUG('Successfully added (destination LDAP) group membership: %s' % sGroupDn, TokenPlugin.DEBUG_INFO)
         except Exception as e:
             self._DEBUG('Failed to add (destination LDAP) group membership; %s' % str(e))
             if UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL:
                 self._EXIT_ERROR('Internal error; please contact your system administrator')
             else:
                 return
-        self._DEBUG('Successfully added (destination LDAP) group membership (DN): %s' % sGroupDn, TokenPlugin.DEBUG_INFO)
 
 
     def __ldapDstRemoveUserFromGroup(self, oLdap, sGroupDn, sUsername, sUserDn):
@@ -400,20 +401,21 @@ class SynchGroupsMemberLdap(TokenPlugin):
         try:
             lLDIF = [ (ldap.MOD_DELETE, sMembershipAttr, sMembershipAttrValue) ]
             oLdap.modify_s(sGroupDn, lLDIF)
+            self._DEBUG('Successfully removed (destination LDAP) group membership: %s' % sGroupDn, TokenPlugin.DEBUG_INFO)
         except Exception as e:
             self._DEBUG('Failed to remove (destination LDAP) group membership; %s' % str(e))
             if UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL:
                 self._EXIT_ERROR('Internal error; please contact your system administrator')
             else:
                 return
-        self._DEBUG('Successfully removed (destination LDAP) group membership (DN): %s' % sGroupDn, TokenPlugin.DEBUG_INFO)
 
 
     def __ldapDstUnbind(self, oLdap):
 
-        # Unbind
+        # Unbind from server
         try:
             oLdap.unbind_s()
+            self._DEBUG('Succesfully unbound from (destination LDAP) server', TokenPlugin.DEBUG_NOTICE)
         except Exception as e:
             self._DEBUG('Failed to unbind from (destination LDAP) server; %s' % str(e))
 
