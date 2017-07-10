@@ -18,11 +18,25 @@
 # See the GNU General Public License for more details.
 #
 
+# Constants
 UPWDCHG_VERSION = 'devel'
+UPWDCHG_ENCODING = 'utf-8'
+UPWDCHG_DEFAULT_DIR_PRIVATE = '/var/lib/upwdchg/tokens/private.d'
+UPWDCHG_DEFAULT_FILE_KEY_PRIVATE = '/etc/upwdchg/private.pem'
+UPWDCHG_DEFAULT_DIR_PUBLIC = '/var/lib/upwdchg/tokens/public.d'
+UPWDCHG_DEFAULT_FILE_KEY_PUBLIC = '/etc/upwdchg/public.pem'
+UPWDCHG_DEFAULT_DIR_PLUGINS = '/etc/upwdchg/backend/plugins/%{type}.d'
+UPWDCHG_DEFAULT_FILE_RANDOM = '/dev/urandom'
+UPWDCHG_DEFAULT_ALLOWED_TYPES = 'password-change'
 UPWDCHG_CIPHER_ALGO = 'aes_256_cbc'
 UPWDCHG_CIPHER_KEY_LENGTH = 32
 UPWDCHG_CIPHER_IV_LENGTH = 16
 UPWDCHG_DIGEST_ALGO = 'sha256'
+UPWDCHG_PWHASH_METHOD = 'pbkdf2'
+UPWDCHG_PWHASH_ALGO = 'sha256'
+UPWDCHG_PWHASH_KEY_LENGTH = 32
+UPWDCHG_PWHASH_SALT_LENGTH = 32
+UPWDCHG_PWHASH_ITERATIONS = 10000
 
 # Dependencies
 from upwdchg_tokendata import TokenData

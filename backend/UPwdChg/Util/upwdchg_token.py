@@ -22,10 +22,14 @@
 # ... deb: python-argparse
 from UPwdChg import \
     UPWDCHG_VERSION, \
+    UPWDCHG_DEFAULT_FILE_KEY_PRIVATE, \
+    UPWDCHG_DEFAULT_FILE_KEY_PUBLIC, \
+    UPWDCHG_DEFAULT_FILE_RANDOM, \
     TokenReader, \
     TokenWriter
 import argparse as AP
 import getpass
+import json as JSON
 import os
 import sys
 
@@ -44,16 +48,99 @@ class Token:
     #------------------------------------------------------------------------------
 
     def __init__(self):
-        pass
+        # Fields
+        self._bDebug = False
+        self.config()
+
+    def config(self,
+        _sFileKeyPrivate = UPWDCHG_DEFAULT_FILE_KEY_PRIVATE,
+        _sFileKeyPublic = UPWDCHG_DEFAULT_FILE_KEY_PUBLIC,
+        _sFileRandom = UPWDCHG_DEFAULT_FILE_RANDOM,
+        _iPasswordNonceTtl = 300,
+        ):
+        self._sFileKeyPrivate = _sFileKeyPrivate
+        self._sFileKeyPublic = _sFileKeyPublic
+        self._sFileRandom = _sFileRandom
+        self._iPasswordNonceTtl = _iPasswordNonceTtl
 
 
     #------------------------------------------------------------------------------
     # METHODS
     #------------------------------------------------------------------------------
 
-    def writeToken_PasswordChange(self, _sFileToken, _sFilePublicKey, _sFileRandom,
-        _sUsername = None, _sPasswordNew = None, _sPasswordOld = None, _bPasswordOldPrompt = False,
-        _sEncoding = None):
+    def writeToken_PasswordNonceRequest(self,
+        _sFileToken,
+        _sUsername = None
+        ):
+        """
+        Write a 'password-nonce-request' token; returns a non-zero exit code in case of failure.
+        """
+
+        # Token data
+
+        # ... username
+        sUsername = _sUsername
+        while not sUsername:
+            sUsername = raw_input('Username: ')
+
+        # Write token
+        oToken = TokenWriter()
+        oToken.config(self._sFileKeyPrivate, self._sFileKeyPublic, self._sFileRandom)
+        oToken.setData_PasswordNonceRequest(sUsername)
+        iReturn = oToken.writeToken(_sFileToken)
+        return iReturn
+
+
+    def writeToken_PasswordNonce(self,
+        _sFileToken,
+        _sUsername = None,
+        _sPasswordNonce = None, _bPasswordNoncePrompt = False
+        ):
+        """
+        Write a 'password-nonce' token; returns a non-zero exit code in case of failure.
+        """
+
+        # Token data
+
+        # ... username
+        sUsername = _sUsername
+        while not sUsername:
+            sUsername = raw_input('Username: ')
+
+        # ... password (nonce)
+        sPasswordNonce = _sPasswordNonce
+        while _bPasswordNoncePrompt and not sPasswordNonce:
+            sPasswordNonce_confirm = None
+            while sPasswordNonce_confirm is None or sPasswordNonce != sPasswordNonce_confirm:
+                if sPasswordNonce_confirm is not None:
+                    sys.stderr.write('Password mismatch! Please try again...\n')
+                sPasswordNonce = getpass.getpass('Password nonce: ')
+                sPasswordNonce_confirm = getpass.getpass('Password nonce (confirm): ')
+        try:
+            (sPasswordNonce_id, sPasswordNonce_secret) = sPasswordNonce.split('-', 1)
+        except Exception as e:
+            sys.stderr.write('ERROR[Token]: Invalid password nonce!\n')
+            return 1
+
+        # Write token
+        oToken = TokenWriter()
+        oToken.config(self._sFileKeyPrivate, self._sFileKeyPublic, self._sFileRandom)
+        oToken.setData_PasswordNonce(sUsername, sPasswordNonce, self._iPasswordNonceTtl)
+        iReturn = oToken.writeToken(_sFileToken)
+        if iReturn:
+            return iReturn
+
+        # Done
+        return 0
+
+
+    def writeToken_PasswordChange(self,
+        _sFileToken,
+        _sUsername = None,
+        _sPasswordNew = None,
+        _sPasswordOld = None, _bPasswordOldPrompt = False,
+        _sPasswordNonce = None, _bPasswordNoncePrompt = False
+        ):
         """
         Write a 'password-change' token; returns a non-zero exit code in case of failure.
         """
@@ -65,32 +152,47 @@ class Token:
         while not sUsername:
             sUsername = raw_input('Username: ')
 
+        # ... password (nonce)
+        sPasswordNonce = _sPasswordNonce
+        while _bPasswordNoncePrompt and not sPasswordNonce:
+            sPasswordNonce_confirm = None
+            while sPasswordNonce_confirm is None or sPasswordNonce != sPasswordNonce_confirm:
+                if sPasswordNonce_confirm is not None:
+                    sys.stderr.write('Password mismatch! Please try again...\n')
+                sPasswordNonce = getpass.getpass('Password nonce: ')
+                sPasswordNonce_confirm = getpass.getpass('Password nonce (confirm): ')
+        if sPasswordNonce:
+            try:
+                (sPasswordNonce_id, sPasswordNonce_secret) = sPasswordNonce.split('-', 1)
+            except Exception as e:
+                sys.stderr.write('ERROR[Token]: Invalid password nonce!\n')
+                return 1
+
         # ... password (old)
         sPasswordOld = _sPasswordOld
         while _bPasswordOldPrompt and not sPasswordOld:
-            sPassword_confirm = None
-            while sPassword_confirm is None or sPasswordOld != sPassword_confirm:
-                if sPassword_confirm is not None:
-                    sys.stdout.write('Password Mismatch! Please try again...\n')
+            sPasswordOld_confirm = None
+            while sPasswordOld_confirm is None or sPasswordOld != sPasswordOld_confirm:
+                if sPasswordOld_confirm is not None:
+                    sys.stderr.write('Password mismatch! Please try again...\n')
                 sPasswordOld = getpass.getpass('Old Password: ')
-                sPassword_confirm = getpass.getpass('Old Password (confirm): ')
+                sPasswordOld_confirm = getpass.getpass('Old Password (confirm): ')
 
         # ... password (new)
         sPasswordNew = _sPasswordNew
         while not sPasswordNew:
-            sPassword_confirm = None
-            while sPassword_confirm is None or sPasswordNew != sPassword_confirm:
-                if sPassword_confirm is not None:
-                    sys.stdout.write('Password Mismatch! Please try again...\n')
+            sPasswordNew_confirm = None
+            while sPasswordNew_confirm is None or sPasswordNew != sPasswordNew_confirm:
+                if sPasswordNew_confirm is not None:
+                    sys.stderr.write('Password mismatch! Please try again...\n')
                 sPasswordNew = getpass.getpass('New Password: ')
-                sPassword_confirm = getpass.getpass('New Password (confirm): ')
+                sPasswordNew_confirm = getpass.getpass('New Password (confirm): ')
 
         # Write token
         oToken = TokenWriter()
-        if _sEncoding:
-            oToken.setEncoding(_sEncoding)
-        oToken.setData_PasswordChange(sUsername, sPasswordOld, sPasswordNew)
-        iReturn = oToken.writeToken(_sFileToken, _sFilePublicKey, _sFileRandom)
+        oToken.config(self._sFileKeyPrivate, self._sFileKeyPublic, self._sFileRandom)
+        oToken.setData_PasswordChange(sUsername, sPasswordNew, sPasswordOld, sPasswordNonce)
+        iReturn = oToken.writeToken(_sFileToken)
         if iReturn:
             return iReturn
 
@@ -98,23 +200,77 @@ class Token:
         return 0
 
 
-    def readToken(self, _sFileToken, _sFilePrivateKey, _bPasswordShow = False, _sEncoding = None):
+    def writeToken_PasswordReset(self,
+        _sFileToken,
+        _sUsername = None, _sPasswordNew = None, _sPasswordNonce = None, _bPasswordNoncePrompt = False
+        ):
+        """
+        Write a 'password-reset' token; returns a non-zero exit code in case of failure.
+        """
+
+        # Token data
+
+        # ... username
+        sUsername = _sUsername
+        while not sUsername:
+            sUsername = raw_input('Username: ')
+
+        # ... password (nonce)
+        sPasswordNonce = _sPasswordNonce
+        while _bPasswordNoncePrompt and not sPasswordNonce:
+            sPasswordNonce_confirm = None
+            while sPasswordNonce_confirm is None or sPasswordNonce != sPasswordNonce_confirm:
+                if sPasswordNonce_confirm is not None:
+                    sys.stderr.write('Password mismatch! Please try again...\n')
+                sPasswordNonce = getpass.getpass('Password nonce: ')
+                sPasswordNonce_confirm = getpass.getpass('Password nonce (confirm): ')
+        try:
+            (sPasswordNonce_id, sPasswordNonce_secret) = sPasswordNonce.split('-', 1)
+        except Exception as e:
+            sys.stderr.write('ERROR[Token]: Invalid password nonce!\n')
+            return 1
+
+        # ... password (new)
+        sPasswordNew = _sPasswordNew
+        while not sPasswordNew:
+            sPasswordNew_confirm = None
+            while sPasswordNew_confirm is None or sPasswordNew != sPasswordNew_confirm:
+                if sPasswordNew_confirm is not None:
+                    sys.stderr.write('Password mismatch! Please try again...\n')
+                sPasswordNew = getpass.getpass('New Password: ')
+                sPasswordNew_confirm = getpass.getpass('New Password (confirm): ')
+
+        # Write token
+        oToken = TokenWriter()
+        oToken.config(self._sFileKeyPrivate, self._sFileKeyPublic, self._sFileRandom)
+        oToken.setData_PasswordReset(sUsername, sPasswordNew, sPasswordNonce)
+        iReturn = oToken.writeToken(_sFileToken)
+        if iReturn:
+            return iReturn
+
+        # Done
+        return 0
+
+
+    def readToken(self,
+        _sFileToken,
+        _bPasswordShow = False
+        ):
         """
         Read token; returns a non-zero exit code in case of failure.
         """
 
         # Read and dump token data
         oToken = TokenReader()
-        if _sEncoding:
-            oToken.setEncoding(_sEncoding)
-        iReturn = oToken.readToken(_sFileToken, _sFilePrivateKey)
+        oToken.config(self._sFileKeyPrivate, self._sFileKeyPublic)
+        iReturn = oToken.readToken(_sFileToken)
         if iReturn:
             return iReturn
         dToken = oToken.getData()
-        for sField in sorted(dToken.keys()):
-            if not _bPasswordShow and sField in ('password-old', 'password-new'):
-                continue
-            sys.stdout.write('%s: %s\n' % (sField, dToken[ sField ]))
+        for sField in dToken.keys():
+            if not _bPasswordShow and sField[0:8]=='password':
+                dToken.pop(sField)
+        sys.stdout.write('%s\n' % JSON.dumps(dToken, indent=4, sort_keys=True))
 
         # Done
         return 0
@@ -151,7 +307,7 @@ class TokenMain(Token):
         # ... token file
         self.__oArgumentParser.add_argument(
             'token', type=str,
-            metavar='<token-file>',
+            metavar='<file>',
             default='-', nargs='?',
             help='Path to token file (default:[read]stdin/[write]stdout)')
 
@@ -161,18 +317,11 @@ class TokenMain(Token):
             default=False,
             help='[Read] Read token (dump token content)')
 
-        # ... (read) RSA private key file
-        self.__oArgumentParser.add_argument(
-            '-Rk', '--key_private', type=str,
-            metavar='<key-file>',
-            default='/etc/upwdchg/private.pem',
-            help='[Read] Path to RSA private key file (PEM format; default:/etc/upwdchg/private.pem)')
-
         # ... (read) show password
         self.__oArgumentParser.add_argument(
             '-Rp', '--password_show', action='store_true',
             default=False,
-            help='Show token passwords (not recommended)')
+            help='[Read] Show token passwords (not recommended)')
 
         # ... write mode
         self.__oArgumentParser.add_argument(
@@ -180,29 +329,29 @@ class TokenMain(Token):
             default=False,
             help='[Write] Write (create) token')
 
-        # ... (write) RSA public key file
+        # ... (write) type
         self.__oArgumentParser.add_argument(
-            '-Wk', '--key_public', type=str,
-            metavar='<key-file>',
-            default='/etc/upwdchg/public.pem',
-            help='[Write] Path to RSA public key file (PEM format; default:/etc/upwdchg/public.pem)')
+            '-Wt', '--type', type=str,
+            metavar='<string>',
+            default='password-change',
+            help='[Write] Token type (default:password-change)')
 
         # ... (write) username
         self.__oArgumentParser.add_argument(
             '-Wu', '--username', type=str,
-            metavar='<username>',
+            metavar='<string>',
             help='[Write] User account name (automatically prompted for if unspecified)')
 
         # ... (write) password (new)
         self.__oArgumentParser.add_argument(
             '-Wp', '--password_new', type=str,
-            metavar='<password-new>',
+            metavar='<string>',
             help='[Write] New password (automatically prompted for if unspecified)')
 
         # ... (write) password (old)
         self.__oArgumentParser.add_argument(
             '-Wo', '--password_old', type=str,
-            metavar='<password-old>',
+            metavar='<string>',
             default='',
             help='[Write] Old password (default:empty/unspecified)')
 
@@ -212,19 +361,46 @@ class TokenMain(Token):
             default=False,
             help='[Write] Prompt for old password')
 
-        # ... (write) PRNG seed source
+        # ... (write) password (nonce)
         self.__oArgumentParser.add_argument(
-            '-Wr', '--random', type=str,
-            metavar='<random-source>',
-            default='/dev/urandom',
-            help='[Write] Random number generator seed source (default:/dev/urandom)')
+            '-Wn', '--password_nonce', type=str,
+            metavar='<string>',
+            default='',
+            help='[Write] Nonce password (default:empty/unspecified)')
 
-        # ... characters encoding
+        # ... (write) password (nonce) prompt
         self.__oArgumentParser.add_argument(
-            '-E', '--encoding', type=str,
-            metavar='<encoding>',
-            default='utf-8',
-            help='Input/output characters encoding (default:utf-8)')
+            '-WN', '--password_nonce_prompt', action='store_true',
+            default=False,
+            help='[Write] Prompt for password nonce')
+
+        # ... RSA private key file
+        self.__oArgumentParser.add_argument(
+            '-Kv', '--key_private', type=str,
+            metavar='<file>',
+            default=UPWDCHG_DEFAULT_FILE_KEY_PRIVATE,
+            help='Path to RSA private key file (PEM format; default:%s)' % UPWDCHG_DEFAULT_FILE_KEY_PRIVATE)
+
+        # ... RSA public key file
+        self.__oArgumentParser.add_argument(
+            '-Ku', '--key_public', type=str,
+            metavar='<file>',
+            default=UPWDCHG_DEFAULT_FILE_KEY_PUBLIC,
+            help='Path to RSA public key file (PEM format; default:%s)' % UPWDCHG_DEFAULT_FILE_KEY_PUBLIC)
+
+        # ... password nonce TTL
+        self.__oArgumentParser.add_argument(
+            '-Nt', '--password_nonce_ttl', type=int,
+            metavar='<integer>',
+            default=300,
+            help='Password nonce Time-to-Live, in seconds (default:300)')
+
+        # ... PRNG seed source
+        self.__oArgumentParser.add_argument(
+            '-r', '--random', type=str,
+            metavar='<file>',
+            default=UPWDCHG_DEFAULT_FILE_RANDOM,
+            help='Random number generator seed source (default:%s)' % UPWDCHG_DEFAULT_FILE_RANDOM)
 
         # ... version
         self.__oArgumentParser.add_argument(
@@ -265,20 +441,51 @@ class TokenMain(Token):
         if iReturn:
             return iReturn
 
+        # Configure token
+        self.config(
+            self.__oArguments.key_private,
+            self.__oArguments.key_public,
+            self.__oArguments.random,
+            self.__oArguments.password_nonce_ttl,
+            )
+
         # Executes
 
         # ... write
         if self.__oArguments.write:
-            iReturn = self.writeToken_PasswordChange(
-                self.__oArguments.token,
-                self.__oArguments.key_public,
-                self.__oArguments.random,
-                self.__oArguments.username,
-                self.__oArguments.password_new,
-                self.__oArguments.password_old,
-                self.__oArguments.password_old_prompt,
-                self.__oArguments.encoding,
-                )
+            if self.__oArguments.type == 'password-nonce-request':
+                iReturn = self.writeToken_PasswordNonceRequest(
+                    self.__oArguments.token,
+                    self.__oArguments.username,
+                    )
+            elif self.__oArguments.type == 'password-nonce':
+                iReturn = self.writeToken_PasswordNonce(
+                    self.__oArguments.token,
+                    self.__oArguments.username,
+                    self.__oArguments.password_nonce,
+                    self.__oArguments.password_nonce_prompt,
+                    )
+            elif self.__oArguments.type == 'password-change':
+                iReturn = self.writeToken_PasswordChange(
+                    self.__oArguments.token,
+                    self.__oArguments.username,
+                    self.__oArguments.password_new,
+                    self.__oArguments.password_old,
+                    self.__oArguments.password_old_prompt,
+                    self.__oArguments.password_nonce,
+                    self.__oArguments.password_nonce_prompt,
+                    )
+            elif self.__oArguments.type == 'password-reset':
+                iReturn = self.writeToken_PasswordReset(
+                    self.__oArguments.token,
+                    self.__oArguments.username,
+                    self.__oArguments.password_new,
+                    self.__oArguments.password_nonce,
+                    self.__oArguments.password_nonce_prompt,
+                    )
+            else:
+                sys.stderr.write('ERROR[Token]: Invalid token type; %s\n' % self.__oArguments.type)
+                iReturn = 1
             if iReturn:
                 return iReturn
             return 0
@@ -288,13 +495,10 @@ class TokenMain(Token):
             or (self.__oArguments.read and self.__oArguments.token):
             iReturn = self.readToken(
                 self.__oArguments.token,
-                self.__oArguments.key_private,
-                self.__oArguments.password_show,
-                self.__oArguments.encoding,
-                )
+                self.__oArguments.password_show
+            )
             if iReturn:
                 return iReturn
 
         # Done
         return 0
-

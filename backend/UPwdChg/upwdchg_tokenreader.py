@@ -22,6 +22,8 @@
 # ... deb: python-m2crypto
 from UPwdChg import \
     TokenData, \
+    UPWDCHG_DEFAULT_FILE_KEY_PRIVATE, \
+    UPWDCHG_DEFAULT_FILE_KEY_PUBLIC, \
     UPWDCHG_CIPHER_ALGO, \
     UPWDCHG_CIPHER_KEY_LENGTH, \
     UPWDCHG_CIPHER_IV_LENGTH, \
@@ -50,6 +52,14 @@ class TokenReader(TokenData):
 
         # Fields
         self.error = 0
+        self.config()
+
+    def config(self,
+        _sFileKeyPrivate = UPWDCHG_DEFAULT_FILE_KEY_PRIVATE,
+        _sFileKeyPublic = UPWDCHG_DEFAULT_FILE_KEY_PUBLIC,
+        ):
+        self._sFileKeyPrivate = _sFileKeyPrivate
+        self._sFileKeyPublic = _sFileKeyPublic
 
 
     #------------------------------------------------------------------------------
@@ -69,7 +79,7 @@ class TokenReader(TokenData):
     # Data
     #
 
-    def readToken(self, _sFileToken, _sFilePrivateKey):
+    def readToken(self, _sFileToken):
         """
         Reads, decrypts and parse a UPwdChg token; returns a non-zero exit code in case of failure.
         """
@@ -85,27 +95,28 @@ class TokenReader(TokenData):
             else:
                 oFile = open(_sFileToken, 'r')
         except Exception as e:
-           self.__ERROR('Failed to open token file; %s' % str(e), 2001)
+           self.__ERROR('Failed to open token file; %s' % str(e), 201)
            return self.error
         # ... decode the token (JSON)
         try:
             dToken = JSON.load(oFile)
             if not 'type' in dToken:
-                raise Exception('invalid token')
+                raise RuntimeError('invalid token')
             if dToken['type'] != 'application/x.upwdchg-token+json':
-                raise Exception('invalid token type; %s' % dToken['type'])
+                raise RuntimeError('invalid token type; %s' % dToken['type'])
         except Exception as e:
-            self.__ERROR('Failed to decode token; %s' % str(e), 2002)
+            self.__ERROR('Failed to decode token; %s' % str(e), 202)
         # ... close the file
         if oFile != sys.stdin:
             oFile.close()
         if self.error:
             return self.error
-        # ... decode the data (Base64)
+
+        # Decode the data (Base64)
         try:
             sData = B64.b64decode(dToken['data']['base64'])
         except Exception as e:
-            self.__ERROR('Failed to decode token data; %s' % str(e), 2003)
+            self.__ERROR('Failed to decode token data; %s' % str(e), 203)
             return self.error
 
         # Decrypt the (symmetric) data key
@@ -114,13 +125,18 @@ class TokenReader(TokenData):
             sDataKeyCipherAlgo = dToken['data']['cipher']['key']['cipher']['algorithm'].lower()
             if sDataKeyCipherAlgo == 'public':
                 # ... load the RSA private key
-                oPrivateKey = M2C.RSA.load_key(_sFilePrivateKey)
-                # ... decrypt the data key using the RSA private key
+                oPrivateKey = M2C.RSA.load_key(self._sFileKeyPrivate)
+                # ... decrypt the data key
                 sDataKey = oPrivateKey.private_decrypt(sDataKey, M2C.RSA.pkcs1_oaep_padding)
+            elif sDataKeyCipherAlgo == 'private':
+                # ... load the RSA public key
+                oPublicKey = M2C.RSA.load_pub_key(self._sFileKeyPublic)
+                # ... decrypt the data key
+                sDataKey = oPublicKey.public_decrypt(sDataKey, M2C.RSA.pkcs1_padding)
             else:
-                raise Exception('invalid/unsupported data key cipher; %s' % sDataKeyCipherAlgo)
+                raise RuntimeError('invalid/unsupported data key cipher; %s' % sDataKeyCipherAlgo)
         except Exception as e:
-            self.__ERROR('Failed to decrypt data key; %s' % str(e), 2011)
+            self.__ERROR('Failed to decrypt data key; %s' % str(e), 211)
             return self.error
 
         # Decrypt the data
@@ -135,20 +151,20 @@ class TokenReader(TokenData):
                 sData = oCipher.update(sData)
                 sData += oCipher.final()
             else:
-                raise Exception('invalid/unsupported data cipher; %s' % sDataCipherAlgo)
+                raise RuntimeError('invalid/unsupported data cipher; %s' % sDataCipherAlgo)
         except Exception as e:
-            self.__ERROR('Failed to decrypt data; %s' % str(e), 2021)
+            self.__ERROR('Failed to decrypt data; %s' % str(e), 221)
             return self.error
 
         # Decode the data (JSON)
         try:
             dData = JSON.loads(sData)
             if not 'type' in dData:
-                raise Exception('invalid data')
-            if not dData['type'] in ('password-change'):
-                raise Exception('invalid data type; %s' % dData['type'])
+                raise RuntimeError('invalid data')
+            if not dData['type'] in ('password-nonce-request', 'password-nonce', 'password-change', 'password-reset'):
+                raise RuntimeError('invalid data type; %s' % dData['type'])
         except Exception as e:
-            self.__ERROR('Failed to decode data; %s' % str(e), 2031)
+            self.__ERROR('Failed to decode data; %s' % str(e), 231)
             return self.error
 
         # Check the data digest
@@ -158,16 +174,16 @@ class TokenReader(TokenData):
             dData.pop('digest')
             if sDataDigestAlgo in ('sha512', 'sha384', 'sha256', 'sha224', 'sha1', 'md5'):
                 oMessageDigest = M2C.EVP.MessageDigest(algo=sDataDigestAlgo)
-                if oMessageDigest.update('|'.join([v for k,v in sorted(dData.items())]).encode('utf-8')) != 1:
-                    raise Exception('failed to compute digest')
+                if oMessageDigest.update(self._getDigestData(dData).encode('utf-8')) != 1:
+                    raise RuntimeError('failed to compute digest')
                 sDataDigest_compute = oMessageDigest.final()
             else:
-                raise Exception('invalid/unsupported data digest; %s' % sDataDigestAlgo)
+                raise RuntimeError('invalid/unsupported data digest; %s' % sDataDigestAlgo)
         except Exception as e:
-            self.__ERROR('Failed to compute data digest; %s' % str(e), 2041)
+            self.__ERROR('Failed to compute data digest; %s' % str(e), 241)
             return self.error
         if sDataDigest_compute != sDataDigest_given:
-            self.__ERROR('Invalid data digest', 2042)
+            self.__ERROR('Invalid data digest', 242)
             return self.error
 
         # Save data

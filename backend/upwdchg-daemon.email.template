@@ -1,6 +1,6 @@
 Hello,
 
-You password request change has been processed. Please refer to the processing
+You password change request has been processed. Please refer to the processing
 output below for further details.
 
 %{OUTPUT}

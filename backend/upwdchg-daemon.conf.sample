@@ -2,14 +2,27 @@
 # ---------------------------------------------------------
 
 [token]
-# Path to pending tokens directory
-#pending_directory = string( min=1, max=256, default='/var/lib/upwdchg/tokens.d' )
+# Path to private tokens directory
+#private_directory = string( min=1, max=256, default='/var/lib/upwdchg/tokens/private.d' )
 
 # Path to the (token decryption) RSA private key (PEM formatted)
 #private_key_file = string( min=1, max=256, default='/etc/upwdchg/private.pem' )
 
+# Path to public tokens directory
+#public_directory = string( min=1, max=256, default='/var/lib/upwdchg/tokens/public.d' )
+
+# Path to the (token encryption) RSA public key (PEM formatted)
+#public_key_file = string( min=1, max=256, default='/etc/upwdchg/public.pem' )
+
 # Path to token processing plugins directory
-#plugins_directory = string( min=1, max=256, default='/etc/upwdchg/daemon/plugins.d' )
+#plugins_directory = string( min=1, max=256, default='/etc/upwdchg/daemon/plugins/%{type}.d' )
+
+# Path to the random source
+#random_file = string( min=1, max=256, default='/dev/urandom' )
+
+# Comma-separated list of allowed token types
+# NOTE: among 'password-nonce-request', 'password-change' or 'password-reset'
+#allowed_types = string( min=1, max=256, default='password-change' )
 
 # Path to tokens archive directory; if empty, processed tokens are deleted
 #archive_directory = string( min=0, max=256, default=None )
@@ -18,12 +31,15 @@
 # Processing interval, in seconds
 #interval = integer( min=1, default=60 )
 
+# Maximum quantity of tokens expected per processing interval (before the daemon exits); if zero, ignored
+#max_tokens = integer( min=0, default=100 )
+
 # Maximum tolerated processing errors (before the daemon exits); if zero, ignored
 #max_errors = integer( min=0, default=1 )
 
 [email]
 # Administrator e-mail address to send token processing output; if empty, no messages are sent
-#admin_address = string( min=0, max=256, default='root@localhost.localdomain' )
+#admin_address = string( min=0, max=256, default='Administrator <root@localhost.localdomain>' )
 
 # Whether to send token processing output to corresponding user
 #user_send = boolean( default=False )
@@ -35,7 +51,7 @@
 #user_address_from_ldap = boolean( default=False )
 
 # Sender e-mail address
-#sender_address = string( min=1, max=256, default='upwdchg@localhost.localdomain' )
+#sender_address = string( min=1, max=256, default='UPwdChg <upwdchg@localhost.localdomain>' )
 
 # Message subject's prefix
 #subject_prefix = string( min=0, max=256, default='[UPWDCHG] ' )
@@ -57,14 +73,17 @@
 # Password for the user doing the search, prefix with 'file://' to get password from specified file
 #bind_pwd = string( min=0, max=256, default='' )
 
-# Search-DN to look for user
+# User DN; if empty, DN search is performed (see below)
+#user_dn = string( min=0, max=256, default='uid=%{USERNAME},ou=users,dc=example,dc=org' )
+
+# Search DN to look for user
 #search_dn = string( min=0, max=256, default='ou=users,dc=example,dc=org' )
 
 # Search scope
 #search_scope = option( ldap.SCOPE_BASELEVEL, ldap.SCOPE_ONELEVEL, ldap.SCOPE_SUBTREE, default=ldap.SCOPE_ONELEVEL )
 
 # Filter to use, by default filter by username and objectclass
-#search_filter = string( min=0, max=256, default='(&(objectClass=posixAccount)(uid=%{USERNAME}))' )
+#search_filter = string( min=0, max=256, default='(&(objectClass=inetOrgPerson)(uid=%{USERNAME}))' )
 
 # Attribute to use for the email-address
 #email_attribute = string( min=0, max=256, default='mail' )

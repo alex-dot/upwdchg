@@ -22,6 +22,9 @@
 # ... deb: python-m2crypto
 from UPwdChg import \
     TokenData, \
+    UPWDCHG_DEFAULT_FILE_KEY_PRIVATE, \
+    UPWDCHG_DEFAULT_FILE_KEY_PUBLIC, \
+    UPWDCHG_DEFAULT_FILE_RANDOM, \
     UPWDCHG_CIPHER_ALGO, \
     UPWDCHG_CIPHER_KEY_LENGTH, \
     UPWDCHG_CIPHER_IV_LENGTH, \
@@ -51,6 +54,16 @@ class TokenWriter(TokenData):
 
         # Fields
         self.error = 0
+        self.config()
+
+    def config(self,
+        _sFileKeyPrivate = UPWDCHG_DEFAULT_FILE_KEY_PRIVATE,
+        _sFileKeyPublic = UPWDCHG_DEFAULT_FILE_KEY_PUBLIC,
+        _sFileRandom = UPWDCHG_DEFAULT_FILE_RANDOM,
+        ):
+        self._sFileKeyPrivate = _sFileKeyPrivate
+        self._sFileKeyPublic = _sFileKeyPublic
+        self._sFileRandom = _sFileRandom
 
 
     #------------------------------------------------------------------------------
@@ -70,7 +83,7 @@ class TokenWriter(TokenData):
     # Data
     #
 
-    def writeToken(self, _sFileToken, _sFilePublicKey, _sFileRandom):
+    def writeToken(self, _sFileToken):
         """
         Builds, encrypts and writes a UPwdChg token; returns a non-zero exit code in case of failure.
         """
@@ -81,11 +94,11 @@ class TokenWriter(TokenData):
         # Compute the data digest
         try:
             oMessageDigest = M2C.EVP.MessageDigest(algo=UPWDCHG_DIGEST_ALGO)
-            if oMessageDigest.update('|'.join([v for k,v in sorted(self._dData.items())]).encode('utf-8')) != 1:
-                raise Exception('failed to compute digest')
+            if oMessageDigest.update(self._getDigestData().encode('utf-8')) != 1:
+                raise RuntimeError('failed to compute digest')
             sDataDigest = oMessageDigest.final()
         except Exception as e:
-            self.__ERROR('Failed to compute data digest; %s' % str(e), 1001)
+            self.__ERROR('Failed to compute data digest; %s' % str(e), 101)
             return self.error
 
         # Encode the data (JSON)
@@ -97,22 +110,29 @@ class TokenWriter(TokenData):
             }
             sData = JSON.dumps(dData_digest, indent=4)
         except Exception as e:
-            self.__ERROR('Failed to encode data; %s' % str(e), 1011)
+            self.__ERROR('Failed to encode data; %s' % str(e), 111)
             return self.error
 
         # Encrypt the (symmetric) data key
         try:
-            M2C.Rand.load_file(_sFileRandom, UPWDCHG_CIPHER_KEY_LENGTH+UPWDCHG_CIPHER_IV_LENGTH)
+            M2C.Rand.load_file(self._sFileRandom, UPWDCHG_CIPHER_KEY_LENGTH+UPWDCHG_CIPHER_IV_LENGTH)
             sDataKey = M2C.Rand.rand_bytes(UPWDCHG_CIPHER_KEY_LENGTH)
-            if self._dData['type'] in ('password-change'):
+            if self._dData['type'] in ('password-nonce-request', 'password-change', 'password-reset'):
+                sDataKeyCipherAlgo = 'public'
                 # ... load the RSA public key
-                oPublicKey = M2C.RSA.load_pub_key(_sFilePublicKey)
-                # ... encrypt the data key using the RSA public key
+                oPublicKey = M2C.RSA.load_pub_key(self._sFileKeyPublic)
+                # ... encrypt the data key
                 sDataKeyEncrypted = oPublicKey.public_encrypt(sDataKey, M2C.RSA.pkcs1_oaep_padding)
+            elif self._dData['type'] in ('password-nonce'):
+                sDataKeyCipherAlgo = 'private'
+                # ... load the RSA private key
+                oPrivateKey = M2C.RSA.load_key(self._sFileKeyPrivate)
+                # ... encrypt the data key
+                sDataKeyEncrypted = oPrivateKey.private_encrypt(sDataKey, M2C.RSA.pkcs1_padding)
             else:
-                raise Exception('unexpected token/data type; %s' % self._dData['type'])
+                raise RuntimeError('unexpected token/data type; %s' % self._dData['type'])
         except Exception as e:
-            self.__ERROR('Failed to encrypt data key; %s' % str(e), 1021)
+            self.__ERROR('Failed to encrypt data key; %s' % str(e), 121)
             return self.error
 
         # Encrypt the data
@@ -122,7 +142,7 @@ class TokenWriter(TokenData):
             sDataEncrypted = oDataCipher.update(sData)
             sDataEncrypted += oDataCipher.final()
         except Exception as e:
-            self.__ERROR('Failed to encrypt data; %s' % str(e), 1031)
+            self.__ERROR('Failed to encrypt data; %s' % str(e), 131)
             return self.error
 
         # Encode the token (JSON)
@@ -137,7 +157,7 @@ class TokenWriter(TokenData):
                         }, \
                         'key': { \
                             'cipher': { \
-                                'algorithm': 'public', \
+                                'algorithm': sDataKeyCipherAlgo, \
                             }, \
                             'base64': B64.b64encode(sDataKeyEncrypted), \
                         }, \
@@ -146,7 +166,7 @@ class TokenWriter(TokenData):
                 }, \
             }, indent=4 )
         except Exception as e:
-            self.__ERROR('Failed to encode token; %s' % str(e), 1041)
+            self.__ERROR('Failed to encode token; %s' % str(e), 141)
             return self.error
 
         # Write the token to file
@@ -156,12 +176,12 @@ class TokenWriter(TokenData):
             else:
                 oFile = open(_sFileToken, 'w')
         except Exception as e:
-            self.__ERROR('Failed to open token file; %s' % str(e), 1051)
+            self.__ERROR('Failed to open token file; %s' % str(e), 151)
             return self.error
         try:
             oFile.write(sToken)
         except Exception as e:
-            self.__ERROR('Failed to write token to file; %s' % str(e), 1052)
+            self.__ERROR('Failed to write token to file; %s' % str(e), 152)
         if oFile != sys.stdout:
             oFile.close()
         if self.error:

@@ -22,6 +22,14 @@
 # ... deb: python-argparse, python-configobj, python-daemon, python-ldap
 from UPwdChg import \
     UPWDCHG_VERSION, \
+    UPWDCHG_ENCODING, \
+    UPWDCHG_DEFAULT_DIR_PRIVATE, \
+    UPWDCHG_DEFAULT_FILE_KEY_PRIVATE, \
+    UPWDCHG_DEFAULT_DIR_PUBLIC, \
+    UPWDCHG_DEFAULT_FILE_KEY_PUBLIC, \
+    UPWDCHG_DEFAULT_DIR_PLUGINS, \
+    UPWDCHG_DEFAULT_FILE_RANDOM, \
+    UPWDCHG_DEFAULT_ALLOWED_TYPES, \
     TokenReader
 from UPwdChg.Util import \
     Process
@@ -37,15 +45,18 @@ from daemon.runner import \
     make_pidlockfile
 from email.mime.text import \
     MIMEText
+import os
 import signal
 from subprocess import \
     Popen, \
     PIPE
-import os
 import stat
 import sys
 import syslog
-import time
+from time import \
+    gmtime, \
+    sleep, \
+    strftime
 import validate as VA
 try:
     import ldap
@@ -78,22 +89,35 @@ class Daemon:
         # Fields
         self.__bInterrupted = False
         self._bDebug = False
-        self._sDirArchives = None
-        self._sEmailAdmin = None
+        self._sTokenDirPrivate = UPWDCHG_DEFAULT_DIR_PRIVATE
+        self._sTokenFileKeyPrivate = UPWDCHG_DEFAULT_FILE_KEY_PRIVATE
+        self._sTokenDirPublic = UPWDCHG_DEFAULT_DIR_PUBLIC
+        self._sTokenFileKeyPublic = UPWDCHG_DEFAULT_FILE_KEY_PUBLIC
+        self._sTokenDirPlugins = UPWDCHG_DEFAULT_DIR_PLUGINS
+        self._sTokenFileRandom = UPWDCHG_DEFAULT_FILE_RANDOM
+        self._sTokenAllowedTypes = UPWDCHG_DEFAULT_ALLOWED_TYPES
+        self._sTokenDirArchives = None
+        self._fProcessInterval = 60.0
+        self._iProcessMaxTokens = 100
+        self._iProcessMaxErrors = 1
+        self._uEmailAdmin = 'Administrator <upwdchg@localhost.localdomain>'
         self._bEmailUser = False
-        self._sEmailUserDomain = None
+        self._uEmailUserDomain = None
         self._bEmailUserAddressFromLdap = False
-        self._sEmailSender = 'upwdchg-daemon'
-        self._uEmailSubjectPrefix = u'[UPWDCHG] '
-        self._sFileEmailBodyTemplate = None
-        self._sEmailSendmail = 'sendmail'
+        self._uEmailSender = 'UPwdChg <upwdchg@localhost.localdomain>'
+        self._uEmailSubjectPrefix = '[UPWDCHG] '
+        self._sEmailFileBodyTemplate = '/etc/upwdchg/daemon/upwdchg-daemon.email.template'
+        self._sEmailSendmail = '/usr/sbin/sendmail'
+        self._sEmailEncoding = UPWDCHG_ENCODING
         self._sLdapUri = 'ldap://ldap.example.org:389'
         self._sLdapBindDN = 'cn=admin,dc=example,dc=org'
         self._sLdapBindPwd = ''
+        self._sLdapUserDN = 'uid=%{USERNAME},ou=users,dc=example,dc=org'
         self._sLdapSearchDN = 'ou=users,dc=example,dc=org'
         self._oLdapSearchScope = 'ldap.SCOPE_ONELEVEL'
-        self._sLdapSearchFilter = '(&(objectClass=posixAccount)(uid=%{USERNAME}))'
+        self._sLdapSearchFilter = '(&(objectClass=inetOrgPerson)(uid=%{USERNAME}))'
         self._sLdapEmailAttribute = 'mail'
+        self._sLdapEncoding = UPWDCHG_ENCODING
 
 
     #------------------------------------------------------------------------------
@@ -104,19 +128,37 @@ class Daemon:
         self.__bInterrupted = True
 
 
-    def processTokens(self, _sDirTokens, _sFilePrivateKey, _sDirPlugins, _fInterval, _iErrorsMax = None):
+    def _sendmail(self, _suFrom, _suTo, _suSubject, _suBody):
+        """
+        Send the given e-mail message.
+        """
+
+        oMIMEText = MIMEText(_suBody if not isinstance(_suBody, unicode) else _suBody.encode(self._sEmailEncoding), 'plain', self._sEmailEncoding)
+        oMIMEText['From'] = _suFrom if not isinstance(_suFrom, unicode) else _suFrom.encode(self._sEmailEncoding)
+        oMIMEText['Subject'] = _suSubject if not isinstance(_suSubject, unicode) else _suSubject.encode(self._sEmailEncoding)
+        oMIMEText['To'] = _suTo if not isinstance(_suTo, unicode) else _suTo.encode(self._sEmailEncoding)
+        oPopen = Popen([self._sEmailSendmail, '-t'], stdin=PIPE)
+        oPopen.communicate(oMIMEText.as_string())
+
+
+    def processTokens(self):
         """
         Watch directory for tokens and process them; returns a non-zero exit code in case of failure.
         """
 
         # Check tokens directory
-        if not os.path.isdir(_sDirTokens):
+        if not os.path.isdir(self._sTokenDirPrivate):
             sys.stderr.write('ERROR[Daemon]: Invalid tokens directory\n')
             return 1
         fDirTokensMTime_1 = 0.0
 
         # Processing object
         oProcess = Process()
+        oProcess.config(
+            self._sTokenFileKeyPrivate,
+            self._sTokenFileKeyPublic,
+            self._sTokenDirPlugins,
+            )
 
         # Loop
         iError = 0
@@ -124,88 +166,110 @@ class Daemon:
             # Check loop conditions
             if self.__bInterrupted:
                 break
-            if _iErrorsMax and iError >= _iErrorsMax:
-                if self._bDebug:
-                    sys.stderr.write('DEBUG[Daemon]: Too-many errors; bailing out\n')
+            if self._iProcessMaxErrors and iError >= self._iProcessMaxErrors:
+                sys.stderr.write('CRITICAL[Daemon]: Too-many errors (%d); bailing out\n' % iError)
+                if self._uEmailAdmin:
+                    try:
+                        self._sendmail(self._uEmailSender, self._uEmailAdmin, self._uEmailSubjectPrefix+'Critical Error', 'CRITICAL[Daemon]: Too-many errors (%d); bailing out\n' % iError)
+                    except Exception as e:
+                        pass
                 return 1
 
-            # Check tokens directory for changes
+            # Check (private/incoming) tokens directory for changes
             try:
-                fDirTokensMTime_2 = os.stat(_sDirTokens).st_mtime
+                fDirTokensMTime_2 = os.stat(self._sTokenDirPrivate).st_mtime
             except Exception as e:
                 iError += 1
                 sys.stderr.write('ERROR[Daemon]: Failed to retrieve tokens directory last modification time; %s\n' % str(e))
                 fDirTokensMTime_2 = fDirTokensMTime_1
             if (fDirTokensMTime_2 - fDirTokensMTime_1) < 0.1:
                 if self._bDebug:
-                    sys.stderr.write('DEBUG[Daemon]: Sleeping for %f seconds...\n' % _fInterval)
-                time.sleep(_fInterval)
+                    sys.stderr.write('DEBUG[Daemon]: Sleeping for %f seconds...\n' % self._fProcessInterval)
+                sleep(self._fProcessInterval)
                 continue
             if self._bDebug:
                 sys.stderr.write('DEBUG[Daemon]: Detected changes in tokens directory\n')
 
             # List tokens
             lsFilesToken = list()
-            if _sDirTokens is not None:
-                try:
-                    for sFile in os.listdir(_sDirTokens):
-                        sFile = _sDirTokens.rstrip(os.sep)+os.sep+sFile
-                        if os.path.isfile(sFile):
-                            lsFilesToken.append(sFile)
-                except Exception as e:
-                    iError += 1
-                    sys.stderr.write('ERROR[Daemon]: Failed to retrieve tokens list; %s\n' % str(e))
-                    continue
-            if not len(lsFilesToken):
+            try:
+                for sFile in os.listdir(self._sTokenDirPrivate):
+                    sFile = self._sTokenDirPrivate.rstrip(os.sep)+os.sep+sFile
+                    if os.path.isfile(sFile):
+                        lsFilesToken.append(sFile)
+            except Exception as e:
+                iError += 1
+                sys.stderr.write('ERROR[Daemon]: Failed to retrieve tokens list; %s\n' % str(e))
+                continue
+            iFilesToken = len(lsFilesToken)
+            if not iFilesToken:
                 if fDirTokensMTime_1:
                     sys.stderr.write('WARNING[Daemon]: No password change token found\n')
                 fDirTokensMTime_1 = fDirTokensMTime_2
                 continue
+            if self._iProcessMaxTokens and iFilesToken >= self._iProcessMaxTokens:
+                sys.stderr.write('CRITICAL[Daemon]: Too-many tokens (%d); bailing out\n' % iFilesToken)
+                if self._uEmailAdmin:
+                    try:
+                        self._sendmail(self._uEmailSender, self._uEmailAdmin, self._uEmailSubjectPrefix+'Critical Error', 'CRITICAL[Daemon]: Too-many tokens (%d); bailing out\n' % iFilesToken)
+                    except Exception as e:
+                        pass
+                return 1
             lsFilesToken.sort()
 
             # Update tokens directory last modification time
             fDirTokensMTime_1 = fDirTokensMTime_2
 
-            # List plugins
-            lsFilesPlugin = oProcess.getPlugins(_sDirPlugins)
-            if lsFilesPlugin is None:
-                iError += 1
-                sys.stderr.write('ERROR[Daemon]: No processing plugin found\n')
-                continue
-            if self._bDebug:
-                for sFilePlugin in lsFilesPlugin:
-                    sys.stderr.write('DEBUG[Daemon]: Token processing plugin; %s\n' % sFilePlugin)
-
-
             # Process tokens
             iErrorTokens = 0
+            lTokenAllowedTypes = self._sTokenAllowedTypes.replace(' ', '').split(',')
             for sFileToken in lsFilesToken:
+                lsOutputs = []
                 iErrorToken = 0
+                bSkipProcessing = False
                 sys.stderr.write('INFO[Daemon]: Processing token; %s\n' % sFileToken)
 
-                # ... process token
-                lsOutputs = oProcess.processToken(sFileToken, _sFilePrivateKey, lsFilesPlugin)
-                if lsOutputs is None:
+                # ... token read
+                oToken = TokenReader()
+                oToken.config(self._sTokenFileKeyPrivate, self._sTokenFileKeyPublic)
+                if oToken.readToken(sFileToken):
                     iErrorToken += 1
-                    sys.stderr.write('ERROR[Daemon]: Token processing returned no output\n')
+                    bSkipProcessing = True
+                    sys.stderr.write('ERROR[Daemon]: Failed to read token; %s\n' % sFileToken)
+                    lsOutputs.append('ERROR[UPwdChg]: Internal error; please contact your system administrator\n')
 
-                # ... process output
-                if lsOutputs and (self._sEmailAdmin or self._bEmailUser):
+                # ... token type
+                sTokenType = oToken.getType()
+                if not sTokenType in lTokenAllowedTypes:
+                    iErrorToken += 1
+                    bSkipProcessing = True
+                    sys.stderr.write('ERROR[Daemon]: Token type not allowed; %s\n' % sTokenType)
+                    lsOutputs.append('ERROR[UPwdChg]: Internal error; please contact your system administrator\n')
+                if self._bDebug:
+                    sys.stderr.write('DEBUG[Daemon]: Allowed token type; %s\n' % sTokenType)
+
+                # ... token processing (plugins)
+                if not bSkipProcessing:
+                    try:
+                        (iReturn, lsOutputs) = oProcess.processToken(sFileToken, _sTokenType=sTokenType)
+                        if self._bDebug:
+                            sys.stderr.write('DEBUG[Daemon]: Token processing succeeded (exit=%d)\n' % iReturn)
+                    except Exception as e:
+                        iErrorToken += 1
+                        sys.stderr.write('ERROR[Daemon]: Token processing failure\n')
+                        lsOutputs = list()
+
+                # ... processing output
+                if lsOutputs and (self._uEmailAdmin or self._bEmailUser):
                     sOutput = ''.join(lsOutputs)
 
                     # ... retrieve token username
-                    sUsername = 'UNKNOWN'
-                    oToken = TokenReader()
-                    if oToken.read(sFileToken, _sFilePrivateKey):
-                        iErrorToken += 1
-                        sys.stderr.write('ERROR[Daemon]: Token processing returned no output\n')
-                    else:
-                        sUsername = oToken.getData()['username'].encode('utf-8')
+                    uUsername = oToken['username']
 
                     # ... e-mail body template
-                    if self._sFileEmailBodyTemplate:
+                    if self._sEmailFileBodyTemplate:
                         try:
-                            oFile = open(self._sFileEmailBodyTemplate, 'r', 'utf-8')
+                            oFile = open(self._sEmailFileBodyTemplate, 'r', UPWDCHG_ENCODING)
                             sOutput = (''.join(oFile.readlines())).replace('%{OUTPUT}', sOutput)
                             oFile.close()
                         except Exception as e:
@@ -213,28 +277,32 @@ class Daemon:
                             sys.stderr.write('ERROR[Daemon]: Failed to load e-mail body template; %s\n' % str(e))
 
                     # ... create e-mail object
-                    sSubject = 'Password change results (%s, %s)' % (sUsername, time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
+                    uSubject = u'Processing Results (%s, %s)' % (uUsername, strftime('%Y-%m-%dT%H:%M:%SZ', gmtime()))
 
                     # ... send to administrator
-                    if self._sEmailAdmin:
+                    if self._uEmailAdmin:
                         try:
-                            oMIMEText = MIMEText(sOutput, 'plain', 'utf-8')
-                            oMIMEText['From'] = self._sEmailSender
-                            oMIMEText['Subject'] = self._uEmailSubjectPrefix.encode('utf-8')+sSubject
-                            oMIMEText['To'] = self._sEmailAdmin
-                            oPopen = Popen([ self._sEmailSendmail, '-t' ], stdin=PIPE)
-                            oPopen.communicate(oMIMEText.as_string())
-                        except Exception, e:
+                            self._sendmail(self._uEmailSender, self._uEmailAdmin, self._uEmailSubjectPrefix+uSubject, sOutput)
+                            if self._bDebug:
+                                sys.stderr.write('DEBUG[Daemon]: Successfully sent token processing output to administrator; %s\n' % self._uEmailAdmin)
+                        except Exception as e:
                             iErrorToken += 1
                             sys.stderr.write('ERROR[Daemon]: Failed to send token processing output to administrator; %s\n' % str(e))
 
                     # ... send to user
                     if self._bEmailUser:
-                        sEmailUser = None
+                        uEmailUser = None
 
                         if self._bEmailUserAddressFromLdap:
                             # ... use ldap-stored e-mail address
                             try:
+
+                                # ... initialize connection
+                                try:
+                                    oLdap = ldap.initialize(self._sLdapUri)
+                                    oLdap.protocol_version = ldap.VERSION3
+                                except Exception as e:
+                                    raise RuntimeError('failed to initialize connection; %s' % str(e))
 
                                 lLdapAttrList = [self._sLdapEmailAttribute]
                                 if self._oLdapSearchScope == 'ldap.SCOPE_BASELEVEL':
@@ -244,6 +312,7 @@ class Daemon:
                                 elif self._oLdapSearchScope == 'ldap.SCOPE_SUBTREE':
                                     iLdapScope = ldap.SCOPE_SUBTREE
 
+                                # ... bind credentials
                                 if self._sLdapBindPwd.startswith('file://'):
                                     sFile = self._sLdapBindPwd[7:]
                                     try:
@@ -251,35 +320,42 @@ class Daemon:
                                         sBindPwd = oFile.readline()
                                         oFile.close()
                                     except Exception as e:
-                                        raise Exception('failed to retrieve bind password from file; %s' % str(e))
+                                        raise RuntimeError('failed to retrieve bind password from file; %s' % str(e))
                                 else:
                                     sBindPwd = self._sLdapBindPwd
 
-                                # ... bind
+                                # ... bind to server
                                 try:
-                                    oLdap = ldap.initialize(self._sLdapUri)
-                                    oLdap.protocol_version = ldap.VERSION3
                                     oLdap.bind_s(self._sLdapBindDN, sBindPwd, ldap.AUTH_SIMPLE)
                                 except Exception as e:
-                                    raise Exception('failed to bind to server; %s' % str(e))
+                                    raise RuntimeError('failed to bind to server; %s' % str(e))
 
-                                # ... search
+                                # ... retrieve user and its mail attribute
                                 try:
-                                    lLdapResults = oLdap.search_ext_s(
-                                        self._sLdapSearchDN,
-                                        iLdapScope,
-                                        self._sLdapSearchFilter.replace('%{USERNAME}', sUsername),
-                                        lLdapAttrList,
-                                        sizelimit=2
-                                        )
+                                    if not self._sLdapUserDN:
+                                        lLdapResults = oLdap.search_ext_s(
+                                            self._sLdapSearchDN,
+                                            iLdapScope,
+                                            self._sLdapSearchFilter.replace('%{USERNAME}', uUsername.encode(self._sLdapEncoding)),
+                                            lLdapAttrList,
+                                            sizelimit=2
+                                            )
+                                    else:
+                                        lLdapResults = oLdap.search_ext_s(
+                                            self._sLdapUserDN.replace('%{USERNAME}', uUsername.encode(self._sLdapEncoding)),
+                                            ldap.SCOPE_BASE,
+                                            '(objectClass=*)',
+                                            lLdapAttrList,
+                                            sizelimit=2
+                                            )
                                     if not lLdapResults:
-                                        raise Exception('user not found: %s' % sUsername)
+                                        raise RuntimeError('user not found: %s' % uUsername)
                                     elif len(lLdapResults) > 1:
-                                        raise Exception('too many match: %s' % sUsername)
+                                        raise RuntimeError('too many match: %s' % uUsername)
                                     (sUserDn, dAttrs) = lLdapResults[0]
-                                    sEmailUser = dAttrs[self._sLdapEmailAttribute][0]
+                                    uEmailUser = dAttrs[self._sLdapEmailAttribute][0]
                                 except Exception as e:
-                                    raise Exception('failed to perform user search; %s' % str(e))
+                                    raise RuntimeError('failed to retrieve user mail attribute; %s' % str(e))
 
                                 # ... unbind
                                 try:
@@ -294,30 +370,29 @@ class Daemon:
 
                         else:
                             # ... use user name as e-mail address
-                            sEmailUser = sUsername
-                            if self._sEmailUserDomain:
-                                sEmailUser += '@'+self._sEmailUserDomain
+                            uEmailUser = uUsername
+                            if self._uEmailUserDomain:
+                                uEmailUser += '@'+self._uEmailUserDomain
 
                         # ... send the mail
-                        if sEmailUser is not None:
+                        if uEmailUser is not None:
                             try:
-                                oMIMEText = MIMEText(sOutput, 'plain', 'utf-8')
-                                oMIMEText['From'] = self._sEmailSender
-                                oMIMEText['Subject'] = self._uEmailSubjectPrefix.encode('utf-8')+sSubject
-                                oMIMEText['To'] = sEmailUser
-                                oPopen = Popen([ self._sEmailSendmail, '-t' ], stdin=PIPE)
-                                oPopen.communicate(oMIMEText.as_string())
-                            except Exception, e:
+                                self._sendmail(self._uEmailSender, uEmailUser, self._uEmailSubjectPrefix+uSubject, sOutput)
+                                if self._bDebug:
+                                    sys.stderr.write('DEBUG[Daemon]: Successfully sent token processing output to user; %s\n' % uEmailUser)
+                            except Exception as e:
                                 iErrorToken += 1
                                 sys.stderr.write('ERROR[Daemon]: Failed to send token processing output to user; %s\n' % str(e))
 
                 # ... move token to archive directory (or delete it)
                 sFileToken_archive = None
-                if self._sDirArchives is not None:
-                    sFileToken_archive = self._sDirArchives.rstrip(os.sep)+os.sep+os.path.basename(sFileToken)
+                if self._sTokenDirArchives is not None:
+                    sFileToken_archive = self._sTokenDirArchives.rstrip(os.sep)+os.sep+os.path.basename(sFileToken)
                 if sFileToken_archive is not None:
                     try:
                         shutil.move(sFileToken, sFileToken_archive)
+                        if self._bDebug:
+                            sys.stderr.write('DEBUG[Daemon]: Successfully moved token to archive directory; %s\n' % sFileToken_archive)
                     except Exception as e:
                         iErrorToken += 1
                         sys.stderr.write('ERROR[Daemon]: Failed to move token to archive directory; %s\n' % str(e))
@@ -325,6 +400,8 @@ class Daemon:
                 if sFileToken_archive is None:
                     try:
                         os.remove(sFileToken)
+                        if self._bDebug:
+                            sys.stderr.write('DEBUG[Daemon]: Successfully deleted token file; %s\n' % sFileToken)
                     except Exception as e:
                         iErrorToken += 1
                         sys.stderr.write('ERROR[Daemon]: Failed to delete token file; %s\n' % str(e))
@@ -339,9 +416,9 @@ class Daemon:
             elif iError:
                 iError -= 1
 
-            # Update tokens directory last modification time (after tokens removal)
+            # Update incoming tokens directory last modification time (after tokens removal)
             try:
-                fDirTokensMTime_1 = os.stat(_sDirTokens).st_mtime
+                fDirTokensMTime_1 = os.stat(self._sTokenDirPrivate).st_mtime
             except Exception as e:
                 iError += 1
                 sys.stderr.write('ERROR[Daemon]: Failed to retrieve tokens directory last modification time; %s\n' % str(e))
@@ -463,7 +540,7 @@ class DaemonMain(Daemon):
         if _aArguments is None: _aArguments = sys.argv
         try:
             self.__oArguments = self.__oArgumentParser.parse_args()
-        except Exception, e:
+        except Exception as e:
             self.__oArguments = None
             sys.stderr.write('ERROR[DaemonMain]: Failed to parse arguments; %s\n' % str(e))
             return 1
@@ -482,7 +559,7 @@ class DaemonMain(Daemon):
                 self.__oArguments.config,
                 configspec=UPWDCHG_DAEMON_CONFIGSPEC,
                 file_error=True)
-        except Exception, e:
+        except Exception as e:
             self.__oConfigObj = None
             sys.stderr.write('ERROR[DaemonMain]: Failed to load configuration from file; %s\n' % str(e))
             return 1
@@ -543,14 +620,8 @@ class DaemonMain(Daemon):
             sys.stderr = DaemonLogger(self.__syslog)
 
             # Execute
-            return self.processTokens(
-                self.__oConfigObj['token']['pending_directory'],
-                self.__oConfigObj['token']['private_key_file'],
-                self.__oConfigObj['token']['plugins_directory'],
-                self.__oConfigObj['process']['interval'],
-                self.__oConfigObj['process']['max_errors'],
-                )
-        except Exception, e:
+            return self.processTokens()
+        except Exception as e:
             sys.stderr.write('ERROR[DaemonMain]: Failed to fork to background; %s\n' % str(e))
             return 1
 
@@ -573,22 +644,35 @@ class DaemonMain(Daemon):
 
         # Configure daemon
         self._bDebug = self.__oArguments.debug
-        self._sDirArchives = self.__oConfigObj['token']['archive_directory']
-        self._sEmailAdmin = self.__oConfigObj['email']['admin_address']
+        self._sTokenDirPrivate = self.__oConfigObj['token']['private_directory']
+        self._sTokenFileKeyPrivate = self.__oConfigObj['token']['private_key_file']
+        self._sTokenDirPublic = self.__oConfigObj['token']['public_directory']
+        self._sTokenFileKeyPublic = self.__oConfigObj['token']['public_key_file']
+        self._sTokenDirPlugins = self.__oConfigObj['token']['plugins_directory']
+        self._sTokenFileRandom = self.__oConfigObj['token']['random_file']
+        self._sTokenAllowedTypes = self.__oConfigObj['token']['allowed_types']
+        self._sTokenDirArchives = self.__oConfigObj['token']['archive_directory']
+        self._fProcessInterval = self.__oConfigObj['process']['interval']
+        self._iProcessMaxTokens = self.__oConfigObj['process']['max_tokens']
+        self._iProcessMaxErrors = self.__oConfigObj['process']['max_errors']
+        self._uEmailAdmin = self.__oConfigObj['email']['admin_address']
         self._bEmailUser = self.__oConfigObj['email']['user_send']
-        self._sEmailUserDomain = self.__oConfigObj['email']['user_domain']
+        self._uEmailUserDomain = self.__oConfigObj['email']['user_domain']
         self._bEmailUserAddressFromLdap = self.__oConfigObj['email']['user_address_from_ldap']
-        self._sEmailSender = self.__oConfigObj['email']['sender_address']
+        self._uEmailSender = self.__oConfigObj['email']['sender_address']
         self._uEmailSubjectPrefix = self.__oConfigObj['email']['subject_prefix']
-        self._sFileEmailBodyTemplate = self.__oConfigObj['email']['body_template_file']
+        self._sEmailFileBodyTemplate = self.__oConfigObj['email']['body_template_file']
         self._sEmailSendmail = self.__oConfigObj['email']['sendmail_binary']
+        self._sEmailEncoding = self.__oConfigObj['email']['encoding']
         self._sLdapUri = self.__oConfigObj['ldap']['uri']
         self._sLdapBindDN = self.__oConfigObj['ldap']['bind_dn']
         self._sLdapBindPwd = self.__oConfigObj['ldap']['bind_pwd']
+        self._sLdapUserDN = self.__oConfigObj['ldap']['user_dn']
         self._sLdapSearchDN = self.__oConfigObj['ldap']['search_dn']
         self._oLdapSearchScope = self.__oConfigObj['ldap']['search_scope']
         self._sLdapSearchFilter = self.__oConfigObj['ldap']['search_filter']
         self._sLdapEmailAttribute = self.__oConfigObj['ldap']['email_attribute']
+        self._sLdapEncoding = self.__oConfigObj['ldap']['encoding']
 
         # Check dependencies
         if self._bEmailUser and self._bEmailUserAddressFromLdap and not LDAP_AVAILABLE:
@@ -602,13 +686,7 @@ class DaemonMain(Daemon):
         # Foreground processing
         signal.signal(signal.SIGINT, self._signal)
         signal.signal(signal.SIGTERM, self._signal)
-        return self.processTokens(
-            self.__oConfigObj['token']['pending_directory'],
-            self.__oConfigObj['token']['private_key_file'],
-            self.__oConfigObj['token']['plugins_directory'],
-            self.__oConfigObj['process']['interval'],
-            self.__oConfigObj['process']['max_errors'],
-            )
+        return self.processTokens()
 
         # Done
         return 0

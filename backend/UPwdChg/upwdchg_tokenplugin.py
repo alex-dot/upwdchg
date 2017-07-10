@@ -20,7 +20,11 @@
 
 # Modules
 from UPwdChg import \
-    TokenReader
+    UPWDCHG_DEFAULT_FILE_KEY_PRIVATE, \
+    UPWDCHG_DEFAULT_FILE_KEY_PUBLIC, \
+    UPWDCHG_DEFAULT_FILE_RANDOM, \
+    TokenReader, \
+    TokenWriter
 import sys
 
 
@@ -28,7 +32,7 @@ import sys
 # CLASSES
 #------------------------------------------------------------------------------
 
-class TokenPlugin(TokenReader):
+class TokenPlugin:
     """
     Universal Password Changer Token Processing Plugin
     """
@@ -49,8 +53,6 @@ class TokenPlugin(TokenReader):
     #------------------------------------------------------------------------------
 
     def __init__(self, _sName, _bCritical = True, _iDebugLevel = DEBUG_ERROR):
-        TokenReader.__init__(self)
-
         # Fields
         self.__sName = _sName
         self.__bCritical = _bCritical
@@ -59,6 +61,16 @@ class TokenPlugin(TokenReader):
             self.__sErrorPrefix = 'ERROR'
         else:
             self.__sErrorPrefix = 'WARNING'
+        self.config()
+
+    def config(self,
+        _sFileKeyPrivate = UPWDCHG_DEFAULT_FILE_KEY_PRIVATE,
+        _sFileKeyPublic = UPWDCHG_DEFAULT_FILE_KEY_PUBLIC,
+        _sFileRandom = UPWDCHG_DEFAULT_FILE_RANDOM,
+        ):
+        self._sFileKeyPrivate = _sFileKeyPrivate
+        self._sFileKeyPublic = _sFileKeyPublic
+        self._sFileRandom = _sFileRandom
 
 
     #------------------------------------------------------------------------------
@@ -111,16 +123,46 @@ class TokenPlugin(TokenReader):
     # Initialization
     #
 
-    def _getToken(self):
+    def _config(self):
         # Check arguments
-        if len(sys.argv) < 3:
-            self._DEBUG('Missing argument(s); expected token and RSA private key paths')
+        if len(sys.argv) < 5:
+            self._DEBUG('Missing argument(s); expected token, RSA keys and random source paths')
             self._EXIT_ERROR('Internal error; please contact your system administrator')
+
+        # Configuration
+        self.config(sys.argv[2], sys.argv[3], sys.argv[4])
+
+
+    #
+    # Getters
+    #
+
+    def _getToken(self):
+        # Configuration
+        self._config()
 
         # Get token data
         oToken = TokenReader()
-        if oToken.read(sys.argv[1], sys.argv[2]):
+        oToken.config(self._sFileKeyPrivate, self._sFileKeyPublic)
+        if oToken.readToken(sys.argv[1]):
             self._EXIT_ERROR('Internal error; please contact your system administrator')
+        return oToken
 
-        # Done
-        return oToken.getData()
+    def _getTokenReader(self):
+        # Configuration
+        self._config()
+
+        # Token reader
+        oTokenReader = TokenReader()
+        oTokenReader.config(self._sFileKeyPrivate, self._sFileKeyPublic)
+        return oTokenReader
+
+    def _getTokenWriter(self):
+        # Configuration
+        self._config()
+
+        # Token writer
+        oTokenWriter = TokenWriter()
+        oTokenWriter.config(self._sFileKeyPrivate, self._sFileKeyPublic, self._sFileRandom)
+        return oTokenWriter
+
