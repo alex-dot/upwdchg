@@ -30,9 +30,6 @@ override_dh_install:
 	rm -rf debian/tmp/usr/share/php/.registry
 	rm -rf debian/tmp/tmp
 
-	# Remove unwanted files
-	rm -rf debian/tmp/usr/share/php/data/upwdchg/tokens
-
 	# Fix global variables
 	sed -i "s|UPWDCHG_DAEMON_CONFIGSPEC\s*=.*|UPWDCHG_DAEMON_CONFIGSPEC = '/usr/share/upwdchg/daemon/upwdchg-daemon.conf.spec'|" debian/tmp/usr/lib/*/dist-packages/UPwdChg/Util/upwdchg_daemon.py
 	sed -i "s|UPWDCHG_VERSION\s*=.*|UPWDCHG_VERSION = '$(VERSION)'|" debian/tmp/usr/lib/*/dist-packages/UPwdChg/__init__.py
@@ -45,12 +42,12 @@ override_dh_install:
 	cp frontend/examples/config.php debian/tmp/etc/upwdchg/frontend/config.php
 	cp frontend/examples/index.php debian/tmp/etc/upwdchg/frontend/htdocs/index.php
 	cp frontend/examples/logrotate debian/tmp/etc/logrotate.d/upwdchg-frontend
-	mkdir -p debian/tmp/etc/upwdchg/backend/plugins.d
-	cp backend/plugins/README debian/tmp/etc/upwdchg/backend/plugins.d/README
-	mkdir -p debian/tmp/etc/upwdchg/daemon/plugins.d
+	mkdir -p debian/tmp/etc/upwdchg/backend/plugins/password-change.d
+	cp backend/plugins/README debian/tmp/etc/upwdchg/backend/plugins/password-change.d/README
+	mkdir -p debian/tmp/etc/upwdchg/daemon/plugins/password-change.d
 	cp backend/upwdchg-daemon.conf.sample debian/tmp/etc/upwdchg/daemon/upwdchg-daemon.conf
 	cp backend/upwdchg-daemon.email.template debian/tmp/etc/upwdchg/daemon/.
-	cp backend/plugins/README debian/tmp/etc/upwdchg/daemon/plugins.d/README
+	cp backend/plugins/README debian/tmp/etc/upwdchg/daemon/plugins/password-change.d/README
 
 	# Create man pages
 	mkdir -p debian/tmp/usr/share/man/man1
@@ -72,7 +69,7 @@ override_dh_install:
 	dh_install
 
 override_dh_installdocs:
-	dh_installdocs --link-doc=upwdchg-common README CREDITS PROTOCOL
+	dh_installdocs --link-doc=upwdchg-common README* CREDITS PROTOCOL*
 
 override_dh_clean:
 	dh_clean

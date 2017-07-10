@@ -2,10 +2,10 @@ Source: upwdchg
 Section: admin
 Priority: optional
 Maintainer: Cedric Dufour <cedric.dufour@ced-network.net>
-Build-Depends: python (>= 2.7), debhelper (>= 8), help2man
-Build-Depends-Indep: php-pear
+Build-Depends: python (>= 2.7), debhelper (>= 8), dh-python, help2man
+Build-Depends-Indep: php-pear, python-argparse, python-configobj, python-daemon, python-m2crypto, python-passlib (>= 1.7.0)
 Homepage: http://cedric.dufour.name/software/upwdchg
-Standards-Version: 3.9.4
+Standards-Version: 3.9.8
 
 Package: upwdchg-common
 Architecture: all
@@ -46,11 +46,18 @@ Description: Universal Password Changer (UPwdChg) - common files
     on multiple and different backends, such as LDAP, MIT Kerberos, Microsoft
     Active Directory, etc.
   - any other tasks that may be required as part of a password change operation
+ .
+ Since its version 2, the Universal Password Changer also features password nonces
+ - temporary passwords (PIN codes) sent to users via a separate channel - that may
+ be used:
+  - along the user old password to achieve two-factor password change
+  - in place of the user old password to achieve (forgotten) password reset
 
 Package: upwdchg-frontend
 Architecture: all
-Depends: ${misc:Depends}, upwdchg-common, libapache2-mod-php5 | php5-cgi | php5-fpm, php5-mcrypt, php-pear
-Recommends: php5-ldap
+Depends: ${misc:Depends}, upwdchg-common, libapache2-mod-php | php-cgi | php-fpm | libapache2-mod-php5 | php5-cgi | php5-fpm, php-mcrypt | php5-mcrypt, php-mbstring | libapache2-mod-php5 | php5-cgi | php5-fpm, php-pear
+Recommends: php-ldap | php5-ldap
+Suggests: php-text-captcha, php-image-text
 Description: Universal Password Changer (UPwdChg) - frontend utilities
  The Universal Password Changer (UPwdChg) allows one to synchronize passwords
  between multiple and different user directory systems - LDAP, MIT Kerberos,
@@ -63,7 +70,7 @@ Description: Universal Password Changer (UPwdChg) - frontend utilities
 
 Package: upwdchg-backend
 Architecture: all
-Depends: ${misc:Depends}, ${python:Depends}, upwdchg-common, python-argparse, python-configobj, python-daemon, python-m2crypto
+Depends: ${misc:Depends}, ${python:Depends}, upwdchg-common, python-argparse, python-configobj, python-daemon, python-m2crypto, python-passlib (>= 1.7.0)
 Suggests: upwdchg-plugins, python-ldap, krb5-admin-server | ssh-client
 Description: Universal Password Changer (UPwdChg) - backend utilities
  The Universal Password Changer (UPwdChg) allows one to synchronize passwords
@@ -100,13 +107,18 @@ Description: Universal Password Changer (UPwdChg) - sample plugins
  .
  The Universal Password Changer (UPwdChg) sample plugins are:
   * debug
-    - ShowTokenInfo:         display password change token details
+    - ShowTokenInfo:         display token details
+  * nonce
+    - SendPasswordNonceLdap: send password nonce (PIN code) via e-mail
+    - NukePasswordNonce:     invalidate password nonce (PIN code)
   * validation
-    - CheckTimestamp:        check password change token age
-    - CheckUsername:         check username (length, characters)
-    - CheckPassword:         check password policy (length, complexity)
+    - CheckTimestamp:        check token creation date/time
+    - CheckExpiration:       check token expiration date/time
+    - CheckPasswordNonce:    check password nonce (PIN code)
+    - CheckUsernamePolicy:   check username policy (length, characters)
+    - CheckPasswordPolicy:   check password policy (length, complexity)
     - CheckCredentialsLdap:  check credentials on LDAP server
-    - CheckActualChange:     check old and new passwords are different
+    - CheckPasswordChange:   check old and new passwords are different
   * password change
     - ChangePasswordLdap:    perform password change on LDAP server
     - ChangePasswordKrb5:    perform password change on MIT Kerberos 5 server
@@ -121,4 +133,3 @@ Description: Universal Password Changer (UPwdChg) - sample plugins
     - SynchGroupsLdap:       synchronize groups between LDAP servers
     - SynchGroupsMemberLdap: synchronize groups (user) membership between
                              LDAP servers
-

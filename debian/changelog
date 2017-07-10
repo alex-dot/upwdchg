@@ -1,3 +1,47 @@
+upwdchg (2.0.0) UNRELEASED; urgency=low
+
+  * DEVELOPMENT PACKAGING - NEW MAJOR VERSION (2.x) - WARNING: INCOMPATIBLE WITH VERSION 1.x!
+
+  Cédric Dufour:
+  * REFACTOR: [Frontend] Opted for more compact PHP spacing and indenting convention
+  * REFACTOR: [Backend] Opted for more compact Python spacing convention
+  * REFACTOR: [Backend] Removed leading '__' from Python functions local variables
+  * REFACTOR: [Plugins] Opted for more compact Python spacing convention
+  * REFACTOR: [Plugins] Removed leading '__' from Python functions local variables
+  * FIX: [Frontend] Typo in HTML class for read-only fields
+  * FIX: [Frontend] Re-use provided username in form after error(s)
+  * REFACTOR: [Frontend] Move password-related methods in their own section
+  * REFACTOR: [Frontend] Use more explicit names for HTML views and actions
+  * REFACTOR: [Frontend] Move and split the token creation method(s)
+  * ROADMAP: Looked at ECDSA crypto; not yet possible (no support, yet, in dependencies)
+  * PROTOCOL: Added section about forward secrecy
+  * REFACTOR: [Frontend] Replace 'gmstrftime' calls by 'gmdate' (to be consistent with future use of 'date_parse')
+  * REFACTOR: [Frontend] Replace 'openssl_digest' calls by 'hash' (to be consistent with future use of 'hash_hmac')
+  * REFACTOR: 1. Use JSON for token encoding (and provision new token types)
+              2. Be flexible on cryptography primitives (and provision future evolutions)
+  * FIX: [Frontend] Corrected type in 'password_charset_notascii' configuration setting
+  * MINOR: change to .gitignore
+  * REFACTOR: [Frontend] NEW "password-nonce" FEATURE
+              1. Split tokens directory (private <-> public)
+              2. Added (backend-to-frontend) token reader
+              3. Added 'password-nonce-request' and 'password-reset' frontend-to-backend token types
+              4. Added 'password-nonce' backend-to-frontend token type, along corresponding validity check method
+              5. Added 'captcha' authentication method
+              6. Allowed username-only credentials check
+  * REFACTOR: [Backend] NEW "password-nonce" FEATURE
+              1. Split tokens directory (private <-> public)
+              2. Added (backend-to-frontend) token writer
+              3. Added 'password-nonce-request' and 'password-reset' frontend-to-backend token types
+              4. Added 'password-nonce' backend-to-frontend token type, along corresponding validity check method
+              5. Improved error processing
+  * REFACTOR: [Plugins] NEW "password-nonce" FEATURE
+              1. Added password nonce processing plugins
+              2. Consolidated all plugins (error processing, debugging, etc.)
+  * REFACTOR: [Documentation] NEW "password-nonce" FEATURE
+  * REFACTOR: [Debian] NEW "password-nonce" FEATURE
+
+ -- Cédric Dufour <cedric.dufour@ced-network.net>  Mon, 10 Jul 2017 15:27:17 +0200
+
 upwdchg (1.0.20170512) UNRELEASED; urgency=low
 
   Alexander Herr:
@@ -13,7 +57,7 @@ upwdchg (1.0.20170512) UNRELEASED; urgency=low
          > REF: https://github.com/cedric-dufour/upwdchg/issues/1
   * FIX: [Debian] Gracefully handle Apache 2.2 <-> 2.4 configuration
          > REF: https://github.com/cedric-dufour/upwdchg/issues/1
-  * FIX: [Debian] Add PHP FPM as alternative depencency for upwdchg-frontend    
+  * FIX: [Debian] Add PHP FPM as alternative depencency for upwdchg-frontend
          > REF: https://github.com/cedric-dufour/upwdchg/issues/1
   * FIX: Wrong link in copyright/documentation header
   * FIX: [Frontend] Fix and make Apache example configuration version-aware
