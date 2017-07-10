@@ -30,10 +30,10 @@ cryptography is used:
 
 Password change tokens are actually made of:
  - the password change data - request timestamp, username, old and new
-   passwords - along corresponding SHA-256 digest, encrypted using
-   AES-256-CBC symetric cipher and base64 encoded
+   passwords, etc. - along corresponding their cryptographic digest, encrypted
+   using a symetric cipher
  - the symetric cipher key and initialization vector (IV), encrypted with
-   the supplied RSA public key and base64-encoded
+   the supplied RSA public key
 
 Once decrypted, password change tokens/requests are processed through various
 user-customizable plugins:
@@ -43,6 +43,12 @@ user-customizable plugins:
    on multiple and different backends, such as LDAP, MIT Kerberos, Microsoft
    Active Directory, etc.
  - any other tasks that may be required as part of a password change operation
+
+Since its version 2, the Universal Password Changer also features password nonces
+- temporary passwords (PIN codes) sent to users via a separate channel - that may
+be used:
+ - along the user old password to achieve two-factor password change
+ - in place of the user old password to achieve (forgotten) password reset
 
 
 Features
@@ -61,13 +67,18 @@ The Universal Password Changer (UPwdChg) provides:
 
 3. a set of password change token processing plugins:
     * debug
-      - ShowTokenInfo:         display password change token details
+      - ShowTokenInfo:         display token details
+    * nonce
+      - SendPasswordNonceLdap: send password nonce (PIN code) via e-mail
+      - NukePasswordNonce:     invalidate password nonce (PIN code)
     * validation
-      - CheckTimestamp:        check password change token age
-      - CheckUsername:         check username (length, characters)
-      - CheckPassword:         check password policy (length, complexity)
+      - CheckTimestamp:        check token creation date/time
+      - CheckExpiration:       check token expiration date/time
+      - CheckPasswordNonce:    check password nonce (PIN code)
+      - CheckUsernamePolicy:   check username policy (length, characters)
+      - CheckPasswordPolicy:   check password policy (length, complexity)
       - CheckCredentialsLdap:  check credentials on LDAP server
-      - CheckActualChange:     check old and new passwords are different
+      - CheckPasswordChange:   check old and new passwords are different
     * password change
       - ChangePasswordLdap:    perform password change on LDAP server
       - ChangePasswordKrb5:    perform password change on MIT Kerberos 5 server

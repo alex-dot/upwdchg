@@ -25,8 +25,8 @@ peer and why those SHOULD NOT be hosted on the same server:
   e.g. those of LDAP, Kerberos or Active Diretory administators.
 
 - It is clearly not a good idea to expose a server with such privileges directly
-  to users, through a public-accessible interfacei, the attack surface of the
-  latter being way to big for the risks at stake.
+  to users, through a public-accessible (web) interface, the attack surface of
+  the latter being way to big for the risks at stake.
 
 - The user interface is thus delegated to the FRONTEND peer, which will interact
   with the BACKEND peer through a well-defined, low-footprint, cryptographically-
@@ -42,93 +42,11 @@ This implies that:
 - Everything must be validated by the BACKEND. ALWAYS! Really!
   Especially more so since the BACKEND, thanks to its higher privileges,
   has access to all the relevant information to fully validate the USER input,
-  received via the FRONTEND.
+  received from the FRONTEND.
 
 That secure channel and trust model are the particularity, the main purpose and
 - hopefully! - the force of the Universal Password Changer (the user-customizable
 processing "plugins" being more like "goodies" added to the project).
-
-
-Password Change
----------------
-
-In order to perform a password change, the following one-way communication will
-take place:
-1. USER -> FRONTEND -> BACKEND: "password change" token
-
-In details:
-
-***** USER -> FRONTEND *****
-
-* [SHOULD] USER authenticates on FRONTEND (using his username and old password)
-
-  NOTE: Using the HTTP (server) basic authentication will prevent an attacker
-        to access the (PHP) web application and attempt to exploit potential
-        vulnerabilities
-
-* [MUST] USER provides the FRONTEND with his username, old password and new password
-
-***** FRONTEND *****
-
-* [SHOULD] FRONTEND validates the old password, iow. performs authentication
-
-  NOTE: This is donely purely to avoid the BACKEND being easily flooded (DoS-ed)
-        with invalid password change requests.
-
-  NOTE: Nothing that comes from the FRONTEND must be trusted!
-        Everything must be validated by the BACKEND (again)!
-
-* [SHOULD] FRONTEND validates the new password according to the password policy
-
-  NOTE: This is done purely out of user-friendliness and to avoid sending
-        invalid password change requests to the BACKEND.
-
-  NOTE: Nothing that comes from the FRONTEND must be trusted!
-        Everything must be validated by the BACKEND (again)!
-
-* [MUST] FRONTEND creates a "password change" token:
-
-  PSEUDO CODE:
-    data = { timestamp, username, password-old, password-new }
-    digest = HASH( data )
-    key = RANDOM()
-    iv = RANDOM()
-    key-encrypted = PUBLIC_ENCRYPT( key, public-key )
-    data-encrypted = SYMMETRIC_ENCRYPT( { data, digest }, key, iv )
-    token = { key-encrypted, iv, data-encrypted }
-    token-file = timestamp + HASH( username )
-    WRITE( token-file, token )
-
-***** FRONTEND -> BACKEND *****
-
-* [MUST] The token is transferred from the FRONTEND to the BACKEND
-
-  NOTE: The way the transfer takes place is no business of UPwdChg.
-        The easiest way is a common - but dedicated - NFS share (with
-        appropriate permissions). One can also imagine using RSync,
-        SCP, E-mail, Dropbox (...), etc.
-
-  NOTE: Thanks to asymmetric (public/private key) cryptography, the
-        token is readable by NO ONE save the BACKEND. It can thus be
-        transferred though an insecure medium.
-
-***** BACKEND *****
-
-* [MUST] BACKEND decrypts the token:
-
-  PSEUDO CODE:
-    { key-encrypted, iv, data-encrypted } = token = READ( token-file )
-    key = PRIVATE_DECRYPT( key-encrypted, private-key )
-    { data, digest } = SYMMETRIC_DECRYPT( data-encrypted, key, iv )
-    HASH( data ) == digest ?
-    { timestamp, username, password-old, password-new } = data
-
-* [MUST] BACKEND validates all received data:
-    - timestamp (within expiration limit ?)
-    - old credentials (username + old password)
-    - new password according to password policy
-
-* [MUST] BACKEND performs the actual password change
 
 
 Forward Secrecy
@@ -145,3 +63,9 @@ This means that if an attacker gets hold:
 - of "password change" tokens (temporarily stored on both BACKEND and FRONTEND)
 - of the RSA private key (stored on the BACKEND)
 He can decrypt any past tokens and access the corresponding credentials.
+
+
+Actual Password Change Operation
+--------------------------------
+
+Please refer to the ad-hoc PROTOCOL.<operation> files.

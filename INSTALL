@@ -96,9 +96,9 @@ NOTE:
 
 1. [MUST] Create the password change tokens directory:
 
-   BASH: mkdir -p /var/lib/upwdchg/tokens.d
+   BASH: mkdir -p /var/lib/upwdchg/tokens/{private,public}.d
 
-   (and adjust the 'tokens_directory' configuration correspondingly; see 3.)
+   (and adjust the 'tokens_directory_*' configuration correspondingly; see 3.)
 
 2. [MAY] Create and customize the (localized) resources directory:
 
@@ -130,7 +130,7 @@ NOTE:
    BASH: cp /usr/share/php/doc/UPwdChg/examples/apache.conf \
             /etc/upwdchg/frontend/.
    BASH: ln -s /etc/upwdchg/frontend/apache.conf \
-               /etc/apache2/conf.d/upwdchg-frontend.conf
+               /etc/apache2/conf-available/upwdchg-frontend.conf
 
 
 USAGE - BACKEND
@@ -160,9 +160,9 @@ SYSNOPSIS:
 
 2. [MUST] Create and customize password change token processing plugins:
 
-   BASH: mkdir -p /etc/upwdchg/backend/plugins.d
+   BASH: mkdir -p /etc/upwdchg/backend/plugins/password-change.d
    BASH: cp /usr/share/upwdchg/backend/plugins/* \
-            /etc/upwdchg/backend/plugins.d
+            /etc/upwdchg/backend/plugins/password-change.d
 
    (edit/configure each plugin to match your environment/requirements)
 
