@@ -40,7 +40,7 @@ class UPwdChg
    * CONSTANTS
    ********************************************************************************/
 
-  /** Symetric cipher algorithm
+  /** Symetric cipher algorithm (OpenSSL stanza)
    * @var string */
   const CIPHER_ALGO = 'aes-256-cbc';
 
@@ -52,7 +52,7 @@ class UPwdChg
    * @var int */
   const CIPHER_IV_LENGTH = 16;
 
-  /** Digest algorithm
+  /** Digest algorithm (HASH stanza)
    * @var string */
   const DIGEST_ALGO = 'sha256';
 
@@ -99,11 +99,14 @@ class UPwdChg
     $_CONFIG['locales'] = 'en,fr';
     $_CONFIG['force_ssl'] = 1;
     $_CONFIG['resources_directory'] = dirname(__FILE__).'/data/UPwdChg/resources';
-    $_CONFIG['tokens_directory'] = dirname(__FILE__).'/data/UPwdChg/tokens';
+    $_CONFIG['tokens_directory_private'] = '/var/lib/upwdchg/tokens/private.d';
+    $_CONFIG['tokens_directory_public'] = '/var/lib/upwdchg/tokens/public.d';
     $_CONFIG['public_key_file'] = '/etc/upwdchg/public.pem';
     $_CONFIG['random_source'] = MCRYPT_DEV_URANDOM;
     $_CONFIG['authentication_method'] = 'http';
     $_CONFIG['credentials_check_method'] = 'ldap';
+    $_CONFIG['password_nonce'] = 0;
+    $_CONFIG['password_reset'] = 0;
     $_CONFIG['password_length_minimum'] = 8;
     $_CONFIG['password_length_maximum'] = 64;
     $_CONFIG['password_charset_notascii'] = -1;
@@ -116,12 +119,16 @@ class UPwdChg
     $_CONFIG['ldap_host'] = 'ldap://ldap.example.org';
     $_CONFIG['ldap_port'] = 389;
     $_CONFIG['ldap_user_dn'] = 'uid=%{USERNAME},ou=users,dc=example,dc=org';
-    $_CONFIG['ldap_user_base_dn'] = '';
+    $_CONFIG['ldap_user_base_dn'] = 'ou=users,dc=example,dc=org';
     $_CONFIG['ldap_user_search_scope'] = 'one';
-    $_CONFIG['ldap_user_filter'] = '';
+    $_CONFIG['ldap_user_filter'] = '(&(objectClass=*)(uid=%{USERNAME}))';
     $_CONFIG['ldap_bind_dn'] = '';
     $_CONFIG['ldap_bind_password'] = '';
     $_CONFIG['ldap_protocol_version'] = 0;
+    $_CONFIG['captcha_width'] = 240;
+    $_CONFIG['captcha_height'] = 120;
+    $_CONFIG['captcha_fontsize'] = 32;
+    $_CONFIG['captcha_ttl'] = 10;
 
     // Load user configuration
     if((include $sConfigurationPath) === false) {
@@ -132,11 +139,12 @@ class UPwdChg
     // Validation
     //echo nl2br(var_export($_CONFIG, true)); // DEBUG
     // ... is integer
-    foreach(array('force_ssl', 'random_source',
+    foreach(array('force_ssl', 'random_source', 'password_nonce', 'password_reset',
                   'password_length_minimum', 'password_length_maximum', 'password_charset_notascii',
                   'password_type_lower', 'password_type_upper', 'password_type_digit',
                   'password_type_punct', 'password_type_other', 'password_type_minimum',
                   'ldap_port', 'ldap_protocol_version',
+                  'captcha_width', 'captcha_height', 'captcha_fontsize', 'captcha_ttl',
     ) as $p)
       if(!is_int($_CONFIG[$p]))
         trigger_error('['.__METHOD__.'] Parameter must be an integer ('.$p.')', E_USER_ERROR);
@@ -148,11 +156,11 @@ class UPwdChg
       if(!is_string($_CONFIG[$p]))
         trigger_error('['.__METHOD__.'] Parameter must be a string ('.$p.')', E_USER_ERROR);
     // ... is readable
-    foreach(array('resources_directory', 'public_key_file') as $p)
+    foreach(array('resources_directory', 'tokens_directory_public', 'public_key_file') as $p)
       if(!is_readable($_CONFIG[$p]))
         trigger_error('['.__METHOD__.'] Parameter must be a readable path ('.$p.')', E_USER_ERROR);
     // ... is writeable
-    foreach(array('tokens_directory') as $p)
+    foreach(array('tokens_directory_private') as $p)
       if(!is_writable($_CONFIG[$p]))
         trigger_error('['.__METHOD__.'] Parameter must be a writable path ('.$p.')', E_USER_ERROR);
 
@@ -229,17 +237,22 @@ class UPwdChg
       $_TEXT = array();
       $_TEXT['title'] = 'Password Change';
       $_TEXT['label:language'] = 'Language';
+      $_TEXT['label:captcha'] = 'Captcha';
       $_TEXT['label:username'] = 'Username';
       $_TEXT['label:password_old'] = 'Old Password';
       $_TEXT['label:password_new'] = 'New Password';
       $_TEXT['label:password_confirm'] = '(confirm)';
       $_TEXT['label:password_policy'] = '(password policy)';
       $_TEXT['label:password_policy_back'] = '(back)';
+      $_TEXT['label:password_reset'] = 'Password forgotten ? Please proceed to password reset...';
+      $_TEXT['label:password_nonce'] = 'PIN code';
       $_TEXT['label:submit'] = 'Submit';
       $_TEXT['error:internal_error'] = 'Internal error. Please contact the system administrator.';
       $_TEXT['error:unsecure_channel'] = 'Unsecure channel. Please use an encrypted channel (SSL).';
       $_TEXT['error:invalid_form_data'] = 'Invalid form data. Please contact the system administrator.';
-      $_TEXT['error:invalid_credentials'] = 'Invalid credentials (incorrect username or old password).';
+      $_TEXT['error:invalid_captcha'] = 'Invalid captcha.';
+      $_TEXT['error:invalid_credentials'] = 'Invalid credentials (incorrect username, old password or PIN code).';
+      $_TEXT['error:expired_password_nonce'] = 'PIN code has expired.';
       $_TEXT['error:password_mismatch'] = 'Password confirmation mismatch.';
       $_TEXT['error:password_identical'] = 'Old and new passwords are identical.';
       $_TEXT['error:password_length_minimum'] = 'Password MUST contain at least '.$this->amCONFIG['password_length_minimum'].' characters.';
@@ -274,6 +287,22 @@ class UPwdChg
     return $_TEXT[$sTextID];
   }
 
+  /** Reset session
+   *
+   *  Clear the current session and regenerate a new session ID.
+   */
+  private function resetSession() {
+    // Save session locale and login URL
+    $sLocale = $this->getCurrentLocale();
+
+    // Clear session and start a new one.
+    $_SESSION = array();
+    session_regenerate_id(true);
+
+    // Restore session locale and login URL
+    $_SESSION['UPwdChg_Locale'] = $sLocale;
+  }
+
 
   /*
    * METHODS: Authentication
@@ -289,8 +318,10 @@ class UPwdChg
       return $this->authenticateHttp();
     case 'ldap':
       return $this->authenticateLdap();
+    case 'captcha':
+      return $this->authenticateCaptcha();
     case 'none':
-      return null;
+      return array('username' => null, 'password' => null);
     default:
       break;
     }
@@ -304,7 +335,7 @@ class UPwdChg
    */
   private function authenticateHttp() {
     // Check HTTP authenticated user
-    if(!isset($_SERVER['PHP_AUTH_USER'])) {
+    if(!isset($_SERVER['PHP_AUTH_USER'], $_SERVER['PHP_AUTH_PW'])) {
       trigger_error('['.__METHOD__.'] HTTP credentials not available', E_USER_WARNING);
       throw new Exception($this->getText('error:internal_error'));
     }
@@ -319,7 +350,7 @@ class UPwdChg
    */
   private function authenticateLdap() {
     // Retrieve credentials
-    if(!isset($_SERVER['PHP_AUTH_USER'])) {
+    if(!isset($_SERVER['PHP_AUTH_USER'], $_SERVER['PHP_AUTH_PW'])) {
       header('WWW-Authenticate: Basic');
       header('HTTP/1.0 401 Unauthorized');
       exit;
@@ -339,16 +370,44 @@ class UPwdChg
 
   }
 
+  /** Authenticate via Captcha
+   *
+   * @return array|string Null user credentials (username, password)
+   */
+  private function authenticateCaptcha() {
+    // Check captcha
+    if(!isset($_SESSION['UPwdChg_Captcha_Challenge'], $_SESSION['UPwdChg_Captcha_Response'], $_SESSION['UPwdChg_Captcha_TTL'])) {
+      echo '<SCRIPT TYPE="text/javascript">document.location.replace(\'?view=captcha\')</SCRIPT>';
+      echo '<META HTTP-EQUIV="refresh" CONTENT="1;URL=?view=captcha" />';
+      exit;
+    }
+    if($_SESSION['UPwdChg_Captcha_Response'] != $_SESSION['UPwdChg_Captcha_Challenge']
+    or $_SESSION['UPwdChg_Captcha_TTL'] <= 0) {
+      // WTF!?!
+      $this->resetSession();
+      echo '<SCRIPT TYPE="text/javascript">document.location.replace(\'?view=captcha\')</SCRIPT>';
+      echo '<META HTTP-EQUIV="refresh" CONTENT="1;URL=?view=captcha" />';
+      exit;
+    }
+
+    // Decrease Time-to-Live
+    $_SESSION['UPwdChg_Captcha_TTL'] -= 1;
+
+    // End
+    return array('username' => null, 'password' => null);
+  }
+
   /** Check credentials via user-configured authentication backend
    *
    * @param string $sUsername Username
    * @param string $sPassword Password
+   * @param boolean $bUsernameOnly Check only the username (if password is Null)
    * @return boolean True for valid credentials, False otherwise
    */
-  private function checkCredentials($sUsername, $sPassword) {
+  private function checkCredentials($sUsername, $sPassword, $bUsernameOnly=false) {
     switch($this->amCONFIG['credentials_check_method']) {
     case 'ldap':
-      return $this->checkCredentialsLdap($sUsername, $sPassword);
+      return $this->checkCredentialsLdap($sUsername, $sPassword, $bUsernameOnly);
     case 'none':
       return true;
     default:
@@ -362,13 +421,13 @@ class UPwdChg
    *
    * @param string $sUsername Username
    * @param string $sPassword Password
+   * @param boolean $bUsernameOnly Check only the username (if password is Null)
    * @return boolean True for valid credentials, False otherwise
    */
-  private function checkCredentialsLdap($sUsername, $sPassword) {
+  private function checkCredentialsLdap($sUsername, $sPassword, $bUsernameOnly=false) {
     // Check crendentials
     $hLdap = null;
-    try
-    {
+    try {
 
       // Authentication
 
@@ -386,8 +445,7 @@ class UPwdChg
         throw new Exception('Failed to set LDAP protocol version');
 
       // ... search for user (?)
-      if(!empty($this->amCONFIG['ldap_user_base_dn'])
-         and !empty($this->amCONFIG['ldap_user_filter'])) {
+      if(empty($this->amCONFIG['ldap_user_dn'])) {
         // ... bind
         if(!empty($this->amCONFIG['ldap_bind_dn'])
            and !ldap_bind($hLdap,
@@ -406,7 +464,7 @@ class UPwdChg
                                     str_ireplace('%{USERNAME}',
                                                  $sUsername,
                                                  $this->amCONFIG['ldap_user_filter']),
-                                    array(), 0, 2);
+                                    array(), 1, 2);
         if($hLdapSearch === false)
           throw new Exception('Failed to perform LDAP user DN search');
 
@@ -427,15 +485,26 @@ class UPwdChg
 
         // ... free resouces
         ldap_free_result($hLdapSearch);
-
       }
       else {
         $sBindDn = str_ireplace('%{USERNAME}', $sUsername, $this->amCONFIG['ldap_user_dn']);
         $sBindPassword = $sPassword;
+
+        // ... only check username (?)
+        if(!isset($sBindPassword) and $bUsernameOnly) {
+          $hLdapSearch = ldap_read($hLdap, $sBindDn, '(objectClass=*)', array(), 1, 2);
+          if($hLdapSearch === false)
+            throw new Exception('Failed to verify LDAP user DN');
+          $iCount = ldap_count_entries($hLdap, $hLdapSearch);
+          if($iCount == 0)
+            throw new Exception('Failed to verify LDAP user DN; user not found');
+          if($iCount > 1)
+            throw new Exception('Failed to verify LDAP user DN; too many match');
+        }
       }
 
       // ... bind as user
-      if(!@ldap_bind($hLdap, $sBindDn, $sBindPassword))
+      if(isset($sBindPassword) and !@ldap_bind($hLdap, $sBindDn, $sBindPassword))
         throw new Exception('Failed to bind to LDAP server; user='.$sUsername);
 
       // ... unbind
@@ -516,35 +585,35 @@ class UPwdChg
 
   /** Check password policy
    *
-   * @param string $sPassword_new New password
-   * @param string $sPassword_confirm New password confirmation
-   * @param string $sPassword_old Old password
+   * @param string $sPasswordNew New password
+   * @param string $sPasswordNew_confirm New password confirmation
+   * @param string $sPasswordOld Old password
    */
-  private function checkPasswordPolicy($sPassword_new, $sPassword_confirm, $sPassword_old=null) {
+  private function checkPasswordPolicy($sPasswordNew, $sPasswordNew_confirm, $sPasswordOld=null) {
     $asPasswordErrors = array();
 
     // Check password confirmation
-    if($sPassword_new != $sPassword_confirm)
+    if($sPasswordNew != $sPasswordNew_confirm)
       throw new Exception($this->getText('error:password_mismatch'));
 
     // Check no-change password
-    if(isset($sPassword_old) and $sPassword_new == $sPassword_old)
+    if(isset($sPasswordOld) and $sPasswordNew == $sPasswordOld)
       throw new Exception($this->getText('error:password_identical'));
 
     // Check minimum length
     if($this->amCONFIG['password_length_minimum']) {
-      if(mb_strlen($sPassword_new) < $this->amCONFIG['password_length_minimum'])
+      if(mb_strlen($sPasswordNew) < $this->amCONFIG['password_length_minimum'])
         array_push($asPasswordErrors, $this->getText('error:password_length_minimum'));
     }
 
     // Check maximum length
     if($this->amCONFIG['password_length_maximum']) {
-      if(mb_strlen($sPassword_new) > $this->amCONFIG['password_length_maximum'])
+      if(mb_strlen($sPasswordNew) > $this->amCONFIG['password_length_maximum'])
         array_push($asPasswordErrors, $this->getText('error:password_length_maximum'));
     }
 
     // Check password characters type
-    $aiPasswordTypes = $this->getPasswordTypes($sPassword_new);
+    $aiPasswordTypes = $this->getPasswordTypes($sPasswordNew);
     // ... not ASCII
     if($this->amCONFIG['password_charset_notascii']) {
       if($aiPasswordTypes['notascii'] and $this->amCONFIG['password_charset_notascii']<0)
@@ -599,28 +668,143 @@ class UPwdChg
     }
   }
 
+  /** Check password nonce
+   *
+   * @param string $sUsername Username
+   * @param string $sPasswordNonce Password nonce
+   */
+  private function checkPasswordNonce($sUsername, $sPasswordNonce) {
+    // Split nonce ID <-> secret ("<nonce-id>-<nonce-secret>")
+    $asPasswordNonce = explode('-', $sPasswordNonce, 2);
+    if(count($asPasswordNonce) < 2) {
+      throw new Exception($this->getText('error:invalid_credentials'));
+    }
+    $sPasswordNonce_id = $asPasswordNonce[0];
+    $sPasswordNonce_secret = $asPasswordNonce[1];
+
+    // Check nonce
+    // ... valid characters (NB: prevent path traversal on nonce retrieval)
+    if(preg_match('/[[:^alnum:]]/i', $sPasswordNonce_id)) {
+      throw new Exception($this->getText('error:invalid_credentials'));
+    }
+    // ... read from file
+    $asData = $this->readToken_PasswordNonce($sPasswordNonce_id);
+    // ... nonce ID
+    if($asData['password-nonce-id'] != $sPasswordNonce_id)
+      throw new Exception($this->getText('error:invalid_credentials'));
+    // ... username
+    if($asData['username'] != $sUsername)
+      throw new Exception($this->getText('error:invalid_credentials'));
+    // ... secret
+    $sHash_given = base64_decode($asData['password-nonce-secret']['base64']);
+    $sHashAlgo = strtolower($asData['password-nonce-secret']['hash']['algorithm']);
+    if($sHashAlgo == 'crypt') {
+      if(!password_verify($sPasswordNonce_secret, $sHash_given))
+        throw new Exception($this->getText('error:invalid_credentials'));
+      return;
+    } elseif(substr($sHashAlgo, 0, 7) == 'pbkdf2-') {
+      $sHashAlgo_salt = base64_decode($asData['password-nonce-secret']['hash']['salt']['base64']);
+      $iHashAlgo_iterations = (integer)$asData['password-nonce-secret']['hash']['iterations'];
+      $sHash_compute = hash_pbkdf2(substr($sHashAlgo, 7), $sPasswordNonce_secret, $sHashAlgo_salt, $iHashAlgo_iterations, 0, true);
+    } elseif(substr($sHashAlgo, 0, 5) == 'hmac-') {
+      $sHashAlgo_salt = base64_decode($asData['password-nonce-secret']['hash']['salt']['base64']);
+      $sHash_compute = hash_hmac(substr($sHashAlgo, 5), $sPasswordNonce_secret, $sHashAlgo_salt, true);
+    } else {
+      trigger_error('['.__METHOD__.'] Invalid/unsupported password hash', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    if(empty($sHash_given) or empty($sHash_compute) or $sHash_given !== $sHash_compute) {
+      throw new Exception($this->getText('error:invalid_credentials'));
+    }
+    // ... expiration
+    $asExpiration = date_parse_from_format('Y-m-d\TH:i:s\Z', $asData['expiration']);
+    if(!is_array($asExpiration) or $asExpiration['error_count']>0) {
+      trigger_error('['.__METHOD__.'] Invalid expiration', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    if(time() >= gmmktime($asExpiration['hour'], $asExpiration['minute'], $asExpiration['second'], $asExpiration['month'], $asExpiration['day'], $asExpiration['year'])) {
+      throw new Exception($this->getText('error:expired_password_nonce'));
+    }
+  }
+
 
   /*
-   * METHODS: Token
+   * METHODS: Token (shared)
    ********************************************************************************/
+
+  /** Return the normalized token data, for digest purposes
+   *
+   * @param array|string $asData Token data
+   * @return string Normalized token data (string)
+   */
+  private function getTokenData_Digest($asData) {
+    $asData_digest = $asData;
+    ksort($asData_digest);
+    return implode('|', array_map(function($mValue) { return is_array($mValue) ? $this->getTokenData_Digest($mValue) : $mValue; }, $asData_digest));
+  }
+
+
+  /*
+   * METHODS: Token (private)
+   ********************************************************************************/
+
+  /** Return the "password-nonce-request" token data (associative array)
+   *
+   * @param int $iNow Current time (epoch)
+   * @param string $sUsername Username
+   * @return array|string Token data
+   */
+  private function getTokenData_PasswordNonceRequest($iNow, $sUsername) {
+    // Associative array
+    return array(
+      'type' => 'password-nonce-request',
+      'timestamp' => gmdate('Y-m-d\TH:i:s\Z', $iNow),
+      'locale' => $this->getCurrentLocale(),
+      'username' => $sUsername,
+    );
+  }
 
   /** Return the "password-change" token data (associative array)
    *
    * @param int $iNow Current time (epoch)
    * @param string $sUsername Username
-   * @param string $sPassword_old Old password
-   * @param string $sPassword_new New password
+   * @param string $sPasswordNew New password
+   * @param string $sPasswordOld Old password
+   * @param string $sPasswordNonce Password nonce
    * @return array|string Token data
    */
-  private function getTokenData_PasswordChange($iNow, $sUsername, $sPassword_old, $sPassword_new)
-  {
+  private function getTokenData_PasswordChange($iNow, $sUsername, $sPasswordNew, $sPasswordOld, $sPasswordNonce=null) {
     // Associative array
-    return array(
+    $aTokenData = array(
       'type' => 'password-change',
       'timestamp' => gmdate('Y-m-d\TH:i:s\Z', $iNow),
+      'locale' => $this->getCurrentLocale(),
       'username' => $sUsername,
-      'password-old' => $sPassword_old,
-      'password-new' => $sPassword_new,
+      'password-new' => $sPasswordNew,
+      'password-old' => $sPasswordOld,
+    );
+    if($sPasswordNonce)
+      $aTokenData['password-nonce'] = $sPasswordNonce;
+    return $aTokenData;
+  }
+
+  /** Return the "password-reset" token data (associative array)
+   *
+   * @param int $iNow Current time (epoch)
+   * @param string $sUsername Username
+   * @param string $sPasswordNew New password
+   * @param string $sPasswordNonce Password nonce
+   * @return array|string Token data
+   */
+  private function getTokenData_PasswordReset($iNow, $sUsername, $sPasswordNew, $sPasswordNonce) {
+    // Associative array
+    return array(
+      'type' => 'password-reset',
+      'timestamp' => gmdate('Y-m-d\TH:i:s\Z', $iNow),
+      'locale' => $this->getCurrentLocale(),
+      'username' => $sUsername,
+      'password-new' => $sPasswordNew,
+      'password-nonce' => $sPasswordNonce,
     );
   }
 
@@ -629,12 +813,10 @@ class UPwdChg
    * @param array|string $asData Token data
    * @return string Token
    */
-  private function encryptToken($asData)
-  {
+  private function encryptToken($asData) {
     // Compute the data digest
-    $asData_digest = $asData; ksort($asData_digest);
-    $sDataDigest = hash(UPwdChg::DIGEST_ALGO, mb_convert_encoding(implode('|', $asData_digest), 'utf-8'), true);
-    if($sDataDigest === false) {
+    $sDataDigest = hash(UPwdChg::DIGEST_ALGO, mb_convert_encoding($this->getTokenData_Digest($asData), 'utf-8'), true);
+    if(empty($sDataDigest)) {
       trigger_error('['.__METHOD__.'] Failed to compute data digest', E_USER_WARNING);
       throw new Exception($this->getText('error:internal_error'));
     }
@@ -650,7 +832,7 @@ class UPwdChg
     $sDataKey = mcrypt_create_iv(UPwdChg::CIPHER_KEY_LENGTH, $this->amCONFIG['random_source']);
     // ... load the RSA public key
     $sPublicKey = file_get_contents($this->amCONFIG['public_key_file']);
-    if($sPublicKey === false) {
+    if(empty($sPublicKey)) {
       trigger_error('['.__METHOD__.'] Failed to load RSA public key', E_USER_WARNING);
       throw new Exception($this->getText('error:internal_error'));
     }
@@ -668,7 +850,7 @@ class UPwdChg
     // Encrypt the data
     $sDataIv = mcrypt_create_iv(UPwdChg::CIPHER_IV_LENGTH, $this->amCONFIG['random_source']);
     $sDataEncrypted = openssl_encrypt($sData, UPwdChg::CIPHER_ALGO, $sDataKey, true, $sDataIv);
-    if($sDataEncrypted === false) {
+    if(empty($sDataEncrypted)) {
       trigger_error('['.__METHOD__.'] Failed to encrypt data', E_USER_WARNING);
       throw new Exception($this->getText('error:internal_error'));
     }
@@ -702,10 +884,9 @@ class UPwdChg
    * @param int $iNow Current time (epoch)
    * @param string $sToken Token
    */
-  private function writeToken($iNow, $sToken)
-  {
+  private function writeToken($iNow, $sToken) {
     // Write the token to storage
-    $sFile = $this->amCONFIG['tokens_directory'].DIRECTORY_SEPARATOR.gmdate('Ymd\THis\Z-', $iNow).bin2hex(openssl_random_pseudo_bytes(8)).'.token';
+    $sFile = $this->amCONFIG['tokens_directory_private'].DIRECTORY_SEPARATOR.gmdate('Ymd\THis\Z-', $iNow).bin2hex(openssl_random_pseudo_bytes(8)).'.token';
     $iUMask_old = umask();
     umask(0137);
     if(file_put_contents($sFile, $sToken) != strlen($sToken)) {
@@ -716,18 +897,197 @@ class UPwdChg
     umask($iUMask_old);
   }
 
+  /** Write the encrypted "password-nonce-request" token to file
+   *
+   * @param string $sUsername Username
+   */
+  private function writeToken_PasswordNonceRequest($sUsername) {
+    $iNow = time();
+    $asData = $this->getTokenData_PasswordNonceRequest($iNow, $sUsername);
+    $sToken = $this->encryptToken($asData);
+    $this->writeToken($iNow, $sToken);
+  }
+
   /** Write the encrypted "password-change" token to file
    *
    * @param string $sUsername Username
-   * @param string $sPassword_old Old password
-   * @param string $sPassword_new New password
+   * @param string $sPasswordNew New password
+   * @param string $sPasswordOld Old password
+   * @param string $sPasswordNonce Password nonce
    */
-  private function writeToken_PasswordChange($sUsername, $sPassword_old, $sPassword_new)
-  {
+  private function writeToken_PasswordChange($sUsername, $sPasswordNew, $sPasswordOld, $sPasswordNonce=null) {
     $iNow = time();
-    $asData = $this->getTokenData_PasswordChange($iNow, $sUsername, $sPassword_old, $sPassword_new);
+    $asData = $this->getTokenData_PasswordChange($iNow, $sUsername, $sPasswordNew, $sPasswordOld, $sPasswordNonce);
     $sToken = $this->encryptToken($asData);
     $this->writeToken($iNow, $sToken);
+  }
+
+  /** Write the encrypted "password-reset" token to file
+   *
+   * @param string $sUsername Username
+   * @param string $sPasswordNew New password
+   * @param string $sPasswordNonce Password nonce
+   */
+  private function writeToken_PasswordReset($sUsername, $sPasswordNew, $sPasswordNonce) {
+    $iNow = time();
+    $asData = $this->getTokenData_PasswordReset($iNow, $sUsername, $sPasswordNew, $sPasswordNonce);
+    $sToken = $this->encryptToken($asData);
+    $this->writeToken($iNow, $sToken);
+  }
+
+
+  /*
+   * METHODS: Token (public)
+   ********************************************************************************/
+
+  /** Return the decrypted token data
+   *
+   * @param array|string $asToken Token
+   * @return array|string Token data
+   */
+  private function decryptToken($asToken) {
+    // Decode the data (Base64)
+    $sData = base64_decode($asToken['data']['base64']);
+    if(empty($sData)) {
+      trigger_error('['.__METHOD__.'] Failed to decode token data', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+
+    // Decrypt the (symmetric) data key
+    $sDataKey = base64_decode($asToken['data']['cipher']['key']['base64']);
+    if(empty($sDataKey)) {
+      trigger_error('['.__METHOD__.'] Failed to decode data key', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    $sDataKeyCipherAlgo = strtolower($asToken['data']['cipher']['key']['cipher']['algorithm']);
+    switch($sDataKeyCipherAlgo) {
+    case 'private':
+      // ... load the RSA public key
+      $sPublicKey = file_get_contents($this->amCONFIG['public_key_file']);
+      if(empty($sPublicKey)) {
+        trigger_error('['.__METHOD__.'] Failed to load RSA public key', E_USER_WARNING);
+        throw new Exception($this->getText('error:internal_error'));
+      }
+      $mPublicKey = openssl_pkey_get_public($sPublicKey);
+      if($mPublicKey === false) {
+        trigger_error('['.__METHOD__.'] Invalid RSA public key', E_USER_WARNING);
+        throw new Exception($this->getText('error:internal_error'));
+      }
+      // ... decrypt the data key using the RSA public key
+      if(openssl_public_decrypt($sDataKey, $sDataKeyDecrypted, $mPublicKey, OPENSSL_PKCS1_PADDING) === false) {
+        trigger_error('['.__METHOD__.'] Failed to decrypt data key', E_USER_WARNING);
+        throw new Exception($this->getText('error:internal_error'));
+      }
+      break;
+    default:
+      trigger_error('['.__METHOD__.'] Invalid/unsupported data key cipher', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+
+    // Decrypt the data
+    $sDataCipherAlgo = str_replace('_', '-', strtolower($asToken['data']['cipher']['algorithm']));
+    $sDataIv = base64_decode($asToken['data']['cipher']['iv']['base64']);
+    switch($sDataCipherAlgo) {
+    case 'aes-256-cbc':
+    case 'aes-192-cbc':
+    case 'aes-128-cbc':
+    case 'bf-cbc':
+      $sData = openssl_decrypt($sData, $sDataCipherAlgo, $sDataKeyDecrypted, OPENSSL_RAW_DATA, $sDataIv);
+      if(empty($sData)) {
+        trigger_error('['.__METHOD__.'] Failed to decrypt data', E_USER_WARNING);
+        throw new Exception($this->getText('error:internal_error'));
+      }
+      break;
+    default:
+      trigger_error('['.__METHOD__.'] Invalid/unsupported data cipher', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+
+    // Decode the data (JSON)
+    $asData = json_decode($sData, true);
+    if(is_null($asData)) {
+      trigger_error('['.__METHOD__.'] Failed to parse data', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    if(!isset($asData['type'])) {
+      trigger_error('['.__METHOD__.'] Invalid data', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+
+    // Check the data digest
+    $sDataDigestAlgo = strtolower($asData['digest']['algorithm']);
+    $sDataDigest_given = base64_decode($asData['digest']['base64']);
+    switch($sDataDigestAlgo) {
+    case 'sha512':
+    case 'sha384':
+    case 'sha256':
+    case 'sha224':
+    case 'sha1':
+    case 'md5':
+      $asData_digest = array_filter($asData, function($sKey) { return $sKey!='digest'; }, ARRAY_FILTER_USE_KEY);
+      $sDataDigest_compute = hash($sDataDigestAlgo, mb_convert_encoding($this->getTokenData_Digest($asData_digest), 'utf-8'), true);
+      break;
+    default:
+      trigger_error('['.__METHOD__.'] Invalid/unsupported data digest', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    if(empty($sDataDigest_given) or empty($sDataDigest_compute) or $sDataDigest_given !== $sDataDigest_compute) {
+      trigger_error('['.__METHOD__.'] Invalid digest', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+
+    // Data
+    return $asData;
+  }
+
+  /** Read the token (associative array) from the given file
+   *
+   * @param string $sFile File (path)
+   * @return array|string Token
+   */
+  private function readToken($sFile) {
+    // Read token from storage
+    if(!is_readable($sFile)) {
+      trigger_error('['.__METHOD__.'] Missing/unreadable file', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    $asToken = json_decode(file_get_contents($sFile), true);
+    if(is_null($asToken)) {
+      trigger_error('['.__METHOD__.'] Failed to parse token file', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    if(!isset($asToken['type'])) {
+      trigger_error('['.__METHOD__.'] Invalid token', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    if($asToken['type'] != 'application/x.upwdchg-token+json') {
+      trigger_error('['.__METHOD__.'] Invalid token type', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    return $asToken;
+  }
+
+  /** Read the "password-nonce" token (associative array) from the file corresponding to the given ID
+   *
+   * @param string $sPasswordNonce_id Password nonce ID
+   * @return array|string Token data
+   */
+  private function readToken_PasswordNonce($sPasswordNonce_id) {
+    // Read password nonce from storage
+    $sFile = $this->amCONFIG['tokens_directory_public'].DIRECTORY_SEPARATOR.$sPasswordNonce_id.'.nonce';
+    if(!is_readable($sFile)) {
+      throw new Exception($this->getText('error:invalid_credentials'));
+    }
+    $asToken = $this->readToken($sFile);
+    $asData = $this->decryptToken($asToken);
+    if(
+      !isset($asData['type'], $asData['timestamp'], $asData['expiration'], $asData['username'], $asData['password-nonce-id'], $asData['password-nonce-secret'])
+      or $asData['type'] != 'password-nonce'
+    ) {
+      trigger_error('['.__METHOD__.'] Invalid password nonce', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    return $asData;
   }
 
 
@@ -746,29 +1106,19 @@ class UPwdChg
   public function controlPage() {
     // Controller
     $sError = null;
-    $sView = 'default';
     $amFormData = array();
-    $sDo = isset($_POST['do']) ? $_POST['do'] : (isset($_GET['view']) ? $_GET['view'] : null);
-    try
-    {
+    $sView = isset($_GET['view']) ? $_GET['view'] : null;
+    $sDo = isset($_POST['do']) ? $_POST['do'] : null;
+    try {
       // Check encryption
       if($this->amCONFIG['force_ssl'] and !isset($_SERVER['HTTPS'])) {
         throw new Exception($this->getText('error:unsecure_channel'));
       }
 
-      // Credentials
-      $sUsername = '';
-      $sPassword_old = '';
-      $sPassword_new = '';
 
-      // Check authentication
-      if($this->amCONFIG['authentication_method'] != 'none') {
-        $asCredentials = $this->authenticate();
-        $sUsername = $amFormData['username'] = $asCredentials['username'];
-        $sPassword_old = $asCredentials['password'];
-      }
+      // PRE-AUTHENTICATION
 
-      // Form submission handling
+      // Actions
       switch($sDo) {
 
       case 'locale':
@@ -785,59 +1135,229 @@ class UPwdChg
           throw new Exception($this->getText('error:invalid_form_data'));
         }
         $_SESSION['UPwdChg_Locale'] = $sLocale;
-
-        // View
-        if(isset($_GET['view']))
-          $sView = $_GET['view'];
         break;
 
-      case 'password-change':
+      }
+
+      // Views
+      switch($sView) {
+
+      case 'captcha':
+        if($this->amCONFIG['authentication_method'] != 'captcha') {
+          trigger_error('['.__METHOD__.'] Invalid view request (captcha); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          throw new Exception($this->getText('error:internal_error'));
+        }
+        $this->amFORMDATA = array('VIEW' => $sView);
+        return $this->amFORMDATA['VIEW'];
+
+      case 'captcha_challenge':
+        if($this->amCONFIG['authentication_method'] != 'captcha') {
+          trigger_error('['.__METHOD__.'] Invalid view request (captcha_challenge); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          throw new Exception($this->getText('error:internal_error'));
+        }
+        $this->outputCaptcha();
+        exit;
+
+      case 'password-change-confirm':
+        $this->amFORMDATA = array('VIEW' => $sView);
+        return $this->amFORMDATA['VIEW'];
+
+      case 'password-reset-confirm':
+        if(!$this->amCONFIG['password_nonce'] or !$this->amCONFIG['password_reset']) {
+          trigger_error('['.__METHOD__.'] Invalid view request (password-reset-confirm); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          throw new Exception($this->getText('error:internal_error'));
+        }
+        $this->amFORMDATA = array('VIEW' => $sView);
+        return $this->amFORMDATA['VIEW'];
+
+      }
+
+      // AUTHENTICATION
+      $sUsername = null;
+      $sPasswordNonce = null;
+      $sPasswordOld = null;
+      $sPasswordNew = null;
+
+      // Actions
+      switch($sDo) {
+
+      case 'captcha':
+        if($this->amCONFIG['authentication_method'] != 'captcha') {
+          trigger_error('['.__METHOD__.'] Invalid action request (captcha); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          throw new Exception($this->getText('error:internal_error'));
+        }
+        $sView = 'captcha';
+
+        // Retrieve form variables
+        if(!isset($_POST['captcha']) or !is_scalar($_POST['captcha'])) {
+          trigger_error('['.__METHOD__.'] Invalid form data (captcha); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          throw new Exception($this->getText('error:invalid_form_data'));
+        }
+        $sCaptcha = trim($_POST['captcha']);
+
+        // Check captcha
+        if(!isset($_SESSION['UPwdChg_Captcha_Challenge']) or $sCaptcha != $_SESSION['UPwdChg_Captcha_Challenge']) {
+          throw new Exception($this->getText('error:invalid_captcha'));
+        }
+        $_SESSION['UPwdChg_Captcha_Response'] = $sCaptcha;
+        $_SESSION['UPwdChg_Captcha_TTL'] = $this->amCONFIG['captcha_ttl'];
+
+        // Redirect (prevent form resubmission)
+        echo '<SCRIPT TYPE="text/javascript">document.location.replace(\'?\')</SCRIPT>';
+        echo '<META HTTP-EQUIV="refresh" CONTENT="1;URL=?" />';
+        exit;
+
+      }
+
+      // ... authenticate
+      if($this->amCONFIG['authentication_method'] != 'none') {
+        $asCredentials = $this->authenticate();
+        $sUsername = $amFormData['username'] = $asCredentials['username'];
+        $sPasswordOld = $asCredentials['password'];
+      }
+
+      // POST-AUTHENTICATION
+
+      // Actions
+      switch($sDo) {
+
+      case 'password-nonce-request':
+        if(!$this->amCONFIG['password_nonce']) {
+          trigger_error('['.__METHOD__.'] Invalid action request (password-nonce-request); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          throw new Exception($this->getText('error:internal_error'));
+        }
+        $sView = 'password-nonce-request';
+
         // Retrieve arguments
-        if(!isset($_POST['username'], $_POST['password_old'], $_POST['password_new'], $_POST['password_confirm'])
+        if(!isset($_POST['username'])
+           or !is_scalar($_POST['username']) or strlen($_POST['username']) > 1000) {
+          trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          throw new Exception($this->getText('error:invalid_form_data'));
+        }
+
+        // Credentials
+        if(in_array($this->amCONFIG['authentication_method'], array('none', 'captcha'))) {
+          $sUsername = $amFormData['username'] = $_POST['username'];
+        }
+
+        // Check credentials (username only)
+        if($this->amCONFIG['credentials_check_method'] != 'none') {
+          if(!$this->checkCredentials($sUsername, null, true))
+            throw new Exception($this->getText('error:invalid_credentials'));
+        }
+
+        // Write token
+        $this->writeToken_PasswordNonceRequest($sUsername);
+
+        // Redirect (prevent form resubmission)
+        if(!$this->amCONFIG['password_reset']) {
+          echo '<SCRIPT TYPE="text/javascript">document.location.replace(\'?view=password-change\')</SCRIPT>';
+          echo '<META HTTP-EQUIV="refresh" CONTENT="1;URL=?view=password-change" />';
+        }
+        else {
+          echo '<SCRIPT TYPE="text/javascript">document.location.replace(\'?view=password-reset\')</SCRIPT>';
+          echo '<META HTTP-EQUIV="refresh" CONTENT="1;URL=?view=password-reset" />';
+        }
+        exit;
+
+      case 'password-change':
+        $sView = 'password-change';
+
+        // Retrieve arguments
+        if(!isset($_POST['username'], $_POST['password_nonce'], $_POST['password_old'], $_POST['password_new'], $_POST['password_confirm'])
            or !is_scalar($_POST['username']) or strlen($_POST['username']) > 1000
+           or !is_scalar($_POST['password_nonce']) or strlen($_POST['password_nonce']) > 1000
            or !is_scalar($_POST['password_old']) or strlen($_POST['password_old']) > 1000
            or !is_scalar($_POST['password_new']) or strlen($_POST['password_new']) > 1000
            or !is_scalar($_POST['password_confirm']) or strlen($_POST['password_confirm']) > 1000) {
           trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
           throw new Exception($this->getText('error:invalid_form_data'));
         }
-        if($this->amCONFIG['authentication_method'] == 'none')
+
+        // Credentials
+        if(in_array($this->amCONFIG['authentication_method'], array('none', 'captcha'))) {
           $sUsername = $amFormData['username'] = $_POST['username'];
-        if($this->amCONFIG['authentication_method'] == 'none'
-           or $this->amCONFIG['credentials_check_method'] != 'none')
-          $sPassword_old = $_POST['password_old'];
-        $sPassword_new = $_POST['password_new'];
-        $sPassword_confirm = $_POST['password_confirm'];
+          $sPasswordOld = $_POST['password_old'];
+        }
+        if($this->amCONFIG['password_nonce'] and !$this->amCONFIG['password_reset']) {
+          $sPasswordNonce = $_POST['password_nonce'];
+        }
+        if($this->amCONFIG['credentials_check_method'] != 'none') {
+          $sPasswordOld = $_POST['password_old'];
+        }
+        $sPasswordNew = $_POST['password_new'];
+        $sPasswordNew_confirm = $_POST['password_confirm'];
 
         // Check credentials
         if($this->amCONFIG['credentials_check_method'] != 'none') {
-          if(!$this->checkCredentials($sUsername, $sPassword_old))
+          if(!$this->checkCredentials($sUsername, $sPasswordOld))
             throw new Exception($this->getText('error:invalid_credentials'));
         }
 
+        // Check password nonce (two-factor password change)
+        if(isset($sPasswordNonce)) {
+          $this->checkPasswordNonce($sUsername, $sPasswordNonce);
+        }
+
         // Check password policy
-        $this->checkPasswordPolicy($sPassword_new, $sPassword_confirm, $sPassword_old);
+        $this->checkPasswordPolicy($sPasswordNew, $sPasswordNew_confirm, $sPasswordOld);
 
         // Write token
-        $this->writeToken_PasswordChange($sUsername, $sPassword_old, $sPassword_new);
+        $this->writeToken_PasswordChange($sUsername, $sPasswordNew, $sPasswordOld, $sPasswordNonce);
 
         // Clear session (prevent replay of current session)
-        session_regenerate_id(true);
+        $this->resetSession();
 
         // Redirect (prevent form resubmission)
         echo '<SCRIPT TYPE="text/javascript">document.location.replace(\'?view=password-change-confirm\')</SCRIPT>';
         echo '<META HTTP-EQUIV="refresh" CONTENT="1;URL=?view=password-change-confirm" />';
         exit;
 
-      case 'password-change-confirm':
-        // View
-        $sView = 'password-change-confirm';
-        break;
+      case 'password-reset':
+        if(!$this->amCONFIG['password_nonce'] or !$this->amCONFIG['password_reset']) {
+          trigger_error('['.__METHOD__.'] Invalid action request (password-reset); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          throw new Exception($this->getText('error:internal_error'));
+        }
+        $sView = 'password-reset';
 
-      case 'password-policy':
-        // View
-        $sView = 'password-policy';
-        break;
+        // Retrieve arguments
+        if(!isset($_POST['username'], $_POST['password_nonce'], $_POST['password_new'], $_POST['password_confirm'])
+           or !is_scalar($_POST['username']) or strlen($_POST['username']) > 1000
+           or !is_scalar($_POST['password_nonce']) or strlen($_POST['password_nonce']) > 1000
+           or !is_scalar($_POST['password_new']) or strlen($_POST['password_new']) > 1000
+           or !is_scalar($_POST['password_confirm']) or strlen($_POST['password_confirm']) > 1000) {
+          trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          throw new Exception($this->getText('error:invalid_form_data'));
+        }
+
+        // Credentials
+        $sUsername = $amFormData['username'] = $_POST['username'];
+        $sPasswordNonce = $_POST['password_nonce'];
+        $sPasswordNew = $_POST['password_new'];
+        $sPasswordNew_confirm = $_POST['password_confirm'];
+
+        // Check credentials (username only)
+        if($this->amCONFIG['credentials_check_method'] != 'none') {
+          if(!$this->checkCredentials($sUsername, null, false))
+            throw new Exception($this->getText('error:invalid_credentials'));
+        }
+
+        // Check password nonce
+        $this->checkPasswordNonce($sUsername, $sPasswordNonce);
+
+        // Check password policy
+        $this->checkPasswordPolicy($sPasswordNew, $sPasswordNew_confirm);
+
+        // Write token
+        $this->writeToken_PasswordReset($sUsername, $sPasswordNew, $sPasswordNonce);
+
+        // Clear session (prevent replay of current session)
+        $this->resetSession();
+
+        // Redirect (prevent form resubmission)
+        echo '<SCRIPT TYPE="text/javascript">document.location.replace(\'?view=password-reset-confirm\')</SCRIPT>';
+        echo '<META HTTP-EQUIV="refresh" CONTENT="1;URL=?view=password-reset-confirm" />';
+        exit;
 
       default:
         // Nothing to do here
@@ -849,6 +1369,15 @@ class UPwdChg
     catch(Exception $e) {
       // Save the error message
       $sError = $e->getMessage();
+    }
+
+    // Default view
+    if(empty($sView)) {
+      if($this->amCONFIG['password_nonce'] and !$this->amCONFIG['password_reset'])
+        // ... two-factor password change; we need a nonce first
+        $sView = 'password-nonce-request';
+      else
+        $sView = 'password-change';
     }
 
     // Save form data
@@ -880,6 +1409,8 @@ class UPwdChg
     case 'locale':
       $sView = isset($_GET['view']) ? $_GET['view'] : null;
       $sCurrentLocale = $this->getCurrentLocale();
+
+      // ... HTML
       $sHTML .= '<FORM METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].($sView ? '?view='.$sView : null).'">';
       $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="locale" />';
       $sHTML .= '<TABLE CELLSPACING="0"><TR>';
@@ -893,8 +1424,34 @@ class UPwdChg
       $sHTML .= '</FORM>';
       break;
 
+    case 'captcha':
+      if($this->amCONFIG['authentication_method'] != 'captcha') {
+        trigger_error('['.__METHOD__.'] Invalid view request (captcha); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+        throw new Exception($this->getText('error:internal_error'));
+      }
+
+      // ... HTML
+      $sHTML .= '<FORM METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'">';
+      $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="captcha" />';
+      $sHTML .= '<TABLE CELLSPACING="0"><TR>';
+      $iTabIndex = 1;
+
+      // ... captcha (response)
+      $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:captcha')).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="text" NAME="captcha" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
+
+      // ... captcha (challenge)
+      $sHTML .= '<TR><TD CLASS="label">&nbsp;</TD><TD CLASS="input"><IMG ALT="Captcha" SRC="?view=captcha_challenge" WIDTH="'.$this->amCONFIG['captcha_width'].'" HEIGHT="'.$this->amCONFIG['captcha_height'].'" /></TD><TD CLASS="note">&nbsp;</TD></TR>';
+
+      // ... submit
+      $sHTML .= '<TR><TD CLASS="button" COLSPAN="2"><BUTTON TYPE="submit" TABINDEX="'.$iTabIndex.'">'.htmlentities($this->getText('label:submit')).'</BUTTON></TD></TR>';
+      $sHTML .= '</TR></TABLE>';
+      $sHTML .= '</FORM>';
+      break;
+
     case 'password-policy':
       $sCurrentLocale = $this->getCurrentLocale();
+
+      // ... HTML
       $sHTML .= '<UL>';
       if($this->amCONFIG['password_length_minimum'])
         $sHTML .= '<LI>'.htmlentities($this->getText('error:password_length_minimum')).'</LI>';
@@ -942,17 +1499,70 @@ class UPwdChg
       $sHTML .= '<P CLASS="link"><A HREF="?">'.htmlentities($this->getText('label:password_policy_back')).'</A></P>';
       break;
 
+    case 'password-nonce-request':
+      if(!$this->amCONFIG['password_nonce']) {
+        trigger_error('['.__METHOD__.'] Invalid view request (password-nonce-request); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+        throw new Exception($this->getText('error:internal_error'));
+      }
+
+      // ... configuration-dependent fields
+      $bFormUsername = false;
+      if(in_array($this->amCONFIG['authentication_method'], array('none', 'captcha'))) {
+        $bFormUsername = true;
+      }
+
+      // ... HTML
+      $sHTML .= '<FORM METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'">';
+      $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="password-nonce-request" />';
+      $sHTML .= '<TABLE CELLSPACING="0">';
+      $iTabIndex = 1;
+
+      // ... username
+      if($bFormUsername)
+        $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:username')).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="text" NAME="username" TABINDEX="'.$iTabIndex++.'" VALUE="'.htmlentities($this->getFormData('username')).'" /></SPAN></TD></TR>';
+      else
+        $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:username')).':</TD><TD CLASS="input"><SPAN CLASS="readonly"><INPUT TYPE="text" NAME="username" VALUE="'.htmlentities($this->getFormData('username')).'" READONLY="1" /></SPAN></TD></TR>';
+
+      // ... submit
+      $sHTML .= '<TR><TD CLASS="button" COLSPAN="2"><BUTTON TYPE="submit" TABINDEX="'.$iTabIndex.'">'.htmlentities($this->getText('label:submit')).'</BUTTON></TD></TR>';
+      $sHTML .= '</TABLE>';
+      $sHTML .= '</FORM>';
+      break;
+
     case 'password-change':
-      $bFormUsername = ($this->amCONFIG['authentication_method'] == 'none');
-      $bFormPassword_old = ($this->amCONFIG['authentication_method'] == 'none'
-                            or $this->amCONFIG['credentials_check_method'] != 'none');
+      // ... configuration-dependent fields
+      $bFormUsername = false;
+      $bFormPasswordReset = false;
+      $bFormPasswordNonce = false;
+      $bFormPasswordOld = false;
+      if($this->amCONFIG['password_nonce']) {
+        if($this->amCONFIG['password_reset'])
+          $bFormPasswordReset = true;
+        else
+          $bFormPasswordNonce = true;
+      }
+      if(in_array($this->amCONFIG['authentication_method'], array('none', 'captcha'))) {
+        $bFormUsername = true;
+        $bFormPasswordOld = true;
+      }
+      if($this->amCONFIG['credentials_check_method'] != 'none') {
+        $bFormPasswordOld = true;
+      }
+
+      // ... HTML
       $sHTML .= '<FORM METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'">';
       $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="password-change" />';
       $sHTML .= '<INPUT TYPE="password" NAME="autocomplete_off" STYLE="DISPLAY:none;" />';
-      if(!$bFormPassword_old)
+      if(!$bFormPasswordNonce)
+        $sHTML .= '<INPUT TYPE="hidden" NAME="password_nonce" />';
+      if(!$bFormPasswordOld)
         $sHTML .= '<INPUT TYPE="hidden" NAME="password_old" />';
       $sHTML .= '<TABLE CELLSPACING="0">';
       $iTabIndex = 1;
+
+      // ... password reset
+      if($bFormPasswordReset)
+        $sHTML .= '<TR><TD CLASS="link" COLSPAN="2"><A HREF="?view=password-nonce-request">'.htmlentities($this->getText('label:password_reset')).'</A></TD></TR>';
 
       // ... username
       if($bFormUsername)
@@ -963,9 +1573,47 @@ class UPwdChg
       // Note: we do not enforce password maximum length during input,
       // for it would be confusing given the obfuscated data.
 
+      // ... password (nonce; two-factor password change)
+      if($bFormPasswordNonce)
+        $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:password_nonce')).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="password" NAME="password_nonce" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
       // ... password (old)
-      if($bFormPassword_old)
+      if($bFormPasswordOld)
         $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:password_old')).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="password" NAME="password_old" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
+      // ... password (new)
+      $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:password_new')).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="password" NAME="password_new" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
+      // ... password (confirm)
+      $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:password_confirm')).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="password" NAME="password_confirm" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
+      // ... password (policy)
+      $sHTML .= '<TR><TD CLASS="label">&nbsp;</TD><TD CLASS="link"><A HREF="?view=password-policy">'.htmlentities($this->getText('label:password_policy')).'</A></TD></TR>';
+
+      // ... submit
+      $sHTML .= '<TR><TD CLASS="button" COLSPAN="2"><BUTTON TYPE="submit" TABINDEX="'.$iTabIndex.'">'.htmlentities($this->getText('label:submit')).'</BUTTON></TD></TR>';
+      $sHTML .= '</TABLE>';
+      $sHTML .= '</FORM>';
+      break;
+
+    case 'password-reset':
+      if(!$this->amCONFIG['password_nonce'] or !$this->amCONFIG['password_reset']) {
+        trigger_error('['.__METHOD__.'] Invalid view request (password-reset); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+        throw new Exception($this->getText('error:internal_error'));
+      }
+
+      // ... HTML
+      $sHTML .= '<FORM METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'">';
+      $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="password-reset" />';
+      $sHTML .= '<INPUT TYPE="password" NAME="autocomplete_off" STYLE="DISPLAY:none;" />';
+      $sHTML .= '<TABLE CELLSPACING="0">';
+      $iTabIndex = 1;
+
+      // ... username
+      $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:username')).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="text" NAME="username" TABINDEX="'.$iTabIndex++.'" VALUE="'.htmlentities($this->getFormData('username')).'" /></SPAN></TD></TR>';
+
+      // ... password (nonce)
+      $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:password_nonce')).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="password" NAME="password_nonce" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
+
+      // Note: we do not enforce password maximum length during input,
+      // for it would be confusing given the obfuscated data.
+
       // ... password (new)
       $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:password_new')).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="password" NAME="password_new" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
       // ... password (confirm)
@@ -985,19 +1633,81 @@ class UPwdChg
     return $sHTML;
   }
 
-  /** Reset session
+
+  /*
+   * METHODS: Captcha
+   ********************************************************************************/
+
+  /** Generate a random color code (in <SAMP>#FFFFFF</SAMP> format)
    *
-   *  Clear the current session and regenerate a new session ID.
+   * @return string Random HTML code
    */
-  private function resetSession() {
-    // Save session locale and login URL
-    $sLocale = $this->getCurrentLocale();
+  private static function getCaptchaColor() {
+    $sOutput='#';
+    for($i=1; $i<=6; $i++) $sOutput .= dechex(rand(0, 15));
+    return $sOutput;
+  }
 
-    // Clear session and start a new one.
-    session_regenerate_id(true);
+  /** Generate and display a Captcha image
+   *
+   * <P><B>SYNOPSIS:</B> This function generates a Captcha image, in PNG format
+   * and sends its raw content as output (cf. <SAMP>readfile</SAMP>).
+   */
+  public function outputCaptcha() {
+    // Load PEAR::Text_CAPTCHA extension
+    require_once 'PEAR.php';
+    require_once 'Text/CAPTCHA.php';
 
-    // Restore session locale and login URL
-    $_SESSION['UPwdChg_Locale'] = $sLocale;
+    try {
+      // Create CAPTCHA
+      // ... create Captcha object
+      $oCaptcha = Text_CAPTCHA::factory('Image');
+      $sFontFile = $this->getResourcesDirectory().'/captcha.ttf';
+      $oReturn = $oCaptcha->init(
+        array(
+          'width' => $this->amCONFIG['captcha_width'],
+          'height' => $this->amCONFIG['captcha_height'],
+          'output' => 'png',
+          'imageOptions' => array(
+            'font_size' => $this->amCONFIG['captcha_fontsize'],
+            'font_path' => dirname( $sFontFile ),
+            'font_file' => basename( $sFontFile ),
+            'text_color' => self::getCaptchaColor(),
+            'lines_color' => self::getCaptchaColor(),
+            'background_color' => self::getCaptchaColor()
+          )
+        )
+      );
+      if(PEAR::isError($oReturn)) {
+        trigger_error('['.__METHOD__.'] Failed to instantiate captcha object; '.$oReturn->getMessage(), E_USER_WARNING);
+        throw new Exception($this->getText('error:internal_error'));
+      }
+      // ... save the Captcha secret phrase
+      $_SESSION['UPwdChg_Captcha_Challenge'] = $oCaptcha->getPhrase();
+
+      // Send Captcha image (as PNG)
+      // ... create image object
+      $binImage = $oCaptcha->getCAPTCHA();
+      if(PEAR::isError($binImage)) {
+        trigger_error('['.__METHOD__.'] Failed to generate captcha image; '.$binImage->getMessage(), E_USER_WARNING);
+        throw new Exception($this->getText('error:internal_error'));
+      }
+      // ... save image to (temporary) file (Note: only way to send the image in a binary-safe way)
+      $sImagePath = tempnam(sys_get_temp_dir(), 'UPwdChg_Captcha.');
+      file_put_contents($sImagePath, $binImage);
+      // ... send HTTP headers and content
+      header( 'Content-Type: image/png' );
+      header( 'Content-Length: '.filesize($sImagePath));
+      header( 'Expires: 0' );
+      header( 'Cache-Control: must-revalidate, post-check=0, pre-check=0' );
+      header( 'Pragma: public' );
+      readfile($sImagePath);
+      // ... delete the image file
+      unlink($sImagePath);
+    }
+    catch( Exception $e ) {
+      echo $e->getMessage();
+    }
   }
 
 }

@@ -6,17 +6,22 @@
  */
 $_TEXT['title'] = 'Changement de mot de passe';
 $_TEXT['label:language'] = 'Langue';
+$_TEXT['label:captcha'] = 'Captcha';
 $_TEXT['label:username'] = 'Nom d\'utilisateur';
 $_TEXT['label:password_old'] = 'Ancien mot de passe';
 $_TEXT['label:password_new'] = 'Nouveau mot de passe';
 $_TEXT['label:password_confirm'] = '(confirmation)';
 $_TEXT['label:password_policy'] = '(règles pour le mot de passe)';
 $_TEXT['label:password_policy_back'] = '(retour)';
+$_TEXT['label:password_reset'] = 'Mot de passe oublié ? Veuillez s\'il-vous-plaît procéder à sa ré-initialisation...';
+$_TEXT['label:password_nonce'] = 'Code PIN';
 $_TEXT['label:submit'] = 'Valider';
 $_TEXT['error:internal_error'] = 'Erreur interne. Veuillez s\'il-vous-plaît prendre contact avec l\'administrateur.';
 $_TEXT['error:unsecure_channel'] = 'Canal non sécurisé. Veuillez s\'il-vous-plaît utiliser un canal encrypté (SSL).';
 $_TEXT['error:invalid_form_data'] = 'Données invalides. Veuillez s\'il-vous-plaît prendre contact avec l\'administrateur.';
-$_TEXT['error:invalid_credentials'] = 'Codes d\'accès erronés (ancien mot de passe).';
+$_TEXT['error:invalid_captcha'] = 'Captcha invalide.';
+$_TEXT['error:invalid_credentials'] = 'Codes d\'accès erronés (nom d\'utilisateur, ancien mot de passe ou code PIN).';
+$_TEXT['error:expired_password_nonce'] = 'Code PIN expiré.';
 $_TEXT['error:password_mismatch'] = 'Erreur de confirmation du mot de passe.';
 $_TEXT['error:password_identical'] = 'L\'ancien et le nouveau mot de passe sont identiques.';
 $_TEXT['error:password_length_minimum'] = 'Le mot de passe DOIT contenir au moins '.$this->amCONFIG['password_length_minimum'].' caractères.';

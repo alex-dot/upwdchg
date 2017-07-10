@@ -20,11 +20,15 @@
 # ATTENTION: This directory MUST be readable (but NOT writable) by PHP!
 #$_CONFIG['resources_directory'] = dirname(__FILE__).'/data/UPwdChg/resources'; // is_readable(path)
 
-# Tokens directory.
-# ATTENTION: This directory MUST be writable (and readable) by PHP!
+# Tokens directory (private)
+# ATTENTION: This directory MUST be writable by PHP!
 # CRITICAL: THIS DIRECTORY MUST NOT BE ACCESSIBLE FROM THE WEB!!!
-#$_CONFIG['tokens_directory'] = dirname(__FILE__).'/data/UPwdChg/tokens'; // is_writable(path)
-$_CONFIG['tokens_directory'] = '/var/lib/upwdchg/tokens.d';
+#$_CONFIG['tokens_directory_private'] = '/var/lib/upwdchg/tokens/private.d'; // is_writable(path)
+
+# Tokens directory (public)
+# ATTENTION: This directory MUST be readable by PHP!
+# CRITICAL: THIS DIRECTORY MUST NOT BE ACCESSIBLE FROM THE WEB!!!
+#$_CONFIG['tokens_directory_public'] = '/var/lib/upwdchg/tokens/public.d'; // is_readable(path)
 
 # RSA public key file (PEM formatted).
 #$_CONFIG['public_key_file'] = '/etc/upwdchg/public.pem'; // is_readable(path)
@@ -35,6 +39,7 @@ $_CONFIG['tokens_directory'] = '/var/lib/upwdchg/tokens.d';
 # Authentication method. Available methods are:
 #  'http': authentication is handled by the web server [recommended]
 #  'ldap': authenticate via configured LDAP server (see below)
+#  'captcha': "authenticate" via configured CAPTCHA (see below)
 #  'none': no authentication [not recommended]
 #$_CONFIG['authentication_method'] = 'http'; // string
 
@@ -47,6 +52,16 @@ $_CONFIG['tokens_directory'] = '/var/lib/upwdchg/tokens.d';
 #  'ldap': check credentials via configured LDAP server (see below)
 #  'none': no credentials check [not recommended]
 #$_CONFIG['credentials_check_method'] = 'ldap'; // string
+
+# Enable password nonce (PIN code) feature
+# NOTE: This enables two-factor password change or password reset (see below)
+#$_CONFIG['password_nonce'] = 0; // integer
+
+# Enable password reset (forgotten password) feature
+# ATTENTION: This also REQUIRES:
+#   $_CONFIG['authentication_method']' = 'captcha';  # or 'none'
+#   $_CONFIG['password_nonce']' = 1;
+#$_CONFIG['password_reset'] = 0; // integer
 
 # Minimum password length.
 #$_CONFIG['password_length_minimum'] = 8; // integer
@@ -94,16 +109,17 @@ $_CONFIG['tokens_directory'] = '/var/lib/upwdchg/tokens.d';
 #$_CONFIG['ldap_port'] = 389; // integer
 
 # User DN; '%{USERNAME}' shall be replaced by actual username
+# NOTE: If empty, user DN shall be searched for (see below)
 #$_CONFIG['ldap_user_dn'] = 'uid=%{USERNAME},ou=users,dc=example,dc=org'; // string
 
-# User base DN; if set, it shall be searched for a valid user DN (and 'ldap_user_dn' ignored)
-#$_CONFIG['ldap_user_base_dn'] = ''; // string
+# User base (search) DN
+#$_CONFIG['ldap_user_base_dn'] = 'ou=users,dc=example,dc=org'; // string
 
 # User search scope ('base', 'one' or 'subtree').
 #$_CONFIG['ldap_user_search_scope'] = 'one'; // string
 
 # User search filter; '%{USERNAME}' shall be replaced by actual username
-#$_CONFIG['ldap_user_filter'] = ''; // string
+#$_CONFIG['ldap_user_filter'] = '(&(objectClass=*)(uid=%{USERNAME}))'; // string
 
 # Bind DN (allowing user base DN search)
 #$_CONFIG['ldap_bind_dn'] = ''; // string
@@ -113,3 +129,16 @@ $_CONFIG['tokens_directory'] = '/var/lib/upwdchg/tokens.d';
 
 # LDAP protocol version (ignored if <= 0)
 #$_CONFIG['ldap_protocol_version'] = 0; // integer
+
+
+################################################################################
+# CAPTCHA SETTINGS
+################################################################################
+
+# Captcha image's width, height and font size.
+#$_CONFIG['captcha_width'] = 240; // integer
+#$_CONFIG['captcha_height'] = 120; // integer
+#$_CONFIG['captcha_fontsize'] = 32; // integer
+
+# Captcha Time-to-Live, in number of times it is checked (pages loaded)
+#$_CONFIG['captcha_ttl'] = 10; // integer

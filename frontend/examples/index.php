@@ -54,6 +54,7 @@ DIV.UPwdChg DIV.form SPAN.required { COLOR:#C00000; }
 DIV.UPwdChg DIV.form SPAN.required INPUT { BACKGROUND:#FFFFF0; BORDER:solid 1px #A08000; }
 DIV.UPwdChg DIV.form SELECT { FONT-WEIGHT:bold; }
 DIV.UPwdChg DIV.form BUTTON { FONT-WEIGHT:bold; }
+DIV.UPwdChg DIV.form IMG { BORDER:none; }
 DIV.UPwdChg A { TEXT-DECORATION:none; COLOR:#0086FF; }
 DIV.UPwdChg A:hover { TEXT-DECORATION:underline; }
 </STYLE>
@@ -68,6 +69,3 @@ require_once $oUPwdChg->getResourcesDirectory().DIRECTORY_SEPARATOR.$oUPwdChg->g
 </DIV>
 </BODY>
 </HTML>
-<?php
-// Close session
-session_write_close();
