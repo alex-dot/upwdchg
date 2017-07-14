@@ -373,6 +373,7 @@ class SynchGroupsMemberLdap(TokenPlugin):
         sMembershipAttr = UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER
         sMembershipAttrValue = UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER_VALUE.replace('%{USERNAME}', sUsername).replace('%{USERDN}', sUserDn)
         if UPWDCHG_PLUGIN_DRYRUN:
+            self._DEBUG('DRY-RUN! NOT adding (destination LDAP) group membership: %s' % sGroupDn, TokenPlugin.DEBUG_WARNING)
             return
         try:
             lLDIF = [ (ldap.MOD_ADD, sMembershipAttr, sMembershipAttrValue) ]
@@ -397,6 +398,7 @@ class SynchGroupsMemberLdap(TokenPlugin):
         sMembershipAttr = UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER
         sMembershipAttrValue = UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER_VALUE.replace('%{USERNAME}', sUsername).replace('%{USERDN}', sUserDn)
         if UPWDCHG_PLUGIN_DRYRUN:
+            self._DEBUG('DRY-RUN! NOT removing (destination LDAP) group membership: %s' % sGroupDn, TokenPlugin.DEBUG_WARNING)
             return
         try:
             lLDIF = [ (ldap.MOD_DELETE, sMembershipAttr, sMembershipAttrValue) ]
