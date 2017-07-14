@@ -56,6 +56,10 @@ class UPwdChg
    * @var string */
   const DIGEST_ALGO = 'sha256';
 
+  /** Input (GET/POST) maximum length
+   * @var int */
+  const INPUT_MAX_LENGTH = 100;
+
 
   /*
    * FIELDS
@@ -1107,14 +1111,31 @@ class UPwdChg
     // Controller
     $sError = null;
     $amFormData = array();
-    $sView = isset($_GET['view']) ? $_GET['view'] : null;
-    $sDo = isset($_POST['do']) ? $_POST['do'] : null;
     try {
       // Check encryption
       if($this->amCONFIG['force_ssl'] and !isset($_SERVER['HTTPS'])) {
         throw new Exception($this->getText('error:unsecure_channel'));
       }
 
+      // Request
+      // ... view
+      $sView = null;
+      if(isset($_GET['view'])) {
+        if(!is_scalar($_GET['view']) or strlen($_GET['view']) > UPwdChg::INPUT_MAX_LENGTH) {
+          trigger_error('['.__METHOD__.'] Invalid view request; IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          throw new Exception($this->getText('error:internal_error'));
+        }
+        $sView = trim($_GET['view']);
+      }
+      // ... action
+      $sDo = null;
+      if(isset($_POST['do'])) {
+        if(!is_scalar($_POST['do']) or strlen($_POST['do']) > UPwdChg::INPUT_MAX_LENGTH) {
+          trigger_error('['.__METHOD__.'] Invalid form data (request:action); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          throw new Exception($this->getText('error:invalid_form_data'));
+        }
+        $sDo = trim($_POST['do']);
+      }
 
       // PRE-AUTHENTICATION
 
@@ -1123,8 +1144,9 @@ class UPwdChg
 
       case 'locale':
         // Retrieve form variables
-        if(!isset($_POST['locale']) or !is_scalar($_POST['locale'])) {
-          trigger_error('['.__METHOD__.'] Invalid form data (locale); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+        if(!isset($_POST['locale'])
+           or !is_scalar($_POST['locale']) or strlen($_POST['locale']) > UPwdChg::INPUT_MAX_LENGTH) {
+          trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
           throw new Exception($this->getText('error:invalid_form_data'));
         }
         $sLocale = trim($_POST['locale']);
@@ -1189,8 +1211,9 @@ class UPwdChg
         $sView = 'captcha';
 
         // Retrieve form variables
-        if(!isset($_POST['captcha']) or !is_scalar($_POST['captcha'])) {
-          trigger_error('['.__METHOD__.'] Invalid form data (captcha); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+        if(!isset($_POST['captcha'])
+           or !is_scalar($_POST['captcha']) or strlen($_POST['captcha']) > UPwdChg::INPUT_MAX_LENGTH) {
+          trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
           throw new Exception($this->getText('error:invalid_form_data'));
         }
         $sCaptcha = trim($_POST['captcha']);
@@ -1230,7 +1253,7 @@ class UPwdChg
 
         // Retrieve arguments
         if(!isset($_POST['username'])
-           or !is_scalar($_POST['username']) or strlen($_POST['username']) > 1000) {
+           or !is_scalar($_POST['username']) or strlen($_POST['username']) > UPwdChg::INPUT_MAX_LENGTH) {
           trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
           throw new Exception($this->getText('error:invalid_form_data'));
         }
@@ -1265,11 +1288,11 @@ class UPwdChg
 
         // Retrieve arguments
         if(!isset($_POST['username'], $_POST['password_nonce'], $_POST['password_old'], $_POST['password_new'], $_POST['password_confirm'])
-           or !is_scalar($_POST['username']) or strlen($_POST['username']) > 1000
-           or !is_scalar($_POST['password_nonce']) or strlen($_POST['password_nonce']) > 1000
-           or !is_scalar($_POST['password_old']) or strlen($_POST['password_old']) > 1000
-           or !is_scalar($_POST['password_new']) or strlen($_POST['password_new']) > 1000
-           or !is_scalar($_POST['password_confirm']) or strlen($_POST['password_confirm']) > 1000) {
+           or !is_scalar($_POST['username']) or strlen($_POST['username']) > UPwdChg::INPUT_MAX_LENGTH
+           or !is_scalar($_POST['password_nonce']) or strlen($_POST['password_nonce']) > UPwdChg::INPUT_MAX_LENGTH
+           or !is_scalar($_POST['password_old']) or strlen($_POST['password_old']) > UPwdChg::INPUT_MAX_LENGTH
+           or !is_scalar($_POST['password_new']) or strlen($_POST['password_new']) > UPwdChg::INPUT_MAX_LENGTH
+           or !is_scalar($_POST['password_confirm']) or strlen($_POST['password_confirm']) > UPwdChg::INPUT_MAX_LENGTH) {
           trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
           throw new Exception($this->getText('error:invalid_form_data'));
         }
@@ -1322,10 +1345,10 @@ class UPwdChg
 
         // Retrieve arguments
         if(!isset($_POST['username'], $_POST['password_nonce'], $_POST['password_new'], $_POST['password_confirm'])
-           or !is_scalar($_POST['username']) or strlen($_POST['username']) > 1000
-           or !is_scalar($_POST['password_nonce']) or strlen($_POST['password_nonce']) > 1000
-           or !is_scalar($_POST['password_new']) or strlen($_POST['password_new']) > 1000
-           or !is_scalar($_POST['password_confirm']) or strlen($_POST['password_confirm']) > 1000) {
+           or !is_scalar($_POST['username']) or strlen($_POST['username']) > UPwdChg::INPUT_MAX_LENGTH
+           or !is_scalar($_POST['password_nonce']) or strlen($_POST['password_nonce']) > UPwdChg::INPUT_MAX_LENGTH
+           or !is_scalar($_POST['password_new']) or strlen($_POST['password_new']) > UPwdChg::INPUT_MAX_LENGTH
+           or !is_scalar($_POST['password_confirm']) or strlen($_POST['password_confirm']) > UPwdChg::INPUT_MAX_LENGTH) {
           trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
           throw new Exception($this->getText('error:invalid_form_data'));
         }
