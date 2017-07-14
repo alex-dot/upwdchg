@@ -430,7 +430,6 @@ class SynchGroupsMemberLdap(TokenPlugin):
         # Get token (data)
         dToken = self._getToken()
         sUsername = dToken['username'].encode('utf-8')
-        sPasswordOld = dToken['password-old'].encode('utf-8')
 
         # Process token data
 
