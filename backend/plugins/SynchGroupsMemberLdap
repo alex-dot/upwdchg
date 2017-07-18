@@ -361,7 +361,7 @@ class SynchGroupsMemberLdap(TokenPlugin):
             elif len(lLdapResults) > 1:
                 raise Exception('too many match: %s' % sGroupname)
             sGroupDn = lLdapResults[0][0]
-            self._DEBUG('Successfully retrieved group from (destination LDAP) server: %s' % sGroupDN, TokenPlugin.DEBUG_NOTICE)
+            self._DEBUG('Successfully retrieved group from (destination LDAP) server: %s' % sGroupDn, TokenPlugin.DEBUG_NOTICE)
         except Exception as e:
             self._DEBUG('Failed to retrieve group from (destination LDAP) server; %s' % str(e))
             if UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL:
