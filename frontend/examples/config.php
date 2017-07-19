@@ -15,6 +15,9 @@
 # Enforce encrypted channel (SSL) usage
 #$_CONFIG['force_ssl'] = 1; // integer
 
+# Enforce session statefulness throughout the entire password change/reset operation
+#$_CONFIG['strict_session'] = 1; // integer
+
 # Resources (localized HTML snippets, e-mail templates, text lables/messages;
 # fonts) directory.
 # ATTENTION: This directory MUST be readable (but NOT writable) by PHP!

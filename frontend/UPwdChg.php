@@ -102,6 +102,7 @@ class UPwdChg
     $_CONFIG = array();
     $_CONFIG['locales'] = 'en,fr';
     $_CONFIG['force_ssl'] = 1;
+    $_CONFIG['strict_session'] = 1;
     $_CONFIG['resources_directory'] = dirname(__FILE__).'/data/UPwdChg/resources';
     $_CONFIG['tokens_directory_private'] = '/var/lib/upwdchg/tokens/private.d';
     $_CONFIG['tokens_directory_public'] = '/var/lib/upwdchg/tokens/public.d';
@@ -143,7 +144,7 @@ class UPwdChg
     // Validation
     //echo nl2br(var_export($_CONFIG, true)); // DEBUG
     // ... is integer
-    foreach(array('force_ssl', 'random_source', 'password_nonce', 'password_reset',
+    foreach(array('force_ssl', 'strict_session', 'random_source', 'password_nonce', 'password_reset',
                   'password_length_minimum', 'password_length_maximum', 'password_charset_notascii',
                   'password_type_lower', 'password_type_upper', 'password_type_digit',
                   'password_type_punct', 'password_type_other', 'password_type_minimum',
@@ -262,6 +263,7 @@ class UPwdChg
       $_TEXT['label:reset'] = '(start over)';
       $_TEXT['error:internal_error'] = 'Internal error. Please contact the system administrator.';
       $_TEXT['error:unsecure_channel'] = 'Unsecure channel. Please use an encrypted channel (SSL).';
+      $_TEXT['error:invalid_session'] = 'Invalid session. Please start over.';
       $_TEXT['error:invalid_form_data'] = 'Invalid form data. Please contact the system administrator.';
       $_TEXT['error:invalid_captcha'] = 'Invalid captcha.';
       $_TEXT['error:invalid_credentials'] = 'Invalid credentials (incorrect username, old password or PIN code).';
@@ -738,6 +740,26 @@ class UPwdChg
     if(time() >= gmmktime($asExpiration['hour'], $asExpiration['minute'], $asExpiration['second'], $asExpiration['month'], $asExpiration['day'], $asExpiration['year'])) {
       throw new Exception($this->getText('error:expired_password_nonce'));
     }
+    // ... session
+    if($this->amCONFIG['strict_session']) {
+      if(!isset($asData['session-id'])) {
+        throw new Exception($this->getText('error:internal_error'));
+      }
+      $sHash_given = base64_decode($asData['session-id']['base64']);
+      $sHashAlgo = strtolower($asData['session-id']['hash']['algorithm']);
+      if(substr($sHashAlgo, 0, 5) == 'hmac-') {
+        $sHashAlgo_salt = base64_decode($asData['session-id']['hash']['salt']['base64']);
+        $sHash_compute = hash_hmac(substr($sHashAlgo, 5), session_id(), $sHashAlgo_salt, true);
+      } elseif(substr($sHashAlgo, 0, 5) == 'hash-') {
+        $sHash_compute = hash(substr($sHashAlgo, 5), session_id(), true);
+      } else {
+        trigger_error('['.__METHOD__.'] Invalid/unsupported session hash', E_USER_WARNING);
+        throw new Exception($this->getText('error:internal_error'));
+      }
+      if(empty($sHash_given) or empty($sHash_compute) or $sHash_given !== $sHash_compute) {
+        throw new Exception($this->getText('error:invalid_session'));
+      }
+    }
   }
 
 
@@ -769,12 +791,16 @@ class UPwdChg
    */
   private function getTokenData_PasswordNonceRequest($iNow, $sUsername) {
     // Associative array
-    return array(
+    $aTokenData = array(
       'type' => 'password-nonce-request',
       'timestamp' => gmdate('Y-m-d\TH:i:s\Z', $iNow),
       'locale' => $this->getCurrentLocale(),
       'username' => $sUsername,
     );
+    if($this->amCONFIG['strict_session']) {
+      $aTokenData['session-id'] = session_id();
+    }
+    return $aTokenData;
   }
 
   /** Return the "password-change" token data (associative array)
@@ -796,8 +822,12 @@ class UPwdChg
       'password-new' => $sPasswordNew,
       'password-old' => $sPasswordOld,
     );
-    if($sPasswordNonce)
+    if($sPasswordNonce) {
       $aTokenData['password-nonce'] = $sPasswordNonce;
+      if($this->amCONFIG['strict_session']) {
+        $aTokenData['session-id'] = session_id();
+      }
+    }
     return $aTokenData;
   }
 
@@ -811,7 +841,7 @@ class UPwdChg
    */
   private function getTokenData_PasswordReset($iNow, $sUsername, $sPasswordNew, $sPasswordNonce) {
     // Associative array
-    return array(
+    $aTokenData = array(
       'type' => 'password-reset',
       'timestamp' => gmdate('Y-m-d\TH:i:s\Z', $iNow),
       'locale' => $this->getCurrentLocale(),
@@ -819,6 +849,10 @@ class UPwdChg
       'password-new' => $sPasswordNew,
       'password-nonce' => $sPasswordNonce,
     );
+    if($this->amCONFIG['strict_session']) {
+      $aTokenData['session-id'] = session_id();
+    }
+    return $aTokenData;
   }
 
   /** Return the encrypted token

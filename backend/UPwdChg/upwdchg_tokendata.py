@@ -27,13 +27,19 @@ from UPwdChg import \
     UPWDCHG_PWHASH_ALGO, \
     UPWDCHG_PWHASH_KEY_LENGTH, \
     UPWDCHG_PWHASH_SALT_LENGTH, \
-    UPWDCHG_PWHASH_ITERATIONS
+    UPWDCHG_PWHASH_ITERATIONS, \
+    UPWDCHG_IDHASH_METHOD, \
+    UPWDCHG_IDHASH_ALGO
 import base64 as B64
 from calendar import \
     timegm
+import hashlib as HASH
+import hmac as HMAC
 import json as JSON
 import M2Crypto as M2C
 import passlib.crypto.digest as PL
+from sys import \
+    modules
 from time import \
     gmtime, \
     strftime, \
@@ -100,7 +106,7 @@ class TokenData:
     # Setters
     #
 
-    def setData_PasswordNonceRequest(self, _suUsername):
+    def setData_PasswordNonceRequest(self, _suUsername, _suSessionId=None):
         """
         Sets the "password-nonce-request" token data
         """
@@ -110,10 +116,12 @@ class TokenData:
             'timestamp': unicode(strftime('%Y-%m-%dT%H:%M:%SZ', gmtime())), \
             'username': _suUsername if isinstance(_suUsername, unicode) else _suUsername.decode(UPWDCHG_ENCODING), \
         }
+        if _suSessionId:
+            self._dData['session-id'] = _suSessionId if isinstance(_suSessionId, unicode) else _suSessionId.decode(UPWDCHG_ENCODING)
         self._sData = None
 
 
-    def setData_PasswordNonce(self, _suUsername, _suPasswordNonce, _iPasswordNonceTtl):
+    def setData_PasswordNonce(self, _suUsername, _suPasswordNonce, _iPasswordNonceTtl, _suSessionId=None):
         """
         Sets the "password-nonce" token data
         """
@@ -139,6 +147,37 @@ class TokenData:
             # (for the time being...)
             raise RuntimeError('invalid/unsupported password hash method; %s' % UPWDCHG_PWHASH_METHOD)
 
+        # Session (hashed!)
+        dSessionId = None
+        if _suSessionId:
+            uSessionId = _suSessionId if isinstance(_suSessionId, unicode) else _suSessionId.decode(UPWDCHG_ENCODING)
+            if UPWDCHG_IDHASH_METHOD == 'hmac':
+                oHash = HASH.new(UPWDCHG_IDHASH_ALGO)
+                sHashAlgo_salt = M2C.Rand.rand_bytes(oHash.block_size)
+                oHmac = HMAC.new(sHashAlgo_salt, uSessionId, reduce(getattr, ['HASH', UPWDCHG_IDHASH_ALGO], modules[__name__]))
+                sHash_compute = oHmac.digest()
+                dSessionId = { \
+                    'base64': B64.b64encode(sHash_compute), \
+                    'hash': { \
+                        'algorithm': "%s-%s" % (UPWDCHG_IDHASH_METHOD, UPWDCHG_IDHASH_ALGO), \
+                        'salt': { \
+                            'base64': B64.b64encode(sHashAlgo_salt), \
+                        }, \
+                    }, \
+                }
+            elif UPWDCHG_IDHASH_METHOD == 'hash':
+                oHash = HASH.new(UPWDCHG_IDHASH_ALGO)
+                oHash.update(uSessionId)
+                sHash_compute = oHash.digest()
+                dSessionId = { \
+                    'base64': B64.b64encode(sHash_compute), \
+                    'hash': { \
+                        'algorithm': "%s-%s" % (UPWDCHG_IDHASH_METHOD, UPWDCHG_IDHASH_ALGO), \
+                    }, \
+                }
+            else:
+                raise RuntimeError('invalid/unsupported session hash method; %s' % UPWDCHG_IDHASH_METHOD)
+
         # Data
         timeNow = gmtime()
         timeExpiration = gmtime(timegm(timeNow)+_iPasswordNonceTtl)
@@ -150,10 +189,12 @@ class TokenData:
             'password-nonce-id': uPasswordNonce_id, \
             'password-nonce-secret': dPasswordNonce_secret, \
         }
+        if dSessionId:
+            self._dData['session-id'] = dSessionId
         self._sData = None
 
 
-    def setData_PasswordChange(self, _suUsername, _suPasswordNew, _suPasswordOld, _suPasswordNonce=None):
+    def setData_PasswordChange(self, _suUsername, _suPasswordNew, _suPasswordOld, _suPasswordNonce=None, _suSessionId=None):
         """
         Sets the "password-change" token data
         """
@@ -167,10 +208,12 @@ class TokenData:
         }
         if _suPasswordNonce:
             self._dData['password-nonce'] = _suPasswordNonce if isinstance(_suPasswordNonce, unicode) else _suPasswordNonce.decode(UPWDCHG_ENCODING)
+        if _suSessionId:
+            self._dData['session-id'] = _suSessionId if isinstance(_suSessionId, unicode) else _suSessionId.decode(UPWDCHG_ENCODING)
         self._sData = None
 
 
-    def setData_PasswordReset(self, _suUsername, _suPasswordNew, _suPasswordNonce):
+    def setData_PasswordReset(self, _suUsername, _suPasswordNew, _suPasswordNonce, _suSessionId=None):
         """
         Sets the "password-reset" token data
         """
@@ -182,6 +225,8 @@ class TokenData:
             'password-new': _suPasswordNew if isinstance(_suPasswordNew, unicode) else _suPasswordNew.decode(UPWDCHG_ENCODING), \
             'password-nonce': _suPasswordNonce if isinstance(_suPasswordNonce, unicode) else _suPasswordNonce.decode(UPWDCHG_ENCODING), \
         }
+        if _suSessionId:
+            self._dData['session-id'] = _suSessionId if isinstance(_suSessionId, unicode) else _suSessionId.decode(UPWDCHG_ENCODING)
         self._sData = None
 
 
@@ -274,13 +319,14 @@ class TokenData:
         return 0
 
 
-    def checkData_PasswordNonce(self, _suUsername, _suPasswordNonce):
+    def checkData_PasswordNonce(self, _suUsername, _suPasswordNonce, _suSessionId=None):
         """
         Checks the current token is a valid "password-nonce" token for the given username/nonce.
         Returns/throws:
          0 on success
          1 on expired token
          2 on invalid secret
+         3 on invalid session
          Exception on internal failure
         """
 
@@ -313,6 +359,27 @@ class TokenData:
             # ... expiration
             if timegm(strptime(self._dData['expiration'], '%Y-%m-%dT%H:%M:%SZ')) <= timegm(gmtime()):
                 return 1
+            # ... session
+            if 'session-id' in self._dData.keys():
+                if not _suSessionId:
+                    return 3
+                uSessionId = _suSessionId if isinstance(_suSessionId, unicode) else _suSessionId.decode(UPWDCHG_ENCODING)
+                sHash_given = B64.b64decode(self._dData['session-id']['base64'])
+                sHashAlgo = self._dData['session-id']['hash']['algorithm']
+                if sHashAlgo[:5] == 'hmac-':
+                    sHashAlgo_salt = B64.b64decode(self._dData['session-id']['hash']['salt']['base64'])
+                    oHmac = HMAC.new(sHashAlgo_salt, uSessionId, reduce(getattr, ['HASH', sHashAlgo[5:]], modules[__name__]))
+                    sHash_compute = oHmac.digest()
+                elif sHashAlgo[:5] == 'hash-':
+                    oHash = HASH.new(sHashAlgo[5:])
+                    oHash.update(uSessionId)
+                    sHash_compute = oHash.digest()
+                else:
+                    raise RuntimeError('Invalid/unsupported session hash method; %s' % sHashAlgo)
+                if sHash_given != sHash_compute:
+                    return 3
+            elif _suSessionId:
+                return 3
         except Exception as e:
             raise RuntimeError('invalid "password-nonce" token; %s' % str(e))
         return 0
