@@ -42,7 +42,7 @@ DIV.UPwdChg DIV.error P { MARGIN:0px; BACKGROUND:transparent; COLOR:#800000; TEX
 DIV.UPwdChg DIV.text { WIDTH:500px; MARGIN:auto; }
 DIV.UPwdChg DIV.text P.link { TEXT-ALIGN:center; }
 DIV.UPwdChg DIV.form { WIDTH:450px; MARGIN:auto; TEXT-ALIGN:center; }
-DIV.UPwdChg DIV.form TABLE { FONT:12px sans-serif; }
+DIV.UPwdChg DIV.form TABLE { WIDTH:430px; FONT:12px sans-serif; }
 DIV.UPwdChg DIV.form TD.label { WIDTH:190px; FONT-WEIGHT:bold; }
 DIV.UPwdChg DIV.form TD.input { WIDTH:240px; TEXT-ALIGN:right; }
 DIV.UPwdChg DIV.form TD.link { WIDTH:240px; TEXT-ALIGN:center; }

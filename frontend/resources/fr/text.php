@@ -16,6 +16,7 @@ $_TEXT['label:password_policy_back'] = '(retour)';
 $_TEXT['label:password_reset'] = 'Mot de passe oublié ? Veuillez s\'il-vous-plaît procéder à sa ré-initialisation...';
 $_TEXT['label:password_nonce'] = 'Code PIN';
 $_TEXT['label:submit'] = 'Valider';
+$_TEXT['label:reset'] = '(recommencer)';
 $_TEXT['error:internal_error'] = 'Erreur interne. Veuillez s\'il-vous-plaît prendre contact avec l\'administrateur.';
 $_TEXT['error:unsecure_channel'] = 'Canal non sécurisé. Veuillez s\'il-vous-plaît utiliser un canal encrypté (SSL).';
 $_TEXT['error:invalid_form_data'] = 'Données invalides. Veuillez s\'il-vous-plaît prendre contact avec l\'administrateur.';

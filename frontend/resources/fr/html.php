@@ -82,3 +82,9 @@ Vous recevrez ensuite un code PIN par un autre canal (SMS, courriel, ...).</P>
 <?php echo $oUPwdChg->getFormHtml('locale'); ?>
 </DIV>
 <?php } ?>
+
+<?php if($oUPwdChg->hasPasswordNonce()) { ?>
+<DIV CLASS="form">
+<?php echo $oUPwdChg->getFormHtml('reset'); ?>
+</DIV>
+<?php } ?>
