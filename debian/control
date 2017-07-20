@@ -3,7 +3,7 @@ Section: admin
 Priority: optional
 Maintainer: Cedric Dufour <cedric.dufour@ced-network.net>
 Build-Depends: python (>= 2.7), debhelper (>= 8), dh-python, help2man
-Build-Depends-Indep: php-pear, python-argparse, python-configobj, python-daemon, python-m2crypto, python-passlib (>= 1.7.0)
+Build-Depends-Indep: php-pear, python-argparse, python-configobj, python-daemon, python-m2crypto
 Homepage: http://cedric.dufour.name/software/upwdchg
 Standards-Version: 3.9.8
 
@@ -70,7 +70,7 @@ Description: Universal Password Changer (UPwdChg) - frontend utilities
 
 Package: upwdchg-backend
 Architecture: all
-Depends: ${misc:Depends}, ${python:Depends}, upwdchg-common, python-argparse, python-configobj, python-daemon, python-m2crypto, python-passlib (>= 1.7.0)
+Depends: ${misc:Depends}, ${python:Depends}, upwdchg-common, python-argparse, python-configobj, python-daemon, python-m2crypto
 Suggests: upwdchg-plugins, python-ldap, krb5-admin-server | ssh-client
 Description: Universal Password Changer (UPwdChg) - backend utilities
  The Universal Password Changer (UPwdChg) allows one to synchronize passwords

@@ -19,14 +19,12 @@
 #
 
 # Modules
-# ... deb: python-m2crypto, python-passlib
+# ... deb: python-m2crypto
 from UPwdChg import \
     UPWDCHG_ENCODING, \
     UPWDCHG_DEFAULT_FILE_RANDOM, \
     UPWDCHG_PWHASH_METHOD, \
     UPWDCHG_PWHASH_ALGO, \
-    UPWDCHG_PWHASH_KEY_LENGTH, \
-    UPWDCHG_PWHASH_SALT_LENGTH, \
     UPWDCHG_PWHASH_ITERATIONS, \
     UPWDCHG_IDHASH_METHOD, \
     UPWDCHG_IDHASH_ALGO
@@ -37,7 +35,6 @@ import hashlib as HASH
 import hmac as HMAC
 import json as JSON
 import M2Crypto as M2C
-import passlib.crypto.digest as PL
 from sys import \
     modules
 from time import \
@@ -131,8 +128,9 @@ class TokenData:
 
         # Secret (hashed!)
         if UPWDCHG_PWHASH_METHOD == 'pbkdf2':
-            sHashAlgo_salt = M2C.Rand.rand_bytes(UPWDCHG_PWHASH_SALT_LENGTH)
-            sHash_compute = PL.pbkdf2_hmac(UPWDCHG_PWHASH_ALGO, uPasswordNonce_secret, sHashAlgo_salt, UPWDCHG_PWHASH_ITERATIONS, UPWDCHG_PWHASH_KEY_LENGTH)
+            oHash = HASH.new(UPWDCHG_PWHASH_ALGO)
+            sHashAlgo_salt = M2C.Rand.rand_bytes(oHash.block_size)
+            sHash_compute = HASH.pbkdf2_hmac(UPWDCHG_PWHASH_ALGO, uPasswordNonce_secret, sHashAlgo_salt, UPWDCHG_PWHASH_ITERATIONS)
             dPasswordNonce_secret = { \
                 'base64': B64.b64encode(sHash_compute), \
                 'hash': { \
@@ -143,8 +141,31 @@ class TokenData:
                     'iterations': UPWDCHG_PWHASH_ITERATIONS, \
                 }, \
             }
+        elif UPWDCHG_PWHASH_METHOD == 'hmac':
+            oHash = HASH.new(UPWDCHG_PWHASH_ALGO)
+            sHashAlgo_salt = M2C.Rand.rand_bytes(oHash.block_size)
+            oHmac = HMAC.new(sHashAlgo_salt, uPasswordNonce_secret, reduce(getattr, ['HASH', UPWDCHG_PWHASH_ALGO], modules[__name__]))
+            sHash_compute = oHmac.digest()
+            dPasswordNonce_secret = { \
+                'base64': B64.b64encode(sHash_compute), \
+                'hash': { \
+                    'algorithm': "%s-%s" % (UPWDCHG_PWHASH_METHOD, UPWDCHG_PWHASH_ALGO), \
+                    'salt': { \
+                        'base64': B64.b64encode(sHashAlgo_salt), \
+                    }, \
+                }, \
+            }
+        elif UPWDCHG_PWHASH_METHOD == 'hash':
+            oHash = HASH.new(UPWDCHG_PWHASH_ALGO)
+            oHash.update(uPasswordNonce_secret)
+            sHash_compute = oHash.digest()
+            dPasswordNonce_secret = { \
+                'base64': B64.b64encode(sHash_compute), \
+                'hash': { \
+                    'algorithm': "%s-%s" % (UPWDCHG_PWHASH_METHOD, UPWDCHG_PWHASH_ALGO), \
+                }, \
+            }
         else:
-            # (for the time being...)
             raise RuntimeError('invalid/unsupported password hash method; %s' % UPWDCHG_PWHASH_METHOD)
 
         # Session (hashed!)
@@ -351,7 +372,15 @@ class TokenData:
             if sHashAlgo[:7] == 'pbkdf2-':
                 sHashAlgo_salt = B64.b64decode(self._dData['password-nonce-secret']['hash']['salt']['base64'])
                 iHashAlgo_iterations = int(self._dData['password-nonce-secret']['hash']['iterations'])
-                sHash_compute = PL.pbkdf2_hmac(sHashAlgo[7:], uPasswordNonce_secret, sHashAlgo_salt, iHashAlgo_iterations, len(sHash_given))
+                sHash_compute = HASH.pbkdf2_hmac(sHashAlgo[7:], uPasswordNonce_secret, sHashAlgo_salt, iHashAlgo_iterations, len(sHash_given))
+            elif sHashAlgo[:5] == 'hmac-':
+                sHashAlgo_salt = B64.b64decode(self._dData['password-nonce-secret']['hash']['salt']['base64'])
+                oHmac = HMAC.new(sHashAlgo_salt, uPasswordNonce_secret, reduce(getattr, ['HASH', sHashAlgo[5:]], modules[__name__]))
+                sHash_compute = oHmac.digest()
+            elif sHashAlgo[:5] == 'hash-':
+                oHash = HASH.new(sHashAlgo[5:])
+                oHash.update(uPasswordNonce_secret)
+                sHash_compute = oHash.digest()
             else:
                 raise RuntimeError('Invalid/unsupported password hash method; %s' % sHashAlgo)
             if sHash_given != sHash_compute:

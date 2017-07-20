@@ -713,17 +713,15 @@ class UPwdChg
     // ... secret
     $sHash_given = base64_decode($asData['password-nonce-secret']['base64']);
     $sHashAlgo = strtolower($asData['password-nonce-secret']['hash']['algorithm']);
-    if($sHashAlgo == 'crypt') {
-      if(!password_verify($sPasswordNonce_secret, $sHash_given))
-        throw new Exception($this->getText('error:invalid_credentials'));
-      return;
-    } elseif(substr($sHashAlgo, 0, 7) == 'pbkdf2-') {
+    if(substr($sHashAlgo, 0, 7) == 'pbkdf2-') {
       $sHashAlgo_salt = base64_decode($asData['password-nonce-secret']['hash']['salt']['base64']);
       $iHashAlgo_iterations = (integer)$asData['password-nonce-secret']['hash']['iterations'];
       $sHash_compute = hash_pbkdf2(substr($sHashAlgo, 7), $sPasswordNonce_secret, $sHashAlgo_salt, $iHashAlgo_iterations, 0, true);
     } elseif(substr($sHashAlgo, 0, 5) == 'hmac-') {
       $sHashAlgo_salt = base64_decode($asData['password-nonce-secret']['hash']['salt']['base64']);
       $sHash_compute = hash_hmac(substr($sHashAlgo, 5), $sPasswordNonce_secret, $sHashAlgo_salt, true);
+    } elseif(substr($sHashAlgo, 0, 5) == 'hash-') {
+      $sHash_compute = hash(substr($sHashAlgo, 5), $sPasswordNonce_secret, true);
     } else {
       trigger_error('['.__METHOD__.'] Invalid/unsupported password hash', E_USER_WARNING);
       throw new Exception($this->getText('error:internal_error'));
