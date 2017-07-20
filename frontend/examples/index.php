@@ -39,6 +39,9 @@ DIV.UPwdChg { WIDTH:600px; MARGIN:auto; FONT:12px sans-serif; BACKGROUND:#FFFFFF
 DIV.UPwdChg DIV.error { WIDTH:500px; MARGIN:auto; PADDING:5px 10px; BORDER:solid 2px #A00000; BACKGROUND:#FFE0E0; COLOR:#800000; }
 DIV.UPwdChg DIV.error H2 { MARGIN:0px; BACKGROUND:transparent; COLOR:#800000; TEXT-ALIGN:center; }
 DIV.UPwdChg DIV.error P { MARGIN:0px; BACKGROUND:transparent; COLOR:#800000; TEXT-ALIGN:center; }
+DIV.UPwdChg DIV.info { WIDTH:500px; MARGIN:auto; PADDING:5px 10px; BORDER:solid 2px #00A000; BACKGROUND:#E0FFE0; COLOR:#008000; }
+DIV.UPwdChg DIV.info H2 { MARGIN:0px; BACKGROUND:transparent; COLOR:#008000; TEXT-ALIGN:center; }
+DIV.UPwdChg DIV.info P { MARGIN:0px; BACKGROUND:transparent; COLOR:#008000; TEXT-ALIGN:center; }
 DIV.UPwdChg DIV.text { WIDTH:500px; MARGIN:auto; }
 DIV.UPwdChg DIV.text P.link { TEXT-ALIGN:center; }
 DIV.UPwdChg DIV.form { WIDTH:450px; MARGIN:auto; TEXT-ALIGN:center; }

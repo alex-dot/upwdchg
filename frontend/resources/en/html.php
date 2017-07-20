@@ -16,6 +16,13 @@ $sView = $oUPwdChg->getFormData('VIEW');
 </DIV>
 <?php } ?>
 
+<?php $sInfo = $oUPwdChg->getFormData('INFO'); if(strlen($sInfo) > 0) { ?>
+<DIV CLASS="info">
+<H2>Information</H2>
+<P STYLE="font-weight:bold;"><?php echo nl2br(htmlentities($sInfo)); ?></P>
+</DIV>
+<?php } ?>
+
 <?php if($sView == 'captcha') { ?>
 <H2>Authentication</H2>
 <DIV CLASS="text">

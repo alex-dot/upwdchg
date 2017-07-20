@@ -41,6 +41,7 @@ $_TEXT['error:password_type_punct_forbidden'] = 'Le mot de passe ne doit PAS con
 $_TEXT['error:password_type_other_required'] = 'Le mot de passe DOIT contenir au moins un caractère spécial.';
 $_TEXT['error:password_type_other_forbidden'] = 'Le mot de passe ne doit PAS contenir de caractère spécial.';
 $_TEXT['error:password_type_minimum'] = 'Le mot de passe DOIT contenir au moins '.$this->amCONFIG['password_type_minimum'].' types de caractère différents.';
+$_TEXT['info:password_nonce_request'] = 'Demande envoyée avec succès. Vous devriez recevoir votre code PIN sous peu.';
 $_TEXT['info:password_charset_notascii'] = 'Le mot de passe PEUT contenir des caractères non-ASCII.';
 $_TEXT['info:password_type_lower'] = 'Le mot de passe PEUT contenir des caractères minuscules.';
 $_TEXT['info:password_type_upper'] = 'Le mot de passe PEUT contenir des caractères majuscules.';

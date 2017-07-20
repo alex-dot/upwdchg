@@ -11,8 +11,15 @@ $sView = $oUPwdChg->getFormData('VIEW');
 
 <?php $sError = $oUPwdChg->getFormData('ERROR'); if(strlen($sError) > 0) { ?>
 <DIV CLASS="error">
-<H2>Error</H2>
+<H2>Erreur</H2>
 <P STYLE="font-weight:bold;"><?php echo nl2br(htmlentities($sError)); ?></P>
+</DIV>
+<?php } ?>
+
+<?php $sInfo = $oUPwdChg->getFormData('INFO'); if(strlen($sInfo) > 0) { ?>
+<DIV CLASS="info">
+<H2>Information</H2>
+<P STYLE="font-weight:bold;"><?php echo nl2br(htmlentities($sInfo)); ?></P>
 </DIV>
 <?php } ?>
 

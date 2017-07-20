@@ -285,6 +285,7 @@ class UPwdChg
       $_TEXT['error:password_type_other_required'] = 'Password MUST contain at least one special character.';
       $_TEXT['error:password_type_other_forbidden'] = 'Password may NOT contain any special character.';
       $_TEXT['error:password_type_minimum'] = 'Password MUST contain at least '.$this->amCONFIG['password_type_minimum'].' different character types.';
+      $_TEXT['info:password_nonce_request'] = 'Request successfully sent. You should receive your PIN code shortly.';
       $_TEXT['info:password_charset_notascii'] = 'Password MAY contain non-ASCII characters.';
       $_TEXT['info:password_type_lower'] = 'Password MAY contain lowercase characters.';
       $_TEXT['info:password_type_upper'] = 'Password MAY contain uppercase characters.';
@@ -300,6 +301,42 @@ class UPwdChg
 
     // Done
     return $_TEXT[$sTextID];
+  }
+
+  /** Add given message in error messages stack
+   *
+   * @param string $sError Error message
+   */
+  private function errorAdd($sError) {
+    $_SESSION['UPwdChg_Error'] = isset($_SESSION['UPwdChg_Error']) ? $_SESSION['UPwdChg_Error']."\n".$sError : $sError;
+  }
+
+  /** Retrieve message from error messages stack
+   *
+   * @return string Error message
+   */
+  private function errorGet() {
+    $sError = isset($_SESSION['UPwdChg_Error']) ? $_SESSION['UPwdChg_Error'] : null;
+    unset($_SESSION['UPwdChg_Error']);
+    return $sError;
+  }
+
+  /** Add given message in informational messages stack
+   *
+   * @param string $sInfo Error message
+   */
+  private function infoAdd($sInfo) {
+    $_SESSION['UPwdChg_Info'] = isset($_SESSION['UPwdChg_Info']) ? $_SESSION['UPwdChg_Info']."\n".$sInfo : $sInfo;
+  }
+
+  /** Retrieve message from informational messages stack
+   *
+   * @return string Error message
+   */
+  private function infoGet() {
+    $sInfo = isset($_SESSION['UPwdChg_Info']) ? $_SESSION['UPwdChg_Info'] : null;
+    unset($_SESSION['UPwdChg_Info']);
+    return $sInfo;
   }
 
   /** Reset session
@@ -1150,7 +1187,6 @@ class UPwdChg
    */
   public function controlPage() {
     // Controller
-    $sError = null;
     $amFormData = array();
     try {
       // Check encryption
@@ -1322,6 +1358,9 @@ class UPwdChg
         // Write token
         $this->writeToken_PasswordNonceRequest($sUsername);
 
+        // User feedback
+        $this->infoAdd($this->getText('info:password_nonce_request'));
+
         // Redirect (prevent form resubmission)
         if(!$this->amCONFIG['password_reset']) {
           echo '<SCRIPT TYPE="text/javascript">document.location.replace(\'?view=password-change\')</SCRIPT>';
@@ -1441,7 +1480,7 @@ class UPwdChg
     }
     catch(Exception $e) {
       // Save the error message
-      $sError = $e->getMessage();
+      $this->errorAdd($e->getMessage());
     }
 
     // Default view
@@ -1454,7 +1493,7 @@ class UPwdChg
     }
 
     // Save form data
-    $this->amFORMDATA = array_merge(array('VIEW' => $sView, 'ERROR' => $sError), $amFormData);
+    $this->amFORMDATA = array_merge(array('VIEW' => $sView, 'ERROR' => $this->errorGet(), 'INFO' => $this->infoGet()), $amFormData);
 
     // Done
     return $this->amFORMDATA['VIEW'];
@@ -1466,7 +1505,7 @@ class UPwdChg
    * @return mixed Data (variable) value
    */
   public function getFormData($sID) {
-    return $this->amFORMDATA[ $sID ];
+    return isset($this->amFORMDATA[$sID]) ? $this->amFORMDATA[$sID] : null;
   }
 
   /** Retrieve the form's HTML code from the controller (for the given view)
