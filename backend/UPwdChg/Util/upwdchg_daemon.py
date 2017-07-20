@@ -525,6 +525,13 @@ class DaemonMain(Daemon):
             default=False,
             help='Enable debugging messages')
 
+        # ... show configuration
+        self.__oArgumentParser.add_argument(
+            '--showconf', type=str,
+            metavar='<configobj.path>',
+            default=None,
+            help='Show configuration and exit')
+
         # ... version
         self.__oArgumentParser.add_argument(
             '-v', '--version', action='version',
@@ -577,6 +584,36 @@ class DaemonMain(Daemon):
             return 1
 
         return 0
+
+    def __writeConfigObj(self, _sPath=None, _dConfig=None, _sPrefix=None):
+        """
+        Write configuration settings (to stdout, in a shell-friendly way).
+        """
+
+        if not _dConfig:
+            _dConfig = self.__oConfigObj
+        if not _sPath:
+            lKeys = _dConfig.keys()
+        else:
+            lPath = _sPath.split('.')
+            sKey = lPath[0].replace('*', '')
+            lKeys = [sKey] if sKey else _dConfig.keys()
+            _sPath = '.'.join(lPath[1:])
+        for sKey in lKeys:
+            if sKey not in _dConfig.keys():
+                continue
+            if isinstance(_dConfig[sKey], dict):
+                self.__writeConfigObj(_sPath, _dConfig[sKey], sKey)
+            else:
+                sName = _sPrefix+'_'+sKey if _sPrefix else sKey
+                sValue = _dConfig[sKey]
+                if sValue is None:
+                    sValue = ''
+                elif isinstance(sValue, bool):
+                    sValue = '1' if sValue else '0'
+                elif isinstance(sValue, str):
+                    sValue = "'%s'" % sValue
+                sys.stdout.write('%s=%s\n' % (sName, sValue))
 
 
     #------------------------------------------------------------------------------
@@ -641,6 +678,11 @@ class DaemonMain(Daemon):
         # ... configuration
         iReturn = self.__initConfigObj()
         if iReturn: return iReturn
+
+        # Show configuration (?)
+        if self.__oArguments.showconf is not None:
+            self.__writeConfigObj(self.__oArguments.showconf)
+            return 0
 
         # Configure daemon
         self._bDebug = self.__oArguments.debug
