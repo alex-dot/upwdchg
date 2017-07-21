@@ -1,6 +1,6 @@
-upwdchg (2.0.0) UNRELEASED; urgency=low
+upwdchg (2.0.20170721a) UNRELEASED; urgency=low
 
-  * DEVELOPMENT PACKAGING - NEW MAJOR VERSION (2.x) - WARNING: INCOMPATIBLE WITH VERSION 1.x!
+  * NEW MAJOR RELEASE (2.x) - WARNING: INCOMPATIBLE WITH VERSION 1.x!
 
   Cédric Dufour:
   * REFACTOR: [Frontend] Opted for more compact PHP spacing and indenting convention
@@ -39,8 +39,19 @@ upwdchg (2.0.0) UNRELEASED; urgency=low
               2. Consolidated all plugins (error processing, debugging, etc.)
   * REFACTOR: [Documentation] NEW "password-nonce" FEATURE
   * REFACTOR: [Debian] NEW "password-nonce" FEATURE
+  * MOD: [Frontend] Hardened and consolidated input validation
+  * FIX: [Plugins] Handle invalid/missing attribute in 'SendPasswordNonceLdap'
+  * FIX: [Plugins] Added missing 'DRY-RUN' debug messages in 'Synch*Ldap' plugins
+  * FIX: [Plugins] Removed unused 'password-old' token field from 'SynchGroupsMemberLdap'
+  * FIX: [Plugins] 'sGroupDN' is not defined in 'SynchGroupsMemberLdap'
+  * NEW: [Frontend] Add 'reset' button/link when password nonces are enabled
+  * NEW: Enforce session statefulness (when password nonces are used)
+  * NEW: Got rid of 'passlib' dependency and implement 'hmac' and 'hash' cryptographic methods
+  * NEW: [Frontend] Add informational messages (user feedback)
+  * NEW: [Backend] Allow to easily dump/retrieve daemon configuration
+  * NEW: [Debian] Crontab to clean-up stale password nonces
 
- -- Cédric Dufour <cedric.dufour@ced-network.net>  Mon, 10 Jul 2017 15:27:17 +0200
+ -- Cédric Dufour <cedric.dufour@ced-network.net>  Fri, 21 Jul 2017 09:35:44 +0200
 
 upwdchg (1.0.20170512) UNRELEASED; urgency=low
 
