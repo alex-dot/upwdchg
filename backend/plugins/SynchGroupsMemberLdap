@@ -132,9 +132,14 @@ class SynchGroupsMemberLdap(TokenPlugin):
             UPWDCHG_PLUGIN_LDAP_SRC_USER_SEARCH_SCOPE, \
             UPWDCHG_PLUGIN_LDAP_SRC_USER_SEARCH_FILTER
 
+        # Check parameters
+        if UPWDCHG_PLUGIN_LDAP_SRC_USER_DN is not None and not UPWDCHG_PLUGIN_LDAP_SRC_USER_DN:
+            self._DEBUG('Empty (source LDAP) user distinguished name (DN)')
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
+
         # Retrieve user DN
         try:
-            if not UPWDCHG_PLUGIN_LDAP_SRC_USER_DN:
+            if UPWDCHG_PLUGIN_LDAP_SRC_USER_DN is None:
                 lLdapResults = oLdap.search_ext_s(
                     UPWDCHG_PLUGIN_LDAP_SRC_USER_SEARCH_DN,
                     UPWDCHG_PLUGIN_LDAP_SRC_USER_SEARCH_SCOPE,
@@ -269,9 +274,14 @@ class SynchGroupsMemberLdap(TokenPlugin):
             UPWDCHG_PLUGIN_LDAP_DST_USER_SEARCH_SCOPE, \
             UPWDCHG_PLUGIN_LDAP_DST_USER_SEARCH_FILTER
 
+        # Check parameters
+        if UPWDCHG_PLUGIN_LDAP_DST_USER_DN is not None and not UPWDCHG_PLUGIN_LDAP_DST_USER_DN:
+            self._DEBUG('Empty (destination LDAP) user distinguished name (DN)')
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
+
         # Retrieve user DN
         try:
-            if not UPWDCHG_PLUGIN_LDAP_DST_USER_DN:
+            if UPWDCHG_PLUGIN_LDAP_DST_USER_DN is None:
                 lLdapResults = oLdap.search_ext_s(
                     UPWDCHG_PLUGIN_LDAP_DST_USER_SEARCH_DN,
                     UPWDCHG_PLUGIN_LDAP_DST_USER_SEARCH_SCOPE,

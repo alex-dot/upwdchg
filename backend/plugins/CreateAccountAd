@@ -85,17 +85,15 @@ class CreateAccountAd(TokenPlugin):
             UPWDCHG_PLUGIN_LDAP_ADMIN_DN, \
             UPWDCHG_PLUGIN_LDAP_ADMIN_PWD
 
-        # Return variable
-        oLdap = None
-
         # Check parameters
-        if not UPWDCHG_PLUGIN_LDAP_URI:
-            return oLdap
+        if UPWDCHG_PLUGIN_LDAP_URI is None:
+            return None
         if not UPWDCHG_PLUGIN_LDAP_ADMIN_DN:
             self._DEBUG('Missing (LDAP) administrator distinguished name (DN)')
             self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # Bind to server
+        oLdap = None
 
         # ... initialize connection
         try:
@@ -107,21 +105,25 @@ class CreateAccountAd(TokenPlugin):
             self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # ... bind credentials
-        sBindDn = UPWDCHG_PLUGIN_LDAP_ADMIN_DN
-        if not UPWDCHG_PLUGIN_LDAP_ADMIN_PWD:
-            sBindPwd=''  # Really!?!
-        elif UPWDCHG_PLUGIN_LDAP_ADMIN_PWD.startswith('file://'):
-            sFile = UPWDCHG_PLUGIN_LDAP_ADMIN_PWD[7:]
-            try:
-                oFile = open(sFile, 'r')
-                sBindPwd = oFile.readline()
-                oFile.close()
-            except Exception as e:
-                self._DEBUG('Failed to retrieve (LDAP) bind password from file; %s' % str(e))
-                self._EXIT_ERROR('Internal error; please contact your system administrator')
-        else:
-            sBindPwd = UPWDCHG_PLUGIN_LDAP_ADMIN_PWD
-        self._DEBUG('Binding to (LDAP) server as: %s' % sBindDn, TokenPlugin.DEBUG_TRACE)
+        try:
+            sBindDn = UPWDCHG_PLUGIN_LDAP_ADMIN_DN
+            if not UPWDCHG_PLUGIN_LDAP_ADMIN_PWD:
+                sBindPwd=''  # Really!?!
+            elif UPWDCHG_PLUGIN_LDAP_ADMIN_PWD.startswith('file://'):
+                sFile = UPWDCHG_PLUGIN_LDAP_ADMIN_PWD[7:]
+                try:
+                    oFile = open(sFile, 'r')
+                    sBindPwd = oFile.readline()
+                    oFile.close()
+                except Exception as e:
+                    self._DEBUG('Failed to retrieve (LDAP) bind password from file; %s' % str(e))
+                    self._EXIT_ERROR('Internal error; please contact your system administrator')
+            else:
+                sBindPwd = UPWDCHG_PLUGIN_LDAP_ADMIN_PWD
+            self._DEBUG('Binding to (LDAP) server as: %s' % sBindDn, TokenPlugin.DEBUG_TRACE)
+        except Exception as e:
+            self._DEBUG('Failed to retrieve (LDAP) bind credentials; %s' % str(e))
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # ... bind to server
         try:
@@ -142,6 +144,11 @@ class CreateAccountAd(TokenPlugin):
             UPWDCHG_PLUGIN_LDAP_USER_SEARCH_SCOPE, \
             UPWDCHG_PLUGIN_LDAP_USER_SEARCH_FILTER
 
+        # Check parameters
+        if UPWDCHG_PLUGIN_LDAP_USER_DN is not None and not UPWDCHG_PLUGIN_LDAP_USER_DN:
+            self._DEBUG('Empty (LDAP) user distinguished name (DN)')
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
+
         # Return variable
         dAttrs = dict()
 
@@ -149,7 +156,7 @@ class CreateAccountAd(TokenPlugin):
 
         # ... user DN
         try:
-            if not UPWDCHG_PLUGIN_LDAP_USER_DN:
+            if UPWDCHG_PLUGIN_LDAP_USER_DN is None:
                 lLdapResults = oLdap.search_ext_s(
                     UPWDCHG_PLUGIN_LDAP_USER_SEARCH_DN,
                     UPWDCHG_PLUGIN_LDAP_USER_SEARCH_SCOPE,
@@ -194,6 +201,9 @@ class CreateAccountAd(TokenPlugin):
             UPWDCHG_PLUGIN_AD_ADMIN_PWD
 
         # Check parameters
+        if not UPWDCHG_PLUGIN_AD_URI:
+            self._DEBUG('Missing (AD) server address (URI)')
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
         if not UPWDCHG_PLUGIN_AD_ADMIN_DN:
             self._DEBUG('Missing (AD) administrator distinguished name (DN)')
             self._EXIT_ERROR('Internal error; please contact your system administrator')
@@ -210,21 +220,25 @@ class CreateAccountAd(TokenPlugin):
             self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # ... bind credentials
-        sBindDn = UPWDCHG_PLUGIN_AD_ADMIN_DN
-        if not UPWDCHG_PLUGIN_AD_ADMIN_PWD:
-            sBindPwd=''  # Really!?!
-        elif UPWDCHG_PLUGIN_AD_ADMIN_PWD.startswith('file://'):
-            sFile = UPWDCHG_PLUGIN_AD_ADMIN_PWD[7:]
-            try:
-                oFile = open(sFile, 'r')
-                sBindPwd = oFile.readline()
-                oFile.close()
-            except Exception as e:
-                self._DEBUG('Failed to retrieve (AD) bind password from file; %s' % str(e))
-                self._EXIT_ERROR('Internal error; please contact your system administrator')
-        else:
-            sBindPwd = UPWDCHG_PLUGIN_AD_ADMIN_PWD
-        self._DEBUG('Binding to (AD) server as: %s' % sBindDn, TokenPlugin.DEBUG_TRACE)
+        try:
+            sBindDn = UPWDCHG_PLUGIN_AD_ADMIN_DN
+            if not UPWDCHG_PLUGIN_AD_ADMIN_PWD:
+                sBindPwd=''  # Really!?!
+            elif UPWDCHG_PLUGIN_AD_ADMIN_PWD.startswith('file://'):
+                sFile = UPWDCHG_PLUGIN_AD_ADMIN_PWD[7:]
+                try:
+                    oFile = open(sFile, 'r')
+                    sBindPwd = oFile.readline()
+                    oFile.close()
+                except Exception as e:
+                    self._DEBUG('Failed to retrieve (AD) bind password from file; %s' % str(e))
+                    self._EXIT_ERROR('Internal error; please contact your system administrator')
+            else:
+                sBindPwd = UPWDCHG_PLUGIN_AD_ADMIN_PWD
+            self._DEBUG('Binding to (AD) server as: %s' % sBindDn, TokenPlugin.DEBUG_TRACE)
+        except Exception as e:
+            self._DEBUG('Failed to retrieve (AD) bind credentials; %s' % str(e))
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # ... bind to server
         try:

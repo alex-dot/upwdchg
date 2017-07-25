@@ -55,6 +55,9 @@ class CreateAccountKrb5(TokenPlugin):
         if not UPWDCHG_PLUGIN_KRB5_ADD_USER_DN:
             self._DEBUG('Missing user distinguished name (DN)')
             self._EXIT_ERROR('Internal error; please contact your system administrator')
+        if UPWDCHG_PLUGIN_KRB5_ADMSRV is not None and not UPWDCHG_PLUGIN_KRB5_ADMSRV:
+            self._DEBUG('Empty administration server connection string')
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # Get token (data)
         oToken = self._getToken()
@@ -70,7 +73,7 @@ class CreateAccountKrb5(TokenPlugin):
         bPrincipalExists = True
         try:
             lCommand = [ 'kadmin.local', '-q', "'get_principal -terse \"%s\"'" % sPrincipal.replace('"', '""') ]
-            if UPWDCHG_PLUGIN_KRB5_ADMSRV:
+            if UPWDCHG_PLUGIN_KRB5_ADMSRV is not None:
                 lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join(lCommand) ]
             oPopen = SP.Popen(lCommand, stdout=SP.PIPE, stderr=SP.PIPE)
             (sStdOut, sStdErr) = oPopen.communicate()
@@ -91,7 +94,7 @@ class CreateAccountKrb5(TokenPlugin):
             if bPrincipalExists:
                 if not UPWDCHG_PLUGIN_DRYRUN:
                     lCommand = [ 'kadmin.local', '-q', "'change_password -pw \"%s\" \"%s\"'" % (sPasswordNew.replace('"', '""'), sPrincipal.replace('"', '""')) ]
-                    if UPWDCHG_PLUGIN_KRB5_ADMSRV:
+                    if UPWDCHG_PLUGIN_KRB5_ADMSRV is not None:
                         lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join(lCommand) ]
                     oPopen = SP.Popen(lCommand, stdout=SP.PIPE, stderr=SP.PIPE)
                     (sStdOut, sStdErr) = oPopen.communicate()
@@ -112,7 +115,7 @@ class CreateAccountKrb5(TokenPlugin):
                     self._DEBUG('Creating principal (DN): %s (%s)' % (sPrincipal, sUserDn), TokenPlugin.DEBUG_TRACE)
                     sOptions = UPWDCHG_PLUGIN_KRB5_ADD_OPTIONS
                     lCommand = [ 'kadmin.local', '-q', "'add_principal -x dn=\"%s\" -pw \"%s\" %s \"%s\"'" % (sUserDn.replace('"', '""'), sPasswordNew.replace('"', '""'), sOptions, sPrincipal.replace('"', '""')) ]
-                    if UPWDCHG_PLUGIN_KRB5_ADMSRV:
+                    if UPWDCHG_PLUGIN_KRB5_ADMSRV is not None:
                         lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join(lCommand) ]
                     oPopen = SP.Popen(lCommand, stdout=SP.PIPE, stderr=SP.PIPE)
                     (sStdOut, sStdErr) = oPopen.communicate()
