@@ -109,6 +109,7 @@ class UPwdChg
     $_CONFIG['public_key_file'] = '/etc/upwdchg/public.pem';
     $_CONFIG['random_source'] = MCRYPT_DEV_URANDOM;
     $_CONFIG['authentication_method'] = 'http';
+    $_CONFIG['authentication_exempt'] = array();
     $_CONFIG['credentials_check_method'] = 'ldap';
     $_CONFIG['password_nonce'] = 0;
     $_CONFIG['password_reset'] = 0;
@@ -160,6 +161,10 @@ class UPwdChg
     ) as $p)
       if(!is_string($_CONFIG[$p]))
         trigger_error('['.__METHOD__.'] Parameter must be a string ('.$p.')', E_USER_ERROR);
+    // ... is array
+    foreach(array('authentication_exempt') as $p)
+      if(!is_array($_CONFIG[$p]))
+        trigger_error('['.__METHOD__.'] Parameter must be an array ('.$p.')', E_USER_ERROR);
     // ... is readable
     foreach(array('resources_directory', 'tokens_directory_public', 'public_key_file') as $p)
       if(!is_readable($_CONFIG[$p]))
@@ -363,16 +368,17 @@ class UPwdChg
 
   /** Authenticate via user-configured authentication backend
    *
+   * @param string $sBack View (ID) to go back to after successful authentication
    * @return array|string User credentials (username, password), Null if no authentication is configured
    */
-  private function authenticate() {
+  private function authenticate($sBack) {
     switch($this->amCONFIG['authentication_method']) {
     case 'http':
       return $this->authenticateHttp();
     case 'ldap':
       return $this->authenticateLdap();
     case 'captcha':
-      return $this->authenticateCaptcha();
+      return $this->authenticateCaptcha($sBack);
     case 'none':
       return array('username' => null, 'password' => null);
     default:
@@ -425,21 +431,25 @@ class UPwdChg
 
   /** Authenticate via Captcha
    *
+   * @param string $sBack View (ID) to go back to after successful authentication
    * @return array|string Null user credentials (username, password)
    */
-  private function authenticateCaptcha() {
+  private function authenticateCaptcha($sBack) {
+    // Redirection URL
+    $sURL = '?view=captcha'.($sBack ? '&back='.$sBack : null);
+
     // Check captcha
     if(!isset($_SESSION['UPwdChg_Captcha_Challenge'], $_SESSION['UPwdChg_Captcha_Response'], $_SESSION['UPwdChg_Captcha_TTL'])) {
-      echo '<SCRIPT TYPE="text/javascript">document.location.replace(\'?view=captcha\')</SCRIPT>';
-      echo '<META HTTP-EQUIV="refresh" CONTENT="1;URL=?view=captcha" />';
+      echo '<SCRIPT TYPE="text/javascript">document.location.replace(\''.$sURL.'\')</SCRIPT>';
+      echo '<META HTTP-EQUIV="refresh" CONTENT="1;URL='.$sURL.'" />';
       exit;
     }
     if($_SESSION['UPwdChg_Captcha_Response'] != $_SESSION['UPwdChg_Captcha_Challenge']
-    or $_SESSION['UPwdChg_Captcha_TTL'] <= 0) {
+       or $_SESSION['UPwdChg_Captcha_TTL'] <= 0) {
       // WTF!?!
       $this->resetSession();
-      echo '<SCRIPT TYPE="text/javascript">document.location.replace(\'?view=captcha\')</SCRIPT>';
-      echo '<META HTTP-EQUIV="refresh" CONTENT="1;URL=?view=captcha" />';
+      echo '<SCRIPT TYPE="text/javascript">document.location.replace(\''.$sURL.'\')</SCRIPT>';
+      echo '<META HTTP-EQUIV="refresh" CONTENT="1;URL='.$sURL.'" />';
       exit;
     }
 
@@ -1199,20 +1209,41 @@ class UPwdChg
       // ... view
       $sView = null;
       if(isset($_GET['view'])) {
-        if(!is_scalar($_GET['view']) or strlen($_GET['view']) > UPwdChg::INPUT_MAX_LENGTH) {
+        if(!is_scalar($_GET['view']) or strlen($_GET['view']) > UPwdChg::INPUT_MAX_LENGTH or preg_match('/[^a-z-]/', $_GET['view'])) {
           trigger_error('['.__METHOD__.'] Invalid view request; IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
           throw new Exception($this->getText('error:internal_error'));
         }
         $sView = trim($_GET['view']);
       }
+      // ... back
+      $sBack = null;
+      if(isset($_GET['back'])) {
+        if(!is_scalar($_GET['back']) or strlen($_GET['back']) > UPwdChg::INPUT_MAX_LENGTH or preg_match('/[^a-z-]/', $_GET['back'])) {
+          trigger_error('['.__METHOD__.'] Invalid back request; IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          throw new Exception($this->getText('error:internal_error'));
+        }
+        $sBack = trim($_GET['back']);
+      }
       // ... action
       $sDo = null;
       if(isset($_POST['do'])) {
-        if(!is_scalar($_POST['do']) or strlen($_POST['do']) > UPwdChg::INPUT_MAX_LENGTH) {
+        if(!is_scalar($_POST['do']) or strlen($_POST['do']) > UPwdChg::INPUT_MAX_LENGTH or preg_match('/[^a-z-]/', $_POST['do'])) {
           trigger_error('['.__METHOD__.'] Invalid form data (request:action); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
           throw new Exception($this->getText('error:invalid_form_data'));
         }
         $sDo = trim($_POST['do']);
+      }
+
+      // Default view (make URI/request explicit)
+      if(empty($sDo) and empty($sView)) {
+        if($this->amCONFIG['password_nonce'] and !$this->amCONFIG['password_reset'])
+          // ... two-factor password change; we need a nonce first
+          $sView = 'password-nonce-request';
+        else
+          $sView = 'password-change';
+        echo '<SCRIPT TYPE="text/javascript">document.location.replace(\'?view='.$sView.'\')</SCRIPT>';
+        echo '<META HTTP-EQUIV="refresh" CONTENT="1;URL=?view='.$sView.'" />';
+        exit;
       }
 
       // PRE-AUTHENTICATION
@@ -1244,41 +1275,47 @@ class UPwdChg
           throw new Exception($this->getText('error:invalid_form_data'));
         }
         $_SESSION['UPwdChg_Locale'] = $sLocale;
-        break;
+
+        // Redirect (make URI/request explicit)
+        echo '<SCRIPT TYPE="text/javascript">document.location.replace(\'?\')</SCRIPT>';
+        echo '<META HTTP-EQUIV="refresh" CONTENT="1;URL=?" />';
+        exit;
 
       }
 
       // Views
-      switch($sView) {
+      if(empty($sDo)) {
+        switch($sView) {
 
-      case 'captcha':
-        if($this->amCONFIG['authentication_method'] != 'captcha') {
-          trigger_error('['.__METHOD__.'] Invalid view request (captcha); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
-          throw new Exception($this->getText('error:internal_error'));
+        case 'captcha':
+          if($this->amCONFIG['authentication_method'] != 'captcha') {
+            trigger_error('['.__METHOD__.'] Invalid view request (captcha); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+            throw new Exception($this->getText('error:internal_error'));
+          }
+          $this->amFORMDATA = array('VIEW' => $sView);
+          return $this->amFORMDATA['VIEW'];
+
+        case 'captcha-challenge':
+          if($this->amCONFIG['authentication_method'] != 'captcha') {
+            trigger_error('['.__METHOD__.'] Invalid view request (captcha-challenge); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+            throw new Exception($this->getText('error:internal_error'));
+          }
+          $this->outputCaptcha();
+          exit;
+
+        case 'password-change-confirm':
+          $this->amFORMDATA = array('VIEW' => $sView);
+          return $this->amFORMDATA['VIEW'];
+
+        case 'password-reset-confirm':
+          if(!$this->amCONFIG['password_nonce'] or !$this->amCONFIG['password_reset']) {
+            trigger_error('['.__METHOD__.'] Invalid view request (password-reset-confirm); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+            throw new Exception($this->getText('error:internal_error'));
+          }
+          $this->amFORMDATA = array('VIEW' => $sView);
+          return $this->amFORMDATA['VIEW'];
+
         }
-        $this->amFORMDATA = array('VIEW' => $sView);
-        return $this->amFORMDATA['VIEW'];
-
-      case 'captcha_challenge':
-        if($this->amCONFIG['authentication_method'] != 'captcha') {
-          trigger_error('['.__METHOD__.'] Invalid view request (captcha_challenge); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
-          throw new Exception($this->getText('error:internal_error'));
-        }
-        $this->outputCaptcha();
-        exit;
-
-      case 'password-change-confirm':
-        $this->amFORMDATA = array('VIEW' => $sView);
-        return $this->amFORMDATA['VIEW'];
-
-      case 'password-reset-confirm':
-        if(!$this->amCONFIG['password_nonce'] or !$this->amCONFIG['password_reset']) {
-          trigger_error('['.__METHOD__.'] Invalid view request (password-reset-confirm); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
-          throw new Exception($this->getText('error:internal_error'));
-        }
-        $this->amFORMDATA = array('VIEW' => $sView);
-        return $this->amFORMDATA['VIEW'];
-
       }
 
       // AUTHENTICATION
@@ -1313,17 +1350,26 @@ class UPwdChg
         $_SESSION['UPwdChg_Captcha_TTL'] = $this->amCONFIG['captcha_ttl'];
 
         // Redirect (prevent form resubmission)
-        echo '<SCRIPT TYPE="text/javascript">document.location.replace(\'?\')</SCRIPT>';
-        echo '<META HTTP-EQUIV="refresh" CONTENT="1;URL=?" />';
+        echo '<SCRIPT TYPE="text/javascript">document.location.replace(\'?'.($sBack ? 'view='.$sBack : null).'\')</SCRIPT>';
+        echo '<META HTTP-EQUIV="refresh" CONTENT="1;URL=?'.($sBack ? 'view='.$sBack : null).'" />';
         exit;
 
       }
 
       // ... authenticate
       if($this->amCONFIG['authentication_method'] != 'none') {
-        $asCredentials = $this->authenticate();
-        $sUsername = $amFormData['username'] = $asCredentials['username'];
-        $sPasswordOld = $asCredentials['password'];
+        // WARNING: let's be overly cautious on those 'authentication_exempt' tests!
+        if(!empty($sDo) and in_array($sDo, $this->amCONFIG['authentication_exempt'], true)) {
+          assert(true);
+        }
+        elseif(empty($sDo) and !empty($sView) and in_array($sView, $this->amCONFIG['authentication_exempt'], true)) {
+          assert(true);
+        }
+        else {
+          $asCredentials = $this->authenticate($sView);
+          $sUsername = $amFormData['username'] = $asCredentials['username'];
+          $sPasswordOld = $asCredentials['password'];
+        }
       }
 
       // POST-AUTHENTICATION
@@ -1484,15 +1530,6 @@ class UPwdChg
       $this->errorAdd($e->getMessage());
     }
 
-    // Default view
-    if(empty($sView)) {
-      if($this->amCONFIG['password_nonce'] and !$this->amCONFIG['password_reset'])
-        // ... two-factor password change; we need a nonce first
-        $sView = 'password-nonce-request';
-      else
-        $sView = 'password-change';
-    }
-
     // Save form data
     $this->amFORMDATA = array_merge(array('VIEW' => $sView, 'ERROR' => $this->errorGet(), 'INFO' => $this->infoGet()), $amFormData);
 
@@ -1515,6 +1552,17 @@ class UPwdChg
    * @return string Form's HTML code
    */
   public function getFormHtml($sID) {
+    // Request
+    // ... back
+    $sBack = null;
+    if(isset($_GET['back'])) {
+      if(!is_scalar($_GET['back']) or strlen($_GET['back']) > UPwdChg::INPUT_MAX_LENGTH or preg_match('/[^a-z-]/', $_GET['back'])) {
+        trigger_error('['.__METHOD__.'] Invalid back request; IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+        throw new Exception($this->getText('error:internal_error'));
+      }
+      $sBack = trim($_GET['back']);
+    }
+
     // Build form
     $sHTML = '';
     switch($sID) {
@@ -1529,11 +1577,10 @@ class UPwdChg
       break;
 
     case 'locale':
-      $sView = isset($_GET['view']) ? $_GET['view'] : null;
       $sCurrentLocale = $this->getCurrentLocale();
 
       // ... HTML
-      $sHTML .= '<FORM ID="UPwdChg_locale" METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].($sView ? '?view='.$sView : null).'">';
+      $sHTML .= '<FORM ID="UPwdChg_locale" METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'">';
       $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="locale" />';
       $sHTML .= '<TABLE CELLSPACING="0"><TR>';
       $sHTML .= '<TD CLASS="label">'.htmlentities($this->getText('label:language')).':</TD>';
@@ -1553,16 +1600,16 @@ class UPwdChg
       }
 
       // ... HTML
-      $sHTML .= '<FORM ID="UPwdChg_form" METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'">';
+      $sHTML .= '<FORM ID="UPwdChg_form" METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'?view=captcha'.($sBack ? '&back='.$sBack : null).'">';
       $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="captcha" />';
       $sHTML .= '<TABLE CELLSPACING="0"><TR>';
       $iTabIndex = 1;
 
       // ... captcha (response)
-      $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:captcha')).'&nbsp;(<A HREF="?view=captcha">&#x21bb;</A>):</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="text" NAME="captcha" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
+      $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:captcha')).'&nbsp;(<A HREF="?view=captcha'.($sBack ? '&back='.$sBack : null).'">&#x21bb;</A>):</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="text" NAME="captcha" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
 
       // ... captcha (challenge)
-      $sHTML .= '<TR><TD CLASS="label">&nbsp;</TD><TD CLASS="input"><IMG ALT="Captcha" SRC="?view=captcha_challenge" WIDTH="'.$this->amCONFIG['captcha_width'].'" HEIGHT="'.$this->amCONFIG['captcha_height'].'" /></TD><TD CLASS="note">&nbsp;</TD></TR>';
+      $sHTML .= '<TR><TD CLASS="label">&nbsp;</TD><TD CLASS="input"><IMG ALT="Captcha" SRC="?view=captcha-challenge" WIDTH="'.$this->amCONFIG['captcha_width'].'" HEIGHT="'.$this->amCONFIG['captcha_height'].'" /></TD><TD CLASS="note">&nbsp;</TD></TR>';
 
       // ... submit
       $sHTML .= '<TR><TD CLASS="button" COLSPAN="2"><BUTTON TYPE="submit" TABINDEX="'.$iTabIndex.'">'.htmlentities($this->getText('label:submit')).'</BUTTON></TD></TR>';
@@ -1571,9 +1618,6 @@ class UPwdChg
       break;
 
     case 'password-policy':
-      $sView_back = isset($_GET['back']) ? $_GET['back'] : null;
-      $sCurrentLocale = $this->getCurrentLocale();
-
       // ... HTML
       $sHTML .= '<UL>';
       if($this->amCONFIG['password_length_minimum'])
@@ -1619,7 +1663,7 @@ class UPwdChg
       if($this->amCONFIG['password_type_minimum'])
         $sHTML .= '<LI>'.htmlentities($this->getText('error:password_type_minimum')).'</LI>';
       $sHTML .= '</UL>';
-      $sHTML .= '<P CLASS="link"><A HREF="?'.($sView_back ? 'view='.$sView_back : null).'">'.htmlentities($this->getText('label:password_policy_back')).'</A></P>';
+      $sHTML .= '<P CLASS="link"><A HREF="?'.($sBack ? 'view='.$sBack : null).'">'.htmlentities($this->getText('label:password_policy_back')).'</A></P>';
       break;
 
     case 'password-nonce-request':
@@ -1635,7 +1679,7 @@ class UPwdChg
       }
 
       // ... HTML
-      $sHTML .= '<FORM ID="UPwdChg_form" METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'">';
+      $sHTML .= '<FORM ID="UPwdChg_form" METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'?view=password-nonce-request">';
       $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="password-nonce-request" />';
       $sHTML .= '<TABLE CELLSPACING="0">';
       $iTabIndex = 1;
@@ -1673,7 +1717,7 @@ class UPwdChg
       }
 
       // ... HTML
-      $sHTML .= '<FORM ID="UPwdChg_form" METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'">';
+      $sHTML .= '<FORM ID="UPwdChg_form" METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'?view=password-change">';
       $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="password-change" />';
       $sHTML .= '<INPUT TYPE="password" NAME="autocomplete_off" STYLE="DISPLAY:none;" />';
       if(!$bFormPasswordNonce)
@@ -1722,7 +1766,7 @@ class UPwdChg
       }
 
       // ... HTML
-      $sHTML .= '<FORM ID="UPwdChg_form" METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'">';
+      $sHTML .= '<FORM ID="UPwdChg_form" METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'?view=password-reset">';
       $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="password-reset" />';
       $sHTML .= '<INPUT TYPE="password" NAME="autocomplete_off" STYLE="DISPLAY:none;" />';
       $sHTML .= '<TABLE CELLSPACING="0">';

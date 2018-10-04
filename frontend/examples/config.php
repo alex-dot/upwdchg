@@ -46,6 +46,12 @@
 #  'none': no authentication [not recommended]
 #$_CONFIG['authentication_method'] = 'http'; // string
 
+# Authentication exempted actions/views. Examples:
+#  array(): no exemption [recommended]
+#  array('password-change'): make sure to use $_CONFIG['credentials_check_method'] != 'none' (see below)
+#  array('password-nonce-request'): VERY BAD IDEA! (exposes your backend to nonce abuse/DoS)
+#$_CONFIG['authentication_exempt'] = array(); // array(string)
+
 
 ################################################################################
 # PASSWORD (POLICY) SETTINGS
