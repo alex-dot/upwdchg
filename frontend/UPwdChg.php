@@ -266,7 +266,8 @@ class UPwdChg
       $_TEXT['error:invalid_session'] = 'Invalid session. Please start over.';
       $_TEXT['error:invalid_form_data'] = 'Invalid form data. Please contact the system administrator.';
       $_TEXT['error:invalid_captcha'] = 'Invalid captcha.';
-      $_TEXT['error:invalid_credentials'] = 'Invalid credentials (incorrect username, old password or PIN code).';
+      $_TEXT['error:invalid_credentials'] = 'Invalid credentials (incorrect username or old password).';
+      $_TEXT['error:invalid_password_nonce'] = 'Invalid PIN code.';
       $_TEXT['error:expired_password_nonce'] = 'PIN code has expired.';
       $_TEXT['error:password_mismatch'] = 'Password confirmation mismatch.';
       $_TEXT['error:password_identical'] = 'Old and new passwords are identical.';
@@ -729,7 +730,7 @@ class UPwdChg
     // Split nonce ID <-> secret ("<nonce-id>-<nonce-secret>")
     $asPasswordNonce = explode('-', $sPasswordNonce, 2);
     if(count($asPasswordNonce) < 2) {
-      throw new Exception($this->getText('error:invalid_credentials'));
+      throw new Exception($this->getText('error:invalid_password_nonce'));
     }
     $sPasswordNonce_id = $asPasswordNonce[0];
     $sPasswordNonce_secret = $asPasswordNonce[1];
@@ -737,16 +738,16 @@ class UPwdChg
     // Check nonce
     // ... valid characters (NB: prevent path traversal on nonce retrieval)
     if(preg_match('/[[:^alnum:]]/i', $sPasswordNonce_id)) {
-      throw new Exception($this->getText('error:invalid_credentials'));
+      throw new Exception($this->getText('error:invalid_password_nonce'));
     }
     // ... read from file
     $asData = $this->readToken_PasswordNonce($sPasswordNonce_id);
     // ... nonce ID
     if($asData['password-nonce-id'] != $sPasswordNonce_id)
-      throw new Exception($this->getText('error:invalid_credentials'));
+      throw new Exception($this->getText('error:invalid_password_nonce'));
     // ... username
     if($asData['username'] != $sUsername)
-      throw new Exception($this->getText('error:invalid_credentials'));
+      throw new Exception($this->getText('error:invalid_password_nonce'));
     // ... secret
     $sHash_given = base64_decode($asData['password-nonce-secret']['base64']);
     $sHashAlgo = strtolower($asData['password-nonce-secret']['hash']['algorithm']);
@@ -764,7 +765,7 @@ class UPwdChg
       throw new Exception($this->getText('error:internal_error'));
     }
     if(empty($sHash_given) or empty($sHash_compute) or $sHash_given !== $sHash_compute) {
-      throw new Exception($this->getText('error:invalid_credentials'));
+      throw new Exception($this->getText('error:invalid_password_nonce'));
     }
     // ... expiration
     $asExpiration = date_parse_from_format('Y-m-d\TH:i:s\Z', $asData['expiration']);
@@ -1158,7 +1159,7 @@ class UPwdChg
     // Read password nonce from storage
     $sFile = $this->amCONFIG['tokens_directory_public'].DIRECTORY_SEPARATOR.$sPasswordNonce_id.'.nonce';
     if(!is_readable($sFile)) {
-      throw new Exception($this->getText('error:invalid_credentials'));
+      throw new Exception($this->getText('error:invalid_password_nonce'));
     }
     $asToken = $this->readToken($sFile);
     $asData = $this->decryptToken($asToken);
