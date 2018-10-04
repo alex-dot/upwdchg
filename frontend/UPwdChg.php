@@ -73,6 +73,10 @@ class UPwdChg
    * @var array|mixed */
   private $amFORMDATA;
 
+  /** Remote IP
+   * @var string */
+  private $sRemoteIP;
+
 
   /*
    * CONSTRUCTORS
@@ -84,7 +88,16 @@ class UPwdChg
    */
   public function __construct($sConfigurationPath) {
     // Fields
+    // ... comfiguration
     $this->initConfig($sConfigurationPath);
+    // ... remote IP
+    $this->sRemoteIP = 'unknown';
+    if(isset( $_SERVER['HTTP_X_FORWARDED_FOR'] )) {
+      $this->sRemoteIP = $_SERVER['HTTP_X_FORWARDED_FOR'];
+    }
+    elseif(isset( $_SERVER['REMOTE_ADDR'] )) {
+      $this->sRemoteIP = $_SERVER['REMOTE_ADDR'];
+    }
   }
 
 
@@ -576,7 +589,7 @@ class UPwdChg
     }
     catch(Exception $e) {
       @ldap_unbind($hLdap);
-      trigger_error('['.__METHOD__.'] '.$e->getMessage(), E_USER_WARNING);
+      trigger_error('['.__METHOD__.'] '.$e->getMessage().'; IP='.$this->sRemoteIP, E_USER_WARNING);
       return false;
     }
 
@@ -1210,7 +1223,7 @@ class UPwdChg
       $sView = null;
       if(isset($_GET['view'])) {
         if(!is_scalar($_GET['view']) or strlen($_GET['view']) > UPwdChg::INPUT_MAX_LENGTH or preg_match('/[^a-z-]/', $_GET['view'])) {
-          trigger_error('['.__METHOD__.'] Invalid view request; IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          trigger_error('['.__METHOD__.'] Invalid view request; IP='.$this->sRemoteIP, E_USER_WARNING);
           throw new Exception($this->getText('error:internal_error'));
         }
         $sView = trim($_GET['view']);
@@ -1219,7 +1232,7 @@ class UPwdChg
       $sBack = null;
       if(isset($_GET['back'])) {
         if(!is_scalar($_GET['back']) or strlen($_GET['back']) > UPwdChg::INPUT_MAX_LENGTH or preg_match('/[^a-z-]/', $_GET['back'])) {
-          trigger_error('['.__METHOD__.'] Invalid back request; IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          trigger_error('['.__METHOD__.'] Invalid back request; IP='.$this->sRemoteIP, E_USER_WARNING);
           throw new Exception($this->getText('error:internal_error'));
         }
         $sBack = trim($_GET['back']);
@@ -1228,7 +1241,7 @@ class UPwdChg
       $sDo = null;
       if(isset($_POST['do'])) {
         if(!is_scalar($_POST['do']) or strlen($_POST['do']) > UPwdChg::INPUT_MAX_LENGTH or preg_match('/[^a-z-]/', $_POST['do'])) {
-          trigger_error('['.__METHOD__.'] Invalid form data (request:action); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          trigger_error('['.__METHOD__.'] Invalid form data (request:action); IP='.$this->sRemoteIP, E_USER_WARNING);
           throw new Exception($this->getText('error:invalid_form_data'));
         }
         $sDo = trim($_POST['do']);
@@ -1264,14 +1277,14 @@ class UPwdChg
         // Retrieve form variables
         if(!isset($_POST['locale'])
            or !is_scalar($_POST['locale']) or strlen($_POST['locale']) > UPwdChg::INPUT_MAX_LENGTH) {
-          trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.$this->sRemoteIP, E_USER_WARNING);
           throw new Exception($this->getText('error:invalid_form_data'));
         }
         $sLocale = trim($_POST['locale']);
 
         // Check and set locale
         if(!in_array($sLocale, $this->getSupportedLocales())) {
-          trigger_error('['.__METHOD__.'] Invalid locale; IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          trigger_error('['.__METHOD__.'] Invalid locale; IP='.$this->sRemoteIP, E_USER_WARNING);
           throw new Exception($this->getText('error:invalid_form_data'));
         }
         $_SESSION['UPwdChg_Locale'] = $sLocale;
@@ -1289,7 +1302,7 @@ class UPwdChg
 
         case 'captcha':
           if($this->amCONFIG['authentication_method'] != 'captcha') {
-            trigger_error('['.__METHOD__.'] Invalid view request (captcha); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+            trigger_error('['.__METHOD__.'] Invalid view request (captcha); IP='.$this->sRemoteIP, E_USER_WARNING);
             throw new Exception($this->getText('error:internal_error'));
           }
           $this->amFORMDATA = array('VIEW' => $sView);
@@ -1297,7 +1310,7 @@ class UPwdChg
 
         case 'captcha-challenge':
           if($this->amCONFIG['authentication_method'] != 'captcha') {
-            trigger_error('['.__METHOD__.'] Invalid view request (captcha-challenge); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+            trigger_error('['.__METHOD__.'] Invalid view request (captcha-challenge); IP='.$this->sRemoteIP, E_USER_WARNING);
             throw new Exception($this->getText('error:internal_error'));
           }
           $this->outputCaptcha();
@@ -1309,7 +1322,7 @@ class UPwdChg
 
         case 'password-reset-confirm':
           if(!$this->amCONFIG['password_nonce'] or !$this->amCONFIG['password_reset']) {
-            trigger_error('['.__METHOD__.'] Invalid view request (password-reset-confirm); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+            trigger_error('['.__METHOD__.'] Invalid view request (password-reset-confirm); IP='.$this->sRemoteIP, E_USER_WARNING);
             throw new Exception($this->getText('error:internal_error'));
           }
           $this->amFORMDATA = array('VIEW' => $sView);
@@ -1329,7 +1342,7 @@ class UPwdChg
 
       case 'captcha':
         if($this->amCONFIG['authentication_method'] != 'captcha') {
-          trigger_error('['.__METHOD__.'] Invalid action request (captcha); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          trigger_error('['.__METHOD__.'] Invalid action request (captcha); IP='.$this->sRemoteIP, E_USER_WARNING);
           throw new Exception($this->getText('error:internal_error'));
         }
         $sView = 'captcha';
@@ -1337,7 +1350,7 @@ class UPwdChg
         // Retrieve form variables
         if(!isset($_POST['captcha'])
            or !is_scalar($_POST['captcha']) or strlen($_POST['captcha']) > UPwdChg::INPUT_MAX_LENGTH) {
-          trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.$this->sRemoteIP, E_USER_WARNING);
           throw new Exception($this->getText('error:invalid_form_data'));
         }
         $sCaptcha = trim($_POST['captcha']);
@@ -1379,7 +1392,7 @@ class UPwdChg
 
       case 'password-nonce-request':
         if(!$this->amCONFIG['password_nonce']) {
-          trigger_error('['.__METHOD__.'] Invalid action request (password-nonce-request); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          trigger_error('['.__METHOD__.'] Invalid action request (password-nonce-request); IP='.$this->sRemoteIP, E_USER_WARNING);
           throw new Exception($this->getText('error:internal_error'));
         }
         $sView = 'password-nonce-request';
@@ -1387,7 +1400,7 @@ class UPwdChg
         // Retrieve arguments
         if(!isset($_POST['username'])
            or !is_scalar($_POST['username']) or strlen($_POST['username']) > UPwdChg::INPUT_MAX_LENGTH) {
-          trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.$this->sRemoteIP, E_USER_WARNING);
           throw new Exception($this->getText('error:invalid_form_data'));
         }
 
@@ -1429,7 +1442,7 @@ class UPwdChg
            or !is_scalar($_POST['password_old']) or strlen($_POST['password_old']) > UPwdChg::INPUT_MAX_LENGTH
            or !is_scalar($_POST['password_new']) or strlen($_POST['password_new']) > UPwdChg::INPUT_MAX_LENGTH
            or !is_scalar($_POST['password_confirm']) or strlen($_POST['password_confirm']) > UPwdChg::INPUT_MAX_LENGTH) {
-          trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.$this->sRemoteIP, E_USER_WARNING);
           throw new Exception($this->getText('error:invalid_form_data'));
         }
 
@@ -1474,7 +1487,7 @@ class UPwdChg
 
       case 'password-reset':
         if(!$this->amCONFIG['password_nonce'] or !$this->amCONFIG['password_reset']) {
-          trigger_error('['.__METHOD__.'] Invalid action request (password-reset); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          trigger_error('['.__METHOD__.'] Invalid action request (password-reset); IP='.$this->sRemoteIP, E_USER_WARNING);
           throw new Exception($this->getText('error:internal_error'));
         }
         $sView = 'password-reset';
@@ -1485,7 +1498,7 @@ class UPwdChg
            or !is_scalar($_POST['password_nonce']) or strlen($_POST['password_nonce']) > UPwdChg::INPUT_MAX_LENGTH
            or !is_scalar($_POST['password_new']) or strlen($_POST['password_new']) > UPwdChg::INPUT_MAX_LENGTH
            or !is_scalar($_POST['password_confirm']) or strlen($_POST['password_confirm']) > UPwdChg::INPUT_MAX_LENGTH) {
-          trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+          trigger_error('['.__METHOD__.'] Invalid form data (request:arguments); IP='.$this->sRemoteIP, E_USER_WARNING);
           throw new Exception($this->getText('error:invalid_form_data'));
         }
 
@@ -1555,11 +1568,7 @@ class UPwdChg
     // Request
     // ... back
     $sBack = null;
-    if(isset($_GET['back'])) {
-      if(!is_scalar($_GET['back']) or strlen($_GET['back']) > UPwdChg::INPUT_MAX_LENGTH or preg_match('/[^a-z-]/', $_GET['back'])) {
-        trigger_error('['.__METHOD__.'] Invalid back request; IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
-        throw new Exception($this->getText('error:internal_error'));
-      }
+    if(isset($_GET['back']) and is_scalar($_GET['back']) and strlen($_GET['back']) <= UPwdChg::INPUT_MAX_LENGTH and !preg_match('/[^a-z-]/', $_GET['back'])) {
       $sBack = trim($_GET['back']);
     }
 
@@ -1595,7 +1604,7 @@ class UPwdChg
 
     case 'captcha':
       if($this->amCONFIG['authentication_method'] != 'captcha') {
-        trigger_error('['.__METHOD__.'] Invalid view request (captcha); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+        trigger_error('['.__METHOD__.'] Invalid view request (captcha); IP='.$this->sRemoteIP, E_USER_WARNING);
         throw new Exception($this->getText('error:internal_error'));
       }
 
@@ -1668,7 +1677,7 @@ class UPwdChg
 
     case 'password-nonce-request':
       if(!$this->amCONFIG['password_nonce']) {
-        trigger_error('['.__METHOD__.'] Invalid view request (password-nonce-request); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+        trigger_error('['.__METHOD__.'] Invalid view request (password-nonce-request); IP='.$this->sRemoteIP, E_USER_WARNING);
         throw new Exception($this->getText('error:internal_error'));
       }
 
@@ -1761,7 +1770,7 @@ class UPwdChg
 
     case 'password-reset':
       if(!$this->amCONFIG['password_nonce'] or !$this->amCONFIG['password_reset']) {
-        trigger_error('['.__METHOD__.'] Invalid view request (password-reset); IP='.(isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'unknown'), E_USER_WARNING);
+        trigger_error('['.__METHOD__.'] Invalid view request (password-reset); IP='.$this->sRemoteIP, E_USER_WARNING);
         throw new Exception($this->getText('error:internal_error'));
       }
 
