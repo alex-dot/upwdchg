@@ -1571,6 +1571,7 @@ class UPwdChg
       break;
 
     case 'password-policy':
+      $sView_back = isset($_GET['back']) ? $_GET['back'] : null;
       $sCurrentLocale = $this->getCurrentLocale();
 
       // ... HTML
@@ -1618,7 +1619,7 @@ class UPwdChg
       if($this->amCONFIG['password_type_minimum'])
         $sHTML .= '<LI>'.htmlentities($this->getText('error:password_type_minimum')).'</LI>';
       $sHTML .= '</UL>';
-      $sHTML .= '<P CLASS="link"><A HREF="?">'.htmlentities($this->getText('label:password_policy_back')).'</A></P>';
+      $sHTML .= '<P CLASS="link"><A HREF="?'.($sView_back ? 'view='.$sView_back : null).'">'.htmlentities($this->getText('label:password_policy_back')).'</A></P>';
       break;
 
     case 'password-nonce-request':
@@ -1706,7 +1707,7 @@ class UPwdChg
       // ... password (confirm)
       $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:password_confirm')).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="password" NAME="password_confirm" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
       // ... password (policy)
-      $sHTML .= '<TR><TD CLASS="label">&nbsp;</TD><TD CLASS="link"><A HREF="?view=password-policy">'.htmlentities($this->getText('label:password_policy')).'</A></TD></TR>';
+      $sHTML .= '<TR><TD CLASS="label">&nbsp;</TD><TD CLASS="link"><A HREF="?view=password-policy&back=password-change">'.htmlentities($this->getText('label:password_policy')).'</A></TD></TR>';
 
       // ... submit
       $sHTML .= '<TR><TD CLASS="button" COLSPAN="2"><BUTTON TYPE="submit" TABINDEX="'.$iTabIndex.'">'.htmlentities($this->getText('label:submit')).'</BUTTON></TD></TR>';
@@ -1741,7 +1742,7 @@ class UPwdChg
       // ... password (confirm)
       $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:password_confirm')).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="password" NAME="password_confirm" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
       // ... password (policy)
-      $sHTML .= '<TR><TD CLASS="label">&nbsp;</TD><TD CLASS="link"><A HREF="?view=password-policy">'.htmlentities($this->getText('label:password_policy')).'</A></TD></TR>';
+      $sHTML .= '<TR><TD CLASS="label">&nbsp;</TD><TD CLASS="link"><A HREF="?view=password-policy&back=password-reset">'.htmlentities($this->getText('label:password_policy')).'</A></TD></TR>';
 
       // ... submit
       $sHTML .= '<TR><TD CLASS="button" COLSPAN="2"><BUTTON TYPE="submit" TABINDEX="'.$iTabIndex.'">'.htmlentities($this->getText('label:submit')).'</BUTTON></TD></TR>';
