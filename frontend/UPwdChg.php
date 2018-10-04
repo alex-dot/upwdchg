@@ -1559,7 +1559,7 @@ class UPwdChg
       $iTabIndex = 1;
 
       // ... captcha (response)
-      $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:captcha')).':</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="text" NAME="captcha" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
+      $sHTML .= '<TR><TD CLASS="label">'.htmlentities($this->getText('label:captcha')).'&nbsp;(<A HREF="?view=captcha">&#x21bb;</A>):</TD><TD CLASS="input"><SPAN CLASS="required"><INPUT TYPE="text" NAME="captcha" TABINDEX="'.$iTabIndex++.'" /></SPAN></TD></TR>';
 
       // ... captcha (challenge)
       $sHTML .= '<TR><TD CLASS="label">&nbsp;</TD><TD CLASS="input"><IMG ALT="Captcha" SRC="?view=captcha_challenge" WIDTH="'.$this->amCONFIG['captcha_width'].'" HEIGHT="'.$this->amCONFIG['captcha_height'].'" /></TD><TD CLASS="note">&nbsp;</TD></TR>';
