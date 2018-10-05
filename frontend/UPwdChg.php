@@ -624,7 +624,7 @@ class UPwdChg
     foreach(str_split($sPassword) as $sCharacter) {
       if(strpos($sCharsetForbidden, $sCharacter) !== FALSE)
         $bForbidden = true;
-      if(ord($sCharacter) > 127)
+      if(ord($sCharacter) < 32 or ord($sCharacter) > 126)
         $bNotAscii = true;
       if(ctype_lower($sCharacter)) {
         if(!$bLower) {
