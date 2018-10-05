@@ -42,7 +42,7 @@ UPWDCHG_IDHASH_METHOD = 'hash'
 UPWDCHG_IDHASH_ALGO = 'sha256'
 
 # Dependencies
-from upwdchg_tokendata import TokenData
-from upwdchg_tokenreader import TokenReader
-from upwdchg_tokenwriter import TokenWriter
-from upwdchg_tokenplugin import TokenPlugin
+from .upwdchg_tokendata import TokenData
+from .upwdchg_tokenreader import TokenReader
+from .upwdchg_tokenwriter import TokenWriter
+from .upwdchg_tokenplugin import TokenPlugin
