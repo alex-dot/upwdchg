@@ -4,7 +4,7 @@
  * <P><B>COPYRIGHT:</B></P>
  * <PRE>
  * Universal Password Changer (UPwdChg)
- * Copyright (C) 2014 Cedric Dufour <http://cedric.dufour.name>
+ * Copyright (C) 2014-2018 Cedric Dufour <http://cedric.dufour.name>
  * Author(s): Cedric Dufour <http://cedric.dufour.name>
  *
  * This file is part of the Universal Password Changer (UPwdChg).
@@ -17,6 +17,9 @@
  * that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
  * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ * License-Filename: LICENSE/GPL-3.0.txt
  * </PRE>
  *
  * @package    UPwdChg

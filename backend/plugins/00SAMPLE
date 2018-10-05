@@ -4,7 +4,7 @@
 
 #
 # Universal Password Changer (UPwdChg)
-# Copyright (C) 2014 Cedric Dufour <http://cedric.dufour.name>
+# Copyright (C) 2014-2018 Cedric Dufour <http://cedric.dufour.name>
 # Author: Cedric Dufour <http://cedric.dufour.name>
 #
 # The Universal Password Changer (UPwdChg) is free software:
@@ -16,6 +16,9 @@
 # warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 #
 # See the GNU General Public License for more details.
+#
+# SPDX-License-Identifier: GPL-3.0
+# License-Filename: LICENSE/GPL-3.0.txt
 #
 
 #
