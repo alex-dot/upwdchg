@@ -1,3 +1,23 @@
+upwdchg (2.0.20181005a) UNRELEASED; urgency=low
+
+  * NEW RELEASE
+
+  Cédric Dufour:
+  * NEW: [Plugins] 'ChangePasswordMysql' plugin to change MySQL password
+  * FIX: [Plugins] Consolidate/harden handling of None vs. empty parameters
+  - FIX: [Plugins] 'SendPasswordNonceLdap' erroneous indentation and DN test    
+         (thanks to Alexander Herr for pointing this up)
+  - MOD: [Frontend] Differentiate invalid password nonce from invalid credentials message
+  - NEW: [Frontend] Add refresh icon to captcha view
+  - NEW: [Frontend] Have the password policy view go back to the correct view
+  - NEW: [Frontend] Allow (user-)configured action(s)/view(s) to be exempt from authentication
+  - MOD: [Frontend] Improve abusing (remote) IP address logging
+  - NEW: [Frontend+Plugins] Add forbidden characters to password policy
+         > https://github.com/cedric-dufour/upwdchg/issues/4
+  - MOD: [Frontend+Plugins] Consider non-printable (ASCII) characters as non-ASCII
+
+ -- Cédric Dufour <cedric.dufour@ced-network.net>  Fri, 05 Oct 2018 13:56:09 +0200
+
 upwdchg (2.0.20170721a) UNRELEASED; urgency=low
 
   * NEW MAJOR RELEASE (2.x) - WARNING: INCOMPATIBLE WITH VERSION 1.x!

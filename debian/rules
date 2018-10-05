@@ -7,6 +7,9 @@ export VERSION_PEAR := $(shell echo $(VERSION) | sed 's/[-~].*$$//')
 export DATE := $(shell date +'%Y-%m-%d')
 export TIME := $(shell date +'%H:%M:%S')
 
+# Let's keep our source tree clean
+export PYTHONDONTWRITEBYTECODE=1
+
 # Required for 'help2man'
 export PYTHONPATH:=backend:${PYTHONPATH}
 export PATH:=backend:${PATH}
@@ -18,7 +21,8 @@ override_dh_install:
 	# Create the PEAR package to be bundled as a Debian package
 	cp frontend/package.xml.in frontend/package.xml
 	sed -i "s|%{VERSION}|$(VERSION_PEAR)|g;s|%{DATE}|$(DATE)|g;s|%{TIME}|$(TIME)|g" frontend/package.xml
-	cp README COPYRIGHT LICENSE INSTALL frontend/.
+	cp README COPYRIGHT INSTALL frontend/.
+	cp LICENSE/GPL-3.0.txt frontend/LICENSE
 	pear install -f -n -R debian/tmp frontend/package.xml
 	rm -f frontend/README frontend/COPYRIGHT frontend/LICENSE frontend/INSTALL
 	# ... clean-up
