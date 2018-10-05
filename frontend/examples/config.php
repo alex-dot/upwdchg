@@ -78,6 +78,9 @@
 # Maximum password length.
 #$_CONFIG['password_length_maximum'] = 64; // integer
 
+# Forbidden password character(s).
+#$_CONFIG['password_charset_forbidden'] = ''; // string
+
 # Non-ASCII character requirement.
 # -1 = forbid; 1 = require; 0 = ignore
 #$_CONFIG['password_charset_notascii'] = -1; // integer

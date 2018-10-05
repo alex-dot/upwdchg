@@ -128,6 +128,7 @@ class UPwdChg
     $_CONFIG['password_reset'] = 0;
     $_CONFIG['password_length_minimum'] = 8;
     $_CONFIG['password_length_maximum'] = 64;
+    $_CONFIG['password_charset_forbidden'] = '';
     $_CONFIG['password_charset_notascii'] = -1;
     $_CONFIG['password_type_lower'] = 0;
     $_CONFIG['password_type_upper'] = 0;
@@ -168,7 +169,7 @@ class UPwdChg
       if(!is_int($_CONFIG[$p]))
         trigger_error('['.__METHOD__.'] Parameter must be an integer ('.$p.')', E_USER_ERROR);
     // ... is string
-    foreach(array('locales', 'authentication_method', 'credentials_check_method',
+    foreach(array('locales', 'authentication_method', 'credentials_check_method', 'password_charset_forbidden',
                   'ldap_host', 'ldap_user_dn', 'ldap_user_base_dn', 'ldap_user_search_scope',
                   'ldap_user_filter', 'ldap_bind_dn', 'ldap_bind_password',
     ) as $p)
@@ -291,6 +292,7 @@ class UPwdChg
       $_TEXT['error:password_identical'] = 'Old and new passwords are identical.';
       $_TEXT['error:password_length_minimum'] = 'Password MUST contain at least '.$this->amCONFIG['password_length_minimum'].' characters.';
       $_TEXT['error:password_length_maximum'] = 'Password may NOT contain more than '.$this->amCONFIG['password_length_maximum'].' characters.';
+      $_TEXT['error:password_charset_forbidden'] = 'Password may NOT contain any forbidden character.';
       $_TEXT['error:password_charset_notascii_required'] = 'Password MUST contain at least one non-ASCII character.';
       $_TEXT['error:password_charset_notascii_forbidden'] = 'Password may NOT contain any non-ASCII character.';
       $_TEXT['error:password_type_lower_required'] = 'Password MUST contain at least one lowercase character.';
@@ -305,6 +307,7 @@ class UPwdChg
       $_TEXT['error:password_type_other_forbidden'] = 'Password may NOT contain any special character.';
       $_TEXT['error:password_type_minimum'] = 'Password MUST contain at least '.$this->amCONFIG['password_type_minimum'].' different character types.';
       $_TEXT['info:password_nonce_request'] = 'Request successfully sent. You should receive your PIN code shortly.';
+      $_TEXT['info:password_charset_forbidden'] = 'Password may NOT contain the following forbidden characters: '.str_replace(' ', '(space)', $this->amCONFIG['password_charset_forbidden']);
       $_TEXT['info:password_charset_notascii'] = 'Password MAY contain non-ASCII characters.';
       $_TEXT['info:password_type_lower'] = 'Password MAY contain lowercase characters.';
       $_TEXT['info:password_type_upper'] = 'Password MAY contain uppercase characters.';
@@ -606,9 +609,11 @@ class UPwdChg
   /** Check the given password characters types
    *
    * @param string $sPassword Password
+   * @param string $sCharsetForbidden Forbidden characters
    * @return array|int Types array (lower, upper, digit, punct, other, count)
    */
-  private static function getPasswordTypes($sPassword) {
+  private static function getPasswordTypes($sPassword, $sCharsetForbidden) {
+    $bForbidden = false;
     $bNotAscii = false;
     $bLower = false;
     $bUpper = false;
@@ -617,6 +622,8 @@ class UPwdChg
     $bOther = false;
     $iType = 0;
     foreach(str_split($sPassword) as $sCharacter) {
+      if(strpos($sCharsetForbidden, $sCharacter) !== FALSE)
+        $bForbidden = true;
       if(ord($sCharacter) > 127)
         $bNotAscii = true;
       if(ctype_lower($sCharacter)) {
@@ -650,7 +657,8 @@ class UPwdChg
         }
       }
     }
-    return array('notascii' => $bNotAscii,
+    return array('forbidden' => $bForbidden,
+                 'notascii' => $bNotAscii,
                  'lower' => $bLower,
                  'upper' => $bUpper,
                  'digit' => $bDigit,
@@ -689,7 +697,10 @@ class UPwdChg
     }
 
     // Check password characters type
-    $aiPasswordTypes = $this->getPasswordTypes($sPasswordNew);
+    $aiPasswordTypes = $this->getPasswordTypes($sPasswordNew, $this->amCONFIG['password_charset_forbidden']);
+    // ... forbidden
+    if($aiPasswordTypes['forbidden'])
+      array_push($asPasswordErrors, $this->getText('error:password_charset_forbidden'));
     // ... not ASCII
     if($this->amCONFIG['password_charset_notascii']) {
       if($aiPasswordTypes['notascii'] and $this->amCONFIG['password_charset_notascii']<0)
@@ -1633,6 +1644,8 @@ class UPwdChg
         $sHTML .= '<LI>'.htmlentities($this->getText('error:password_length_minimum')).'</LI>';
       if($this->amCONFIG['password_length_maximum'])
         $sHTML .= '<LI>'.htmlentities($this->getText('error:password_length_maximum')).'</LI>';
+      if(!empty($this->amCONFIG['password_charset_forbidden']))
+        $sHTML .= '<LI>'.htmlentities($this->getText('info:password_charset_forbidden')).'</LI>';
       if($this->amCONFIG['password_charset_notascii']<0)
         $sHTML .= '<LI>'.htmlentities($this->getText('error:password_charset_notascii_forbidden')).'</LI>';
       elseif($this->amCONFIG['password_charset_notascii']>0)
