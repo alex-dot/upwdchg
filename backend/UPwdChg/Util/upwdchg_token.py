@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- mode:python; tab-width:4; c-basic-offset:4; intent-tabs-mode:nil; -*-
 # ex: filetype=python tabstop=4 softtabstop=4 shiftwidth=4 expandtab autoindent smartindent
 
@@ -22,7 +21,6 @@
 #
 
 # Modules
-# ... deb: python-argparse
 from UPwdChg import \
     UPWDCHG_VERSION, \
     UPWDCHG_DEFAULT_FILE_KEY_PRIVATE, \
@@ -84,7 +82,7 @@ class Token:
         # ... username
         sUsername = _sUsername
         while not sUsername:
-            sUsername = raw_input('Username: ')
+            sUsername = input('Username: ')
 
         # Write token
         oToken = TokenWriter()
@@ -108,7 +106,7 @@ class Token:
         # ... username
         sUsername = _sUsername
         while not sUsername:
-            sUsername = raw_input('Username: ')
+            sUsername = input('Username: ')
 
         # ... password (nonce)
         sPasswordNonce = _sPasswordNonce
@@ -153,7 +151,7 @@ class Token:
         # ... username
         sUsername = _sUsername
         while not sUsername:
-            sUsername = raw_input('Username: ')
+            sUsername = input('Username: ')
 
         # ... password (nonce)
         sPasswordNonce = _sPasswordNonce
@@ -216,7 +214,7 @@ class Token:
         # ... username
         sUsername = _sUsername
         while not sUsername:
-            sUsername = raw_input('Username: ')
+            sUsername = input('Username: ')
 
         # ... password (nonce)
         sPasswordNonce = _sPasswordNonce
@@ -270,7 +268,7 @@ class Token:
         if iReturn:
             return iReturn
         dToken = oToken.getData()
-        for sField in dToken.keys():
+        for sField in list(dToken.keys()):
             if not _bPasswordShow and sField[0:8]=='password':
                 dToken.pop(sField)
         sys.stdout.write('%s\n' % JSON.dumps(dToken, indent=4, sort_keys=True))
@@ -420,7 +418,7 @@ class TokenMain(Token):
         if _aArguments is None: _aArguments = sys.argv
         try:
             self.__oArguments = self.__oArgumentParser.parse_args()
-        except Exception, e:
+        except Exception as e:
             self.__oArguments = None
             sys.stderr.write('ERROR[Token]: Failed to parse arguments; %s\n' % str(e))
             return 1

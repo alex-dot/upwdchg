@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- mode:python; tab-width:4; c-basic-offset:4; intent-tabs-mode:nil; -*-
 # ex: filetype=python tabstop=4 softtabstop=4 shiftwidth=4 expandtab autoindent smartindent
 
@@ -22,7 +21,7 @@
 #
 
 # Modules
-# ... deb: python-argparse, python-configobj, python-daemon, python-ldap
+# ... deb: python3-configobj, python3-daemon, python3-ldap
 from UPwdChg import \
     UPWDCHG_VERSION, \
     UPWDCHG_ENCODING, \
@@ -103,12 +102,12 @@ class Daemon:
         self._fProcessInterval = 60.0
         self._iProcessMaxTokens = 100
         self._iProcessMaxErrors = 1
-        self._uEmailAdmin = 'Administrator <upwdchg@localhost.localdomain>'
+        self._sEmailAdmin = 'Administrator <upwdchg@localhost.localdomain>'
         self._bEmailUser = False
-        self._uEmailUserDomain = None
+        self._sEmailUserDomain = None
         self._bEmailUserAddressFromLdap = False
-        self._uEmailSender = 'UPwdChg <upwdchg@localhost.localdomain>'
-        self._uEmailSubjectPrefix = '[UPWDCHG] '
+        self._sEmailSender = 'UPwdChg <upwdchg@localhost.localdomain>'
+        self._sEmailSubjectPrefix = '[UPWDCHG] '
         self._sEmailFileBodyTemplate = '/etc/upwdchg/daemon/upwdchg-daemon.email.template'
         self._sEmailSendmail = '/usr/sbin/sendmail'
         self._sEmailEncoding = UPWDCHG_ENCODING
@@ -131,17 +130,17 @@ class Daemon:
         self.__bInterrupted = True
 
 
-    def _sendmail(self, _suFrom, _suTo, _suSubject, _suBody):
+    def _sendmail(self, _sFrom, _sTo, _sSubject, _sBody):
         """
         Send the given e-mail message.
         """
 
-        oMIMEText = MIMEText(_suBody if not isinstance(_suBody, unicode) else _suBody.encode(self._sEmailEncoding), 'plain', self._sEmailEncoding)
-        oMIMEText['From'] = _suFrom if not isinstance(_suFrom, unicode) else _suFrom.encode(self._sEmailEncoding)
-        oMIMEText['Subject'] = _suSubject if not isinstance(_suSubject, unicode) else _suSubject.encode(self._sEmailEncoding)
-        oMIMEText['To'] = _suTo if not isinstance(_suTo, unicode) else _suTo.encode(self._sEmailEncoding)
+        oMIMEText = MIMEText(_sBody, 'plain')
+        oMIMEText['From'] = _sFrom
+        oMIMEText['Subject'] = _sSubject
+        oMIMEText['To'] = _sTo
         oPopen = Popen([self._sEmailSendmail, '-t'], stdin=PIPE)
-        oPopen.communicate(oMIMEText.as_string())
+        oPopen.communicate(oMIMEText.as_string().encode(sys.stdin.encoding))
 
 
     def processTokens(self):
@@ -171,9 +170,9 @@ class Daemon:
                 break
             if self._iProcessMaxErrors and iError >= self._iProcessMaxErrors:
                 sys.stderr.write('CRITICAL[Daemon]: Too-many errors (%d); bailing out\n' % iError)
-                if self._uEmailAdmin:
+                if self._sEmailAdmin:
                     try:
-                        self._sendmail(self._uEmailSender, self._uEmailAdmin, self._uEmailSubjectPrefix+'Critical Error', 'CRITICAL[Daemon]: Too-many errors (%d); bailing out\n' % iError)
+                        self._sendmail(self._sEmailSender, self._sEmailAdmin, self._sEmailSubjectPrefix+'Critical Error', 'CRITICAL[Daemon]: Too-many errors (%d); bailing out\n' % iError)
                     except Exception as e:
                         pass
                 return 1
@@ -212,9 +211,9 @@ class Daemon:
                 continue
             if self._iProcessMaxTokens and iFilesToken >= self._iProcessMaxTokens:
                 sys.stderr.write('CRITICAL[Daemon]: Too-many tokens (%d); bailing out\n' % iFilesToken)
-                if self._uEmailAdmin:
+                if self._sEmailAdmin:
                     try:
-                        self._sendmail(self._uEmailSender, self._uEmailAdmin, self._uEmailSubjectPrefix+'Critical Error', 'CRITICAL[Daemon]: Too-many tokens (%d); bailing out\n' % iFilesToken)
+                        self._sendmail(self._sEmailSender, self._sEmailAdmin, self._sEmailSubjectPrefix+'Critical Error', 'CRITICAL[Daemon]: Too-many tokens (%d); bailing out\n' % iFilesToken)
                     except Exception as e:
                         pass
                 return 1
@@ -263,16 +262,16 @@ class Daemon:
                         lsOutputs = list()
 
                 # ... processing output
-                if lsOutputs and (self._uEmailAdmin or self._bEmailUser):
+                if lsOutputs and (self._sEmailAdmin or self._bEmailUser):
                     sOutput = ''.join(lsOutputs)
 
                     # ... retrieve token username
-                    uUsername = oToken['username']
+                    sUsername = oToken['username']
 
                     # ... e-mail body template
                     if self._sEmailFileBodyTemplate:
                         try:
-                            oFile = open(self._sEmailFileBodyTemplate, 'r', UPWDCHG_ENCODING)
+                            oFile = open(self._sEmailFileBodyTemplate, 'r', encoding=self._sEmailEncoding)
                             sOutput = (''.join(oFile.readlines())).replace('%{OUTPUT}', sOutput)
                             oFile.close()
                         except Exception as e:
@@ -280,21 +279,21 @@ class Daemon:
                             sys.stderr.write('ERROR[Daemon]: Failed to load e-mail body template; %s\n' % str(e))
 
                     # ... create e-mail object
-                    uSubject = u'Processing Results (%s, %s)' % (uUsername, strftime('%Y-%m-%dT%H:%M:%SZ', gmtime()))
+                    sSubject = 'Processing Results (%s, %s)' % (sUsername, strftime('%Y-%m-%dT%H:%M:%SZ', gmtime()))
 
                     # ... send to administrator
-                    if self._uEmailAdmin:
+                    if self._sEmailAdmin:
                         try:
-                            self._sendmail(self._uEmailSender, self._uEmailAdmin, self._uEmailSubjectPrefix+uSubject, sOutput)
+                            self._sendmail(self._sEmailSender, self._sEmailAdmin, self._sEmailSubjectPrefix+sSubject, sOutput)
                             if self._bDebug:
-                                sys.stderr.write('DEBUG[Daemon]: Successfully sent token processing output to administrator; %s\n' % self._uEmailAdmin)
+                                sys.stderr.write('DEBUG[Daemon]: Successfully sent token processing output to administrator; %s\n' % self._sEmailAdmin)
                         except Exception as e:
                             iErrorToken += 1
                             sys.stderr.write('ERROR[Daemon]: Failed to send token processing output to administrator; %s\n' % str(e))
 
                     # ... send to user
                     if self._bEmailUser:
-                        uEmailUser = None
+                        sEmailUser = None
 
                         if self._bEmailUserAddressFromLdap:
                             # ... use ldap-stored e-mail address
@@ -319,7 +318,7 @@ class Daemon:
                                 if self._sLdapBindPwd.startswith('file://'):
                                     sFile = self._sLdapBindPwd[7:]
                                     try:
-                                        oFile = open(sFile, 'r')
+                                        oFile = open(sFile, 'r', encoding=self._sLdapEncoding)
                                         sBindPwd = oFile.readline()
                                         oFile.close()
                                     except Exception as e:
@@ -339,24 +338,24 @@ class Daemon:
                                         lLdapResults = oLdap.search_ext_s(
                                             self._sLdapSearchDN,
                                             iLdapScope,
-                                            self._sLdapSearchFilter.replace('%{USERNAME}', uUsername.encode(self._sLdapEncoding)),
+                                            self._sLdapSearchFilter.replace('%{USERNAME}', sUsername),
                                             lLdapAttrList,
                                             sizelimit=2
                                             )
                                     else:
                                         lLdapResults = oLdap.search_ext_s(
-                                            self._sLdapUserDN.replace('%{USERNAME}', uUsername.encode(self._sLdapEncoding)),
+                                            self._sLdapUserDN.replace('%{USERNAME}', sUsername),
                                             ldap.SCOPE_BASE,
                                             '(objectClass=*)',
                                             lLdapAttrList,
                                             sizelimit=2
                                             )
                                     if not lLdapResults:
-                                        raise RuntimeError('user not found: %s' % uUsername)
+                                        raise RuntimeError('user not found: %s' % sUsername)
                                     elif len(lLdapResults) > 1:
-                                        raise RuntimeError('too many match: %s' % uUsername)
+                                        raise RuntimeError('too many match: %s' % sUsername)
                                     (sUserDn, dAttrs) = lLdapResults[0]
-                                    uEmailUser = dAttrs[self._sLdapEmailAttribute][0]
+                                    sEmailUser = dAttrs[self._sLdapEmailAttribute][0].decode(self._sLdapEncoding)
                                 except Exception as e:
                                     raise RuntimeError('failed to retrieve user mail attribute; %s' % str(e))
 
@@ -373,16 +372,16 @@ class Daemon:
 
                         else:
                             # ... use user name as e-mail address
-                            uEmailUser = uUsername
-                            if self._uEmailUserDomain:
-                                uEmailUser += '@'+self._uEmailUserDomain
+                            sEmailUser = sUsername
+                            if self._sEmailUserDomain:
+                                sEmailUser += '@'+self._sEmailUserDomain
 
                         # ... send the mail
-                        if uEmailUser is not None:
+                        if sEmailUser is not None:
                             try:
-                                self._sendmail(self._uEmailSender, uEmailUser, self._uEmailSubjectPrefix+uSubject, sOutput)
+                                self._sendmail(self._sEmailSender, sEmailUser, self._sEmailSubjectPrefix+sSubject, sOutput)
                                 if self._bDebug:
-                                    sys.stderr.write('DEBUG[Daemon]: Successfully sent token processing output to user; %s\n' % uEmailUser)
+                                    sys.stderr.write('DEBUG[Daemon]: Successfully sent token processing output to user; %s\n' % sEmailUser)
                             except Exception as e:
                                 iErrorToken += 1
                                 sys.stderr.write('ERROR[Daemon]: Failed to send token processing output to user; %s\n' % str(e))
@@ -596,11 +595,11 @@ class DaemonMain(Daemon):
         if not _dConfig:
             _dConfig = self.__oConfigObj
         if not _sPath:
-            lKeys = _dConfig.keys()
+            lKeys = list(_dConfig.keys())
         else:
             lPath = _sPath.split('.')
             sKey = lPath[0].replace('*', '')
-            lKeys = [sKey] if sKey else _dConfig.keys()
+            lKeys = [sKey] if sKey else list(_dConfig.keys())
             _sPath = '.'.join(lPath[1:])
         for sKey in lKeys:
             if sKey not in _dConfig.keys():
@@ -700,12 +699,12 @@ class DaemonMain(Daemon):
         self._fProcessInterval = self.__oConfigObj['process']['interval']
         self._iProcessMaxTokens = self.__oConfigObj['process']['max_tokens']
         self._iProcessMaxErrors = self.__oConfigObj['process']['max_errors']
-        self._uEmailAdmin = self.__oConfigObj['email']['admin_address']
+        self._sEmailAdmin = self.__oConfigObj['email']['admin_address']
         self._bEmailUser = self.__oConfigObj['email']['user_send']
-        self._uEmailUserDomain = self.__oConfigObj['email']['user_domain']
+        self._sEmailUserDomain = self.__oConfigObj['email']['user_domain']
         self._bEmailUserAddressFromLdap = self.__oConfigObj['email']['user_address_from_ldap']
-        self._uEmailSender = self.__oConfigObj['email']['sender_address']
-        self._uEmailSubjectPrefix = self.__oConfigObj['email']['subject_prefix']
+        self._sEmailSender = self.__oConfigObj['email']['sender_address']
+        self._sEmailSubjectPrefix = self.__oConfigObj['email']['subject_prefix']
         self._sEmailFileBodyTemplate = self.__oConfigObj['email']['body_template_file']
         self._sEmailSendmail = self.__oConfigObj['email']['sendmail_binary']
         self._sEmailEncoding = self.__oConfigObj['email']['encoding']

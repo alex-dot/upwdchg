@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- mode:python; tab-width:4; c-basic-offset:4; intent-tabs-mode:nil; -*-
 # ex: filetype=python tabstop=4 softtabstop=4 shiftwidth=4 expandtab autoindent smartindent
 
@@ -22,7 +21,6 @@
 #
 
 # Modules
-# ... deb: python-argparse
 from UPwdChg import \
     UPWDCHG_VERSION, \
     UPWDCHG_DEFAULT_FILE_KEY_PRIVATE, \
@@ -122,11 +120,11 @@ class Process:
                 sys.stderr.write('DEBUG[Process]: Token processing plugin; %s\n' % sFilePlugin)
             try:
                 oPopen = SP.Popen([sFilePlugin, _sFileToken, self._sFileKeyPrivate, self._sFileKeyPublic, self._sFileRandom], stdout=SP.PIPE, stderr=SP.PIPE)
-                (sStdOut, sStdErr) = oPopen.communicate()
+                (byStdOut, byStdErr) = oPopen.communicate()
                 iReturn = max(iReturn, oPopen.returncode)
-                lsOutputs.append(sStdOut)
-                if sStdErr:
-                    sys.stderr.write(sStdErr)
+                lsOutputs.append(byStdOut.decode(sys.stdout.encoding))
+                if byStdErr:
+                    sys.stderr.write(byStdErr.decode(sys.stderr.encoding))
                 if iReturn > 1:
                     break
             except Exception as e:
@@ -254,7 +252,7 @@ class ProcessMain(Process):
         if _aArguments is None: _aArguments = sys.argv
         try:
             self.__oArguments = self.__oArgumentParser.parse_args()
-        except Exception, e:
+        except Exception as e:
             self.__oArguments = None
             sys.stderr.write('ERROR[ProcessMain]: Failed to parse arguments; %s\n' % str(e))
             return 1

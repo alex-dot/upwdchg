@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- mode:python; tab-width:4; c-basic-offset:4; intent-tabs-mode:nil; -*-
 # ex: filetype=python tabstop=4 softtabstop=4 shiftwidth=4 expandtab autoindent smartindent
 
@@ -24,7 +23,6 @@
 # Modules
 # ... deb: python-m2crypto
 from UPwdChg import \
-    UPWDCHG_ENCODING, \
     UPWDCHG_DEFAULT_FILE_RANDOM, \
     UPWDCHG_PWHASH_METHOD, \
     UPWDCHG_PWHASH_ALGO, \
@@ -44,6 +42,7 @@ from time import \
     gmtime, \
     strftime, \
     strptime
+from functools import reduce
 
 
 #------------------------------------------------------------------------------
@@ -93,47 +92,46 @@ class TokenData:
         return sPasswordNonce_id+'-'+sPasswordNonce_secret
 
 
-    def splitPasswordNonce(self, _suPasswordNonce):
+    def splitPasswordNonce(self, _sPasswordNonce):
         """
         Splits the password nonce into its ID and secret components
         """
 
-        uPasswordNonce = _suPasswordNonce if isinstance(_suPasswordNonce, unicode) else _suPasswordNonce.decode(UPWDCHG_ENCODING)
-        return uPasswordNonce.split('-', 1)
+        return _sPasswordNonce.split('-', 1)
 
 
     #
     # Setters
     #
 
-    def setData_PasswordNonceRequest(self, _suUsername, _suSessionId=None):
+    def setData_PasswordNonceRequest(self, _sUsername, _sSessionId=None):
         """
         Sets the "password-nonce-request" token data
         """
 
         self._dData = { \
             'type': 'password-nonce-request', \
-            'timestamp': unicode(strftime('%Y-%m-%dT%H:%M:%SZ', gmtime())), \
-            'username': _suUsername if isinstance(_suUsername, unicode) else _suUsername.decode(UPWDCHG_ENCODING), \
+            'timestamp': strftime('%Y-%m-%dT%H:%M:%SZ', gmtime()), \
+            'username': _sUsername, \
         }
-        if _suSessionId:
-            self._dData['session-id'] = _suSessionId if isinstance(_suSessionId, unicode) else _suSessionId.decode(UPWDCHG_ENCODING)
+        if _sSessionId:
+            self._dData['session-id'] = _sSessionId
         self._sData = None
 
 
-    def setData_PasswordNonce(self, _suUsername, _suPasswordNonce, _iPasswordNonceTtl, _suSessionId=None):
+    def setData_PasswordNonce(self, _sUsername, _sPasswordNonce, _iPasswordNonceTtl, _sSessionId=None):
         """
         Sets the "password-nonce" token data
         """
 
         # Split password nonce
-        (uPasswordNonce_id, uPasswordNonce_secret) = self.splitPasswordNonce(_suPasswordNonce)
+        (sPasswordNonce_id, sPasswordNonce_secret) = self.splitPasswordNonce(_sPasswordNonce)
 
         # Secret (hashed!)
         if UPWDCHG_PWHASH_METHOD == 'pbkdf2':
             oHash = HASH.new(UPWDCHG_PWHASH_ALGO)
             sHashAlgo_salt = M2C.Rand.rand_bytes(oHash.block_size)
-            sHash_compute = HASH.pbkdf2_hmac(UPWDCHG_PWHASH_ALGO, uPasswordNonce_secret, sHashAlgo_salt, UPWDCHG_PWHASH_ITERATIONS)
+            sHash_compute = HASH.pbkdf2_hmac(UPWDCHG_PWHASH_ALGO, sPasswordNonce_secret, sHashAlgo_salt, UPWDCHG_PWHASH_ITERATIONS)
             dPasswordNonce_secret = { \
                 'base64': B64.b64encode(sHash_compute), \
                 'hash': { \
@@ -147,7 +145,7 @@ class TokenData:
         elif UPWDCHG_PWHASH_METHOD == 'hmac':
             oHash = HASH.new(UPWDCHG_PWHASH_ALGO)
             sHashAlgo_salt = M2C.Rand.rand_bytes(oHash.block_size)
-            oHmac = HMAC.new(sHashAlgo_salt, uPasswordNonce_secret, reduce(getattr, ['HASH', UPWDCHG_PWHASH_ALGO], modules[__name__]))
+            oHmac = HMAC.new(sHashAlgo_salt, sPasswordNonce_secret, reduce(getattr, ['HASH', UPWDCHG_PWHASH_ALGO], modules[__name__]))
             sHash_compute = oHmac.digest()
             dPasswordNonce_secret = { \
                 'base64': B64.b64encode(sHash_compute), \
@@ -160,7 +158,7 @@ class TokenData:
             }
         elif UPWDCHG_PWHASH_METHOD == 'hash':
             oHash = HASH.new(UPWDCHG_PWHASH_ALGO)
-            oHash.update(uPasswordNonce_secret)
+            oHash.update(sPasswordNonce_secret)
             sHash_compute = oHash.digest()
             dPasswordNonce_secret = { \
                 'base64': B64.b64encode(sHash_compute), \
@@ -173,12 +171,11 @@ class TokenData:
 
         # Session (hashed!)
         dSessionId = None
-        if _suSessionId:
-            uSessionId = _suSessionId if isinstance(_suSessionId, unicode) else _suSessionId.decode(UPWDCHG_ENCODING)
+        if _sSessionId:
             if UPWDCHG_IDHASH_METHOD == 'hmac':
                 oHash = HASH.new(UPWDCHG_IDHASH_ALGO)
                 sHashAlgo_salt = M2C.Rand.rand_bytes(oHash.block_size)
-                oHmac = HMAC.new(sHashAlgo_salt, uSessionId, reduce(getattr, ['HASH', UPWDCHG_IDHASH_ALGO], modules[__name__]))
+                oHmac = HMAC.new(sHashAlgo_salt, _sSessionId, reduce(getattr, ['HASH', UPWDCHG_IDHASH_ALGO], modules[__name__]))
                 sHash_compute = oHmac.digest()
                 dSessionId = { \
                     'base64': B64.b64encode(sHash_compute), \
@@ -191,7 +188,7 @@ class TokenData:
                 }
             elif UPWDCHG_IDHASH_METHOD == 'hash':
                 oHash = HASH.new(UPWDCHG_IDHASH_ALGO)
-                oHash.update(uSessionId)
+                oHash.update(_sSessionId)
                 sHash_compute = oHash.digest()
                 dSessionId = { \
                     'base64': B64.b64encode(sHash_compute), \
@@ -207,10 +204,10 @@ class TokenData:
         timeExpiration = gmtime(timegm(timeNow)+_iPasswordNonceTtl)
         self._dData = { \
             'type': 'password-nonce', \
-            'timestamp': unicode(strftime('%Y-%m-%dT%H:%M:%SZ', timeNow)), \
-            'expiration': unicode(strftime('%Y-%m-%dT%H:%M:%SZ', timeExpiration)), \
-            'username': _suUsername if isinstance(_suUsername, unicode) else _suUsername.decode(UPWDCHG_ENCODING), \
-            'password-nonce-id': uPasswordNonce_id, \
+            'timestamp': strftime('%Y-%m-%dT%H:%M:%SZ', timeNow), \
+            'expiration': strftime('%Y-%m-%dT%H:%M:%SZ', timeExpiration), \
+            'username': _sUsername, \
+            'password-nonce-id': sPasswordNonce_id, \
             'password-nonce-secret': dPasswordNonce_secret, \
         }
         if dSessionId:
@@ -218,39 +215,39 @@ class TokenData:
         self._sData = None
 
 
-    def setData_PasswordChange(self, _suUsername, _suPasswordNew, _suPasswordOld, _suPasswordNonce=None, _suSessionId=None):
+    def setData_PasswordChange(self, _sUsername, _sPasswordNew, _sPasswordOld, _sPasswordNonce=None, _sSessionId=None):
         """
         Sets the "password-change" token data
         """
 
         self._dData = { \
             'type': 'password-change', \
-            'timestamp': unicode(strftime('%Y-%m-%dT%H:%M:%SZ', gmtime())), \
-            'username': _suUsername if isinstance(_suUsername, unicode) else _suUsername.decode(UPWDCHG_ENCODING), \
-            'password-new': _suPasswordNew if isinstance(_suPasswordNew, unicode) else _suPasswordNew.decode(UPWDCHG_ENCODING), \
-            'password-old': _suPasswordOld if isinstance(_suPasswordOld, unicode) else _suPasswordOld.decode(UPWDCHG_ENCODING), \
+            'timestamp': strftime('%Y-%m-%dT%H:%M:%SZ', gmtime()), \
+            'username': _sUsername, \
+            'password-new': _sPasswordNew, \
+            'password-old': _sPasswordOld, \
         }
-        if _suPasswordNonce:
-            self._dData['password-nonce'] = _suPasswordNonce if isinstance(_suPasswordNonce, unicode) else _suPasswordNonce.decode(UPWDCHG_ENCODING)
-        if _suSessionId:
-            self._dData['session-id'] = _suSessionId if isinstance(_suSessionId, unicode) else _suSessionId.decode(UPWDCHG_ENCODING)
+        if _sPasswordNonce:
+            self._dData['password-nonce'] = _sPasswordNonce
+        if _sSessionId:
+            self._dData['session-id'] = _sSessionId
         self._sData = None
 
 
-    def setData_PasswordReset(self, _suUsername, _suPasswordNew, _suPasswordNonce, _suSessionId=None):
+    def setData_PasswordReset(self, _sUsername, _sPasswordNew, _sPasswordNonce, _sSessionId=None):
         """
         Sets the "password-reset" token data
         """
 
         self._dData = { \
             'type': 'password-reset', \
-            'timestamp': unicode(strftime('%Y-%m-%dT%H:%M:%SZ', gmtime())), \
-            'username': _suUsername if isinstance(_suUsername, unicode) else _suUsername.decode(UPWDCHG_ENCODING), \
-            'password-new': _suPasswordNew if isinstance(_suPasswordNew, unicode) else _suPasswordNew.decode(UPWDCHG_ENCODING), \
-            'password-nonce': _suPasswordNonce if isinstance(_suPasswordNonce, unicode) else _suPasswordNonce.decode(UPWDCHG_ENCODING), \
+            'timestamp': strftime('%Y-%m-%dT%H:%M:%SZ', gmtime()), \
+            'username': _sUsername, \
+            'password-new': _sPasswordNew, \
+            'password-nonce': _sPasswordNonce, \
         }
-        if _suSessionId:
-            self._dData['session-id'] = _suSessionId if isinstance(_suSessionId, unicode) else _suSessionId.decode(UPWDCHG_ENCODING)
+        if _sSessionId:
+            self._dData['session-id'] = _sSessionId
         self._sData = None
 
 
@@ -273,7 +270,7 @@ class TokenData:
 
         if _dData is None:
             _dData = self._dData
-        return '|'.join([(lambda v: unicode(v) if not isinstance(v, dict) else self._getDigestData(v))(v) for k,v in sorted(_dData.items())])
+        return '|'.join([(lambda v: str(v) if not isinstance(v, dict) else self._getDigestData(v))(v) for k,v in sorted(_dData.items())])
 
 
     def getData(self, _bAsJson=False):
@@ -343,7 +340,7 @@ class TokenData:
         return 0
 
 
-    def checkData_PasswordNonce(self, _suUsername, _suPasswordNonce, _suSessionId=None):
+    def checkData_PasswordNonce(self, _sUsername, _sPasswordNonce, _sSessionId=None):
         """
         Checks the current token is a valid "password-nonce" token for the given username/nonce.
         Returns/throws:
@@ -355,8 +352,7 @@ class TokenData:
         """
 
         # Normalize input
-        uUsername = _suUsername if isinstance(_suUsername, unicode) else _suUsername.decode(UPWDCHG_ENCODING)
-        (uPasswordNonce_id, uPasswordNonce_secret) = self.splitPasswordNonce(_suPasswordNonce)
+        (sPasswordNonce_id, sPasswordNonce_secret) = self.splitPasswordNonce(_sPasswordNonce)
 
         # Verify
         try:
@@ -364,10 +360,10 @@ class TokenData:
             if self._dData['type'] != 'password-nonce':
                 raise RuntimeError('invalid token type; %s' % self._dData['type'])
             # ... nonce ID
-            if self._dData['password-nonce-id'] != uPasswordNonce_id:
+            if self._dData['password-nonce-id'] != sPasswordNonce_id:
                 raise RuntimeError('mismatched nonce ID')
             # ... username
-            if self._dData['username'] != uUsername:
+            if self._dData['username'] != _sUsername:
                 raise RuntimeError('mismatched username')
             # ... secret
             sHash_given = B64.b64decode(self._dData['password-nonce-secret']['base64'])
@@ -375,14 +371,14 @@ class TokenData:
             if sHashAlgo[:7] == 'pbkdf2-':
                 sHashAlgo_salt = B64.b64decode(self._dData['password-nonce-secret']['hash']['salt']['base64'])
                 iHashAlgo_iterations = int(self._dData['password-nonce-secret']['hash']['iterations'])
-                sHash_compute = HASH.pbkdf2_hmac(sHashAlgo[7:], uPasswordNonce_secret, sHashAlgo_salt, iHashAlgo_iterations, len(sHash_given))
+                sHash_compute = HASH.pbkdf2_hmac(sHashAlgo[7:], sPasswordNonce_secret, sHashAlgo_salt, iHashAlgo_iterations, len(sHash_given))
             elif sHashAlgo[:5] == 'hmac-':
                 sHashAlgo_salt = B64.b64decode(self._dData['password-nonce-secret']['hash']['salt']['base64'])
-                oHmac = HMAC.new(sHashAlgo_salt, uPasswordNonce_secret, reduce(getattr, ['HASH', sHashAlgo[5:]], modules[__name__]))
+                oHmac = HMAC.new(sHashAlgo_salt, sPasswordNonce_secret, reduce(getattr, ['HASH', sHashAlgo[5:]], modules[__name__]))
                 sHash_compute = oHmac.digest()
             elif sHashAlgo[:5] == 'hash-':
                 oHash = HASH.new(sHashAlgo[5:])
-                oHash.update(uPasswordNonce_secret)
+                oHash.update(sPasswordNonce_secret)
                 sHash_compute = oHash.digest()
             else:
                 raise RuntimeError('Invalid/unsupported password hash method; %s' % sHashAlgo)
@@ -393,24 +389,23 @@ class TokenData:
                 return 1
             # ... session
             if 'session-id' in self._dData.keys():
-                if not _suSessionId:
+                if not _sSessionId:
                     return 3
-                uSessionId = _suSessionId if isinstance(_suSessionId, unicode) else _suSessionId.decode(UPWDCHG_ENCODING)
                 sHash_given = B64.b64decode(self._dData['session-id']['base64'])
                 sHashAlgo = self._dData['session-id']['hash']['algorithm']
                 if sHashAlgo[:5] == 'hmac-':
                     sHashAlgo_salt = B64.b64decode(self._dData['session-id']['hash']['salt']['base64'])
-                    oHmac = HMAC.new(sHashAlgo_salt, uSessionId, reduce(getattr, ['HASH', sHashAlgo[5:]], modules[__name__]))
+                    oHmac = HMAC.new(sHashAlgo_salt, _sSessionId, reduce(getattr, ['HASH', sHashAlgo[5:]], modules[__name__]))
                     sHash_compute = oHmac.digest()
                 elif sHashAlgo[:5] == 'hash-':
                     oHash = HASH.new(sHashAlgo[5:])
-                    oHash.update(uSessionId)
+                    oHash.update(_sSessionId)
                     sHash_compute = oHash.digest()
                 else:
                     raise RuntimeError('Invalid/unsupported session hash method; %s' % sHashAlgo)
                 if sHash_given != sHash_compute:
                     return 3
-            elif _suSessionId:
+            elif _sSessionId:
                 return 3
         except Exception as e:
             raise RuntimeError('invalid "password-nonce" token; %s' % str(e))

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- mode:python; tab-width:4; c-basic-offset:4; intent-tabs-mode:nil; -*-
 # ex: filetype=python tabstop=4 softtabstop=4 shiftwidth=4 expandtab autoindent smartindent
 
@@ -25,6 +24,7 @@
 # ... deb: python-m2crypto
 from UPwdChg import \
     TokenData, \
+    UPWDCHG_ENCODING, \
     UPWDCHG_DEFAULT_FILE_KEY_PRIVATE, \
     UPWDCHG_DEFAULT_FILE_KEY_PUBLIC, \
     UPWDCHG_CIPHER_ALGO, \
@@ -96,7 +96,7 @@ class TokenReader(TokenData):
             if _sFileToken == '-':
                 oFile = sys.stdin
             else:
-                oFile = open(_sFileToken, 'r')
+                oFile = open(_sFileToken, 'r', encoding=UPWDCHG_ENCODING)
         except Exception as e:
            self.__ERROR('Failed to open token file; %s' % str(e), 201)
            return self.error
