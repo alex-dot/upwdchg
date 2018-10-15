@@ -84,7 +84,7 @@ class TokenPlugin:
     # Helpers
     #
 
-    def _DEBUG(self, _lsMessages, _iDebugLevel = None):
+    def _DEBUG(self, _lsMessages, _iDebugLevel = DEBUG_ERROR):
         if _iDebugLevel > self.__iDebugLevel:
             return
         if _iDebugLevel == self.DEBUG_TRACE:
@@ -96,13 +96,14 @@ class TokenPlugin:
         elif _iDebugLevel == self.DEBUG_WARNING:
             sPrefix = 'WARNING'
         elif _iDebugLevel == self.DEBUG_ERROR:
-            sPrefix = 'WARNING'
+            sPrefix = 'ERROR'
         else:
             sPrefix = self.__sErrorPrefix
         if not isinstance(_lsMessages, list):
             _lsMessages = [ _lsMessages ]
         for sMessage in _lsMessages:
             sys.stderr.write('%s[%s]: %s\n' % (sPrefix, self.__sName, sMessage))
+
 
     def _EXIT_ERROR(self, _lsMessages):
         if not isinstance(_lsMessages, list):
@@ -113,6 +114,7 @@ class TokenPlugin:
             sys.exit(2)
         else:
             sys.exit(1)
+
 
     def _EXIT_OK(self, _lsMessages):
         if not isinstance(_lsMessages, list):
