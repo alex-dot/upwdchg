@@ -317,11 +317,11 @@ class TokenData:
         # Verify
         try:
             # ... timestamp
-            if timegm(strptime(self._dData['timestamp'], '%Y-%m-%dT%H:%M:%SZ')) > timegm(gmtime())+_iTtl:
-                return 1
+            if timegm(strptime(self._dData['timestamp'], '%Y-%m-%dT%H:%M:%SZ'))+_iTtl > timegm(gmtime()):
+                return 0
         except Exception as e:
             raise RuntimeError('invalid token; %s' % str(e))
-        return 0
+        return 1
 
 
     def checkData_Expiration(self):
@@ -335,12 +335,12 @@ class TokenData:
 
         # Verify
         try:
-            # ... timestamp
-            if timegm(strptime(self._dData['expiration'], '%Y-%m-%dT%H:%M:%SZ')) > timegm(gmtime()):
-                return 1
+            # ... expiration
+            if strptime(self._dData['expiration'], '%Y-%m-%dT%H:%M:%SZ') > gmtime():
+                return 0
         except Exception as e:
             raise RuntimeError('invalid token; %s' % str(e))
-        return 0
+        return 1
 
 
     def checkData_PasswordNonce(self, _suUsername, _suPasswordNonce, _suSessionId=None):
@@ -389,7 +389,7 @@ class TokenData:
             if sHash_given != sHash_compute:
                 return 2
             # ... expiration
-            if timegm(strptime(self._dData['expiration'], '%Y-%m-%dT%H:%M:%SZ')) <= timegm(gmtime()):
+            if strptime(self._dData['expiration'], '%Y-%m-%dT%H:%M:%SZ') <= gmtime():
                 return 1
             # ... session
             if 'session-id' in self._dData.keys():
