@@ -1,0 +1,110 @@
+--- 2/CreateAccountKrb5
++++ 3/CreateAccountKrb5
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python
++#!/usr/bin/env python3
+ # -*- mode:python; tab-width:4; c-basic-offset:4; intent-tabs-mode:nil; -*-
+ # ex: filetype=python tabstop=4 softtabstop=4 shiftwidth=4 expandtab autoindent smartindent
+ 
+@@ -24,5 +24,18 @@
+-# Modules
++#------------------------------------------------------------------------------
++# DEPENDENCIES
++#------------------------------------------------------------------------------
++
++# UPwdChg
+ from UPwdChg import TokenPlugin
++
++# Standard
+ import subprocess as SP
++import sys
++
+ 
+-# Parameters
++#------------------------------------------------------------------------------
++# CONFIGURATION
++#------------------------------------------------------------------------------
++
++# UPwdChg
++UPWDCHG_PLUGIN_NAME='CreateAccountKrb5'
+@@ -39,16 +52,13 @@
+-# Plugin
++
++#------------------------------------------------------------------------------
++# PLUGIN
++#------------------------------------------------------------------------------
++
+ class CreateAccountKrb5(TokenPlugin):
+ 
+     def __init__(self):
+-        global UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG
+-        TokenPlugin.__init__(self, 'CreateAccountKrb5', UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
++        TokenPlugin.__init__(self, UPWDCHG_PLUGIN_NAME, UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
+ 
+-    def process(self):
+-        global \
+-            UPWDCHG_PLUGIN_DRYRUN, \
+-            UPWDCHG_PLUGIN_KRB5_PRINCIPAL, \
+-            UPWDCHG_PLUGIN_KRB5_ADD_USER_DN, \
+-            UPWDCHG_PLUGIN_KRB5_ADD_OPTIONS, \
+-            UPWDCHG_PLUGIN_KRB5_ADMSRV
+ 
+-        # Check parameters
++    def process(self):
++        # Check configuration
+@@ -64,8 +73,8 @@
+ 
+         # Get token (data)
+         oToken = self._getToken()
+-        sUsername = oToken['username'].encode('utf-8')
+-        sPasswordNew = oToken['password-new'].encode('utf-8')
++        sUsername = oToken['username']
++        sPasswordNew = oToken['password-new']
+ 
+         # Process token data
+ 
+@@ -79,8 +88,9 @@
+             if UPWDCHG_PLUGIN_KRB5_ADMSRV is not None:
+                 lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join(lCommand) ]
+             oPopen = SP.Popen(lCommand, stdout=SP.PIPE, stderr=SP.PIPE)
+-            (sStdOut, sStdErr) = oPopen.communicate()
+-            if oPopen.returncode != 0 or sStdErr:
++            (byStdOut, byStdErr) = oPopen.communicate()
++            if oPopen.returncode != 0 or byStdErr:
++                sStdErr = byStdErr.decode(sys.stderr.encoding)
+                 if sStdErr.lower().find('principal does not exist') < 0:
+                     raise Exception(sStdErr)
+                 bPrincipalExists = False
+@@ -100,9 +110,9 @@
+                     if UPWDCHG_PLUGIN_KRB5_ADMSRV is not None:
+                         lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join(lCommand) ]
+                     oPopen = SP.Popen(lCommand, stdout=SP.PIPE, stderr=SP.PIPE)
+-                    (sStdOut, sStdErr) = oPopen.communicate()
+-                    if oPopen.returncode != 0 or sStdErr:
+-                        raise Exception(sStdErr)
++                    (byStdOut, byStdErr) = oPopen.communicate()
++                    if oPopen.returncode != 0 or byStdErr:
++                        raise Exception(byStdErr.decode(sys.stderr.encoding))
+                     self._DEBUG('Successfully changed password for principal: %s' % sPrincipal, TokenPlugin.DEBUG_INFO)
+                 else:
+                     self._DEBUG('DRY-RUN! NOT changing password for principal: %s' % sPrincipal, TokenPlugin.DEBUG_WARNING)
+@@ -121,9 +131,9 @@
+                     if UPWDCHG_PLUGIN_KRB5_ADMSRV is not None:
+                         lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join(lCommand) ]
+                     oPopen = SP.Popen(lCommand, stdout=SP.PIPE, stderr=SP.PIPE)
+-                    (sStdOut, sStdErr) = oPopen.communicate()
+-                    if oPopen.returncode != 0 or sStdErr:
+-                        raise Exception(sStdErr)
++                    (byStdOut, byStdErr) = oPopen.communicate()
++                    if oPopen.returncode != 0 or byStdErr:
++                        raise Exception(byStdErr.decode(sys.stderr.encoding))
+                     self._DEBUG('Successfully created principal: %s' % sPrincipal, TokenPlugin.DEBUG_INFO)
+                 else:
+                     self._DEBUG('DRY-RUN! NOT creating principal: %s' % sPrincipal, TokenPlugin.DEBUG_WARNING)
+@@ -137,5 +147,6 @@
+         else:
+             self._EXIT_OK('Account successfully created')
+ 
++
+ # Process
+ CreateAccountKrb5().process()

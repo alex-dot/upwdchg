@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- mode:python; tab-width:4; c-basic-offset:4; intent-tabs-mode:nil; coding:utf-8 -*-
 # ex: filetype=python tabstop=4 softtabstop=4 shiftwidth=4 expandtab autoindent smartindent
 
@@ -21,20 +21,33 @@
 # License-Filename: LICENSE/GPL-3.0.txt
 #
 
-# Modules
-# ... deb: python-ldap
+#------------------------------------------------------------------------------
+# DEPENDENCIES
+#------------------------------------------------------------------------------
+
+# UPwdChg
 from UPwdChg import TokenPlugin
-import base64 as B64
+
+# Extra
+# ... deb: python3-ldap
 import ldap
 import ldap.modlist
+
+# Standard
 import re
 
-# Parameters
+
+#------------------------------------------------------------------------------
+# CONFIGURATION
+#------------------------------------------------------------------------------
+
+# UPwdChg
+UPWDCHG_PLUGIN_NAME='CreateAccountAd'
 UPWDCHG_PLUGIN_CRITICAL=True
 UPWDCHG_PLUGIN_DEBUG=TokenPlugin.DEBUG_INFO
 UPWDCHG_PLUGIN_DRYRUN=True
 
-# ... (source) LDAP directory
+# LDAP directory (source)
 UPWDCHG_PLUGIN_LDAP_URI='ldap://ldap.example.org:389'  # if None, no LDAP synchronization is performed
 UPWDCHG_PLUGIN_LDAP_ADMIN_DN='cn=admin,dc=example,dc=org'
 UPWDCHG_PLUGIN_LDAP_ADMIN_PWD=''  # prefix with 'file://' to get password from specified file
@@ -43,7 +56,7 @@ UPWDCHG_PLUGIN_LDAP_USER_SEARCH_DN='ou=users,dc=example,dc=org'
 UPWDCHG_PLUGIN_LDAP_USER_SEARCH_SCOPE=ldap.SCOPE_ONELEVEL
 UPWDCHG_PLUGIN_LDAP_USER_SEARCH_FILTER='(&(objectClass=posixAccount)(uid=%{USERNAME}))'
 
-# ... (destination) Active Directory
+# Active Directory (destination)
 UPWDCHG_PLUGIN_AD_URI='ldap://ad.example.org:389'
 UPWDCHG_PLUGIN_AD_ADMIN_DN='Administrator@EXAMPLE.ORG'
 UPWDCHG_PLUGIN_AD_ADMIN_PWD=''  # prefix with 'file://' to get password from specified file
@@ -72,23 +85,21 @@ UPWDCHG_PLUGIN_AD_USER_ATTRS['mail']='%{LDAP:mail}'
 UPWDCHG_PLUGIN_AD_USER_ATTRS['description']='%{LDAP:description}'
 UPWDCHG_PLUGIN_AD_USER_CONTROL_FLAGS=0  # 'userAccountControl' additional flags (http://support.microsoft.com/kb/305144)
 
-# Plugin
+
+#------------------------------------------------------------------------------
+# PLUGIN
+#------------------------------------------------------------------------------
+
 class CreateAccountAd(TokenPlugin):
 
     def __init__(self):
-        global UPWDCHG_PLUGIN_CRITICAL
-        TokenPlugin.__init__(self, 'CreateAccountAd', UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
+        TokenPlugin.__init__(self, UPWDCHG_PLUGIN_NAME, UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
         # ... fields
         self.__reLdapVariables = re.compile('%{LDAP:[^}]*}')
 
 
     def __ldapBind(self):
-        global \
-            UPWDCHG_PLUGIN_LDAP_URI, \
-            UPWDCHG_PLUGIN_LDAP_ADMIN_DN, \
-            UPWDCHG_PLUGIN_LDAP_ADMIN_PWD
-
-        # Check parameters
+        # Check configuration
         if UPWDCHG_PLUGIN_LDAP_URI is None:
             return None
         if not UPWDCHG_PLUGIN_LDAP_ADMIN_DN:
@@ -141,13 +152,7 @@ class CreateAccountAd(TokenPlugin):
 
 
     def __ldapGetAttributes(self, oLdap, sUsername):
-        global \
-            UPWDCHG_PLUGIN_LDAP_USER_DN, \
-            UPWDCHG_PLUGIN_LDAP_USER_SEARCH_DN, \
-            UPWDCHG_PLUGIN_LDAP_USER_SEARCH_SCOPE, \
-            UPWDCHG_PLUGIN_LDAP_USER_SEARCH_FILTER
-
-        # Check parameters
+        # Check configuration
         if UPWDCHG_PLUGIN_LDAP_USER_DN is not None and not UPWDCHG_PLUGIN_LDAP_USER_DN:
             self._DEBUG('Empty (LDAP) user distinguished name (DN)')
             self._EXIT_ERROR('Internal error; please contact your system administrator')
@@ -188,7 +193,6 @@ class CreateAccountAd(TokenPlugin):
 
 
     def __ldapUnbind(self, oLdap):
-
         # Unbind from server
         try:
             oLdap.unbind_s()
@@ -198,12 +202,7 @@ class CreateAccountAd(TokenPlugin):
 
 
     def __adBind(self):
-        global \
-            UPWDCHG_PLUGIN_AD_URI, \
-            UPWDCHG_PLUGIN_AD_ADMIN_DN, \
-            UPWDCHG_PLUGIN_AD_ADMIN_PWD
-
-        # Check parameters
+        # Check configuration
         if not UPWDCHG_PLUGIN_AD_URI:
             self._DEBUG('Missing (AD) server address (URI)')
             self._EXIT_ERROR('Internal error; please contact your system administrator')
@@ -256,11 +255,6 @@ class CreateAccountAd(TokenPlugin):
 
 
     def __adGetUserDn(self, oAd, sUsername):
-        global \
-            UPWDCHG_PLUGIN_AD_USER_SEARCH_DN, \
-            UPWDCHG_PLUGIN_AD_USER_SEARCH_SCOPE, \
-            UPWDCHG_PLUGIN_AD_USER_SEARCH_FILTER
-
         # Retrieve user DN
         try:
             lAdResults = oAd.search_ext_s(
@@ -284,12 +278,7 @@ class CreateAccountAd(TokenPlugin):
 
 
     def __adCreateAccount(self, oAd, sUsername, oLdap=None):
-        global \
-            UPWDCHG_PLUGIN_DRYRUN, \
-            UPWDCHG_PLUGIN_AD_USER_CLASSES, \
-            UPWDCHG_PLUGIN_AD_USER_ATTRS
-
-        # Check parameters
+        # Check configuration
         if not 'dn' in UPWDCHG_PLUGIN_AD_USER_ATTRS:
             self._DEBUG('Missing (AD) user distinguished name (DN) attribute')
             self._EXIT_ERROR('Internal error; please contact your system administrator')
@@ -301,19 +290,19 @@ class CreateAccountAd(TokenPlugin):
         if oLdap:
             dAttrsLdap = self.__ldapGetAttributes(oLdap, sUsername)
         dAttrsAd = dict()
-        for sKeyAd in UPWDCHG_PLUGIN_AD_USER_ATTRS.iterkeys():
+        for sKeyAd in UPWDCHG_PLUGIN_AD_USER_ATTRS.keys():
             sAttr = UPWDCHG_PLUGIN_AD_USER_ATTRS[sKeyAd]
             sAttr = sAttr.replace('%{USERNAME}', sUsername)
-            for sKeyLdap in dAttrsLdap.iterkeys():
-                sAttr = sAttr.replace('%%{LDAP:%s}' % sKeyLdap, dAttrsLdap[sKeyLdap][0])
+            for sKeyLdap in dAttrsLdap.keys():
+                sAttr = sAttr.replace('%%{LDAP:%s}' % sKeyLdap, dAttrsLdap[sKeyLdap][0].decode('utf-8'))
             sAttr = self.__reLdapVariables.sub('', sAttr)
-            dAttrsAd[sKeyAd] = sAttr
+            dAttrsAd[sKeyAd] = sAttr.encode('utf-8')
 
         # ... populate "system" attributes
         sUserDn = dAttrsAd['dn']
         dAttrsAd.pop('dn', None)
-        dAttrsAd['objectClass'] = UPWDCHG_PLUGIN_AD_USER_CLASSES
-        dAttrsAd['userAccountControl'] = '514'
+        dAttrsAd['objectClass'] = [i if isinstance(i, bytes) else i.encode('utf-8') for i in UPWDCHG_PLUGIN_AD_USER_CLASSES]
+        dAttrsAd['userAccountControl'] = b'514'
 
         # ... create account
         if UPWDCHG_PLUGIN_DRYRUN:
@@ -331,10 +320,7 @@ class CreateAccountAd(TokenPlugin):
         return sUserDn
 
 
-    def __adChangePassword(self, oAd, sUserDn, uPasswordNew):
-        global \
-            UPWDCHG_PLUGIN_DRYRUN
-
+    def __adChangePassword(self, oAd, sUserDn, sPasswordNew):
         if UPWDCHG_PLUGIN_DRYRUN:
             self._DEBUG('DRY-RUN! NOT changing (AD) password for user: %s' % sUserDn, TokenPlugin.DEBUG_WARNING)
             return
@@ -343,7 +329,7 @@ class CreateAccountAd(TokenPlugin):
         # REF: http://support.microsoft.com/kb/263991
         try:
             lLDIF = [
-                (ldap.MOD_REPLACE, 'unicodePwd', ('"%s"' % uPasswordNew).encode('utf-16-le')),
+                (ldap.MOD_REPLACE, 'unicodePwd', ('"%s"' % sPasswordNew).encode('utf-16-le')),
                 ]
             oAd.modify_s(sUserDn, lLDIF)
             self._DEBUG('Successfully changed (AD) password for user: %s' % sUserDn, TokenPlugin.DEBUG_INFO)
@@ -353,10 +339,6 @@ class CreateAccountAd(TokenPlugin):
 
 
     def __adEnableAccount(self, oAd, sUserDn):
-        global \
-            UPWDCHG_PLUGIN_DRYRUN, \
-            UPWDCHG_PLUGIN_AD_USER_CONTROL_FLAGS
-
         if UPWDCHG_PLUGIN_DRYRUN:
             self._DEBUG('DRY-RUN! NOT enabling (AD) user account: %s' % sUserDn, TokenPlugin.DEBUG_WARNING)
             return
@@ -365,7 +347,7 @@ class CreateAccountAd(TokenPlugin):
         # REF: http://support.microsoft.com/kb/305144
         try:
             lLDIF = [
-                (ldap.MOD_REPLACE, 'userAccountControl', ('%d' % (512 | UPWDCHG_PLUGIN_AD_USER_CONTROL_FLAGS))),
+                (ldap.MOD_REPLACE, 'userAccountControl', ('%d' % (512 | UPWDCHG_PLUGIN_AD_USER_CONTROL_FLAGS)).encode('utf-8')),
                 ]
             oAd.modify_s(sUserDn, lLDIF)
             self._DEBUG('Successfully enabled (AD) user account: %s' % sUserDn, TokenPlugin.DEBUG_INFO)
@@ -375,7 +357,6 @@ class CreateAccountAd(TokenPlugin):
 
 
     def __adUnbind(self, oAd):
-
         # Unbind
         try:
             oAd.unbind_s()
@@ -385,11 +366,10 @@ class CreateAccountAd(TokenPlugin):
 
 
     def process(self):
-
         # Get token (data)
         oToken = self._getToken()
-        sUsername = oToken['username'].encode('utf-8')
-        uPasswordNew = oToken['password-new']
+        sUsername = oToken['username']
+        sPasswordNew = oToken['password-new']
 
         # Process token data
         bUserExists = True
@@ -412,7 +392,7 @@ class CreateAccountAd(TokenPlugin):
             sUserDn = self.__adCreateAccount(oAd, sUsername, oLdap)
 
         # ... Active Directory password change
-        self.__adChangePassword(oAd, sUserDn, uPasswordNew)
+        self.__adChangePassword(oAd, sUserDn, sPasswordNew)
 
         # ... Active Directory user account activation
         if not bUserExists or UPWDCHG_PLUGIN_DRYRUN:
@@ -428,6 +408,7 @@ class CreateAccountAd(TokenPlugin):
             self._EXIT_OK('Password successfully changed')
         else:
             self._EXIT_OK('Account successfully created')
+
 
 # Process
 CreateAccountAd().process()

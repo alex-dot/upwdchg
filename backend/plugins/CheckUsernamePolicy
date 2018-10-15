@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- mode:python; tab-width:4; c-basic-offset:4; intent-tabs-mode:nil; -*-
 # ex: filetype=python tabstop=4 softtabstop=4 shiftwidth=4 expandtab autoindent smartindent
 
@@ -21,14 +21,27 @@
 # License-Filename: LICENSE/GPL-3.0.txt
 #
 
-# Modules
+#------------------------------------------------------------------------------
+# DEPENDENCIES
+#------------------------------------------------------------------------------
+
+# UPwdChg
 from UPwdChg import TokenPlugin
+
+# Standard
 import string
 
-# Parameters
+
+#------------------------------------------------------------------------------
+# CONFIGURATION
+#------------------------------------------------------------------------------
+
+# UPwdChg
+UPWDCHG_PLUGIN_NAME='CheckUsernamePolicy'
 UPWDCHG_PLUGIN_CRITICAL=True
 UPWDCHG_PLUGIN_DEBUG=TokenPlugin.DEBUG_INFO
 
+# Username policy
 # ... length; int: 0/None=ignore
 UPWDCHG_PLUGIN_USERNAME_LENGTH_MINIMUM=4
 UPWDCHG_PLUGIN_USERNAME_LENGTH_MAXIMUM=64
@@ -39,37 +52,31 @@ UPWDCHG_PLUGIN_USERNAME_TYPE_DIGIT=-1
 UPWDCHG_PLUGIN_USERNAME_TYPE_PUNCT=-1
 UPWDCHG_PLUGIN_USERNAME_TYPE_OTHER=-1
 
-# Plugin
+
+#------------------------------------------------------------------------------
+# PLUGIN
+#------------------------------------------------------------------------------
+
 class CheckUsernamePolicy(TokenPlugin):
 
     def __init__(self):
-        global UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG
-        TokenPlugin.__init__(self, 'CheckUsernamePolicy', UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
+        TokenPlugin.__init__(self, UPWDCHG_PLUGIN_NAME, UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
+
 
     def process(self):
-        global \
-            UPWDCHG_PLUGIN_USERNAME_LENGTH_MINIMUM, \
-            UPWDCHG_PLUGIN_USERNAME_LENGTH_MAXIMUM, \
-            UPWDCHG_PLUGIN_USERNAME_TYPE_LOWER, \
-            UPWDCHG_PLUGIN_USERNAME_TYPE_UPPER, \
-            UPWDCHG_PLUGIN_USERNAME_TYPE_DIGIT, \
-            UPWDCHG_PLUGIN_USERNAME_TYPE_PUNCT, \
-            UPWDCHG_PLUGIN_USERNAME_TYPE_OTHER
-
         # Get token (data)
         oToken = self._getToken()
-        uUsername = oToken['username']
-        sUsername = uUsername.encode('utf-8')
+        sUsername = oToken['username']
 
         # Process token data
         bError = False
         lsOutputs = list()
 
         # ... check username length
-        if UPWDCHG_PLUGIN_USERNAME_LENGTH_MINIMUM and len(uUsername) < UPWDCHG_PLUGIN_USERNAME_LENGTH_MINIMUM:
+        if UPWDCHG_PLUGIN_USERNAME_LENGTH_MINIMUM and len(sUsername) < UPWDCHG_PLUGIN_USERNAME_LENGTH_MINIMUM:
             lsOutputs.append('Username MUST contain at least %d characters' % UPWDCHG_PLUGIN_USERNAME_LENGTH_MINIMUM)
             bError = True
-        if UPWDCHG_PLUGIN_USERNAME_LENGTH_MAXIMUM and len(uUsername) > UPWDCHG_PLUGIN_USERNAME_LENGTH_MAXIMUM:
+        if UPWDCHG_PLUGIN_USERNAME_LENGTH_MAXIMUM and len(sUsername) > UPWDCHG_PLUGIN_USERNAME_LENGTH_MAXIMUM:
             lsOutputs.append('Username may NOT contain more than %d characters' % UPWDCHG_PLUGIN_USERNAME_LENGTH_MAXIMUM)
             bError = True
 
@@ -81,11 +88,11 @@ class CheckUsernamePolicy(TokenPlugin):
         bOther = False
         iType = 0
         for sCharacter in sUsername:
-            if sCharacter in string.lowercase:
+            if sCharacter.islower():
                 if not bLower:
                     bLower = True
                     iType += 1
-            elif sCharacter in string.uppercase:
+            elif sCharacter.isupper():
                 if not bUpper:
                     bUpper = True
                     iType += 1
@@ -142,6 +149,7 @@ class CheckUsernamePolicy(TokenPlugin):
             self._EXIT_ERROR(lsOutputs)
         self._DEBUG('Username matches policy', TokenPlugin.DEBUG_NOTICE)
         self._EXIT_OK('Username matches policy requirements')
+
 
 # Process
 CheckUsernamePolicy().process()

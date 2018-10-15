@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- mode:python; tab-width:4; c-basic-offset:4; intent-tabs-mode:nil; coding:utf-8 -*-
 # ex: filetype=python tabstop=4 softtabstop=4 shiftwidth=4 expandtab autoindent smartindent
 
@@ -21,17 +21,29 @@
 # License-Filename: LICENSE/GPL-3.0.txt
 #
 
-# Modules
-# ... deb: python-ldap
+#------------------------------------------------------------------------------
+# DEPENDENCIES
+#------------------------------------------------------------------------------
+
+# UPwdChg
 from UPwdChg import TokenPlugin
+
+# Extra
+# ... deb: python3-ldap
 import ldap
 
-# Parameters
+
+#------------------------------------------------------------------------------
+# CONFIGURATION
+#------------------------------------------------------------------------------
+
+# UPwdChg
+UPWDCHG_PLUGIN_NAME='SynchGroupsMemberLdap'
 UPWDCHG_PLUGIN_CRITICAL=True
 UPWDCHG_PLUGIN_DEBUG=TokenPlugin.DEBUG_INFO
 UPWDCHG_PLUGIN_DRYRUN=True
 
-# ... (source) LDAP directory
+# LDAP directory (source)
 UPWDCHG_PLUGIN_LDAP_SRC_URI='ldap://ldap.example.org:389'
 UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_DN='cn=admin,dc=example,dc=org'
 UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD=''  # prefix with 'file://' to get password from specified file
@@ -45,7 +57,7 @@ UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_SCOPE=ldap.SCOPE_ONELEVEL
 UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_FILTER_MEMBERSHIP='(&(objectClass=posixGroup)(memberUid=%{USERNAME}))'
 UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME='cn'
 
-# ... (destination) LDAP directory
+# LDAP directory (destination)
 UPWDCHG_PLUGIN_LDAP_DST_URI='ldap://ad.example.org:389'
 UPWDCHG_PLUGIN_LDAP_DST_ADMIN_DN='Administrator@EXAMPLE.ORG'
 UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD=''  # prefix with 'file://' to get password from specified file
@@ -66,21 +78,19 @@ UPWDCHG_PLUGIN_LDAP_DST_GROUP_ADD=True
 UPWDCHG_PLUGIN_LDAP_DST_GROUP_REMOVE=True
 UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL=False
 
-# Plugin
+
+#------------------------------------------------------------------------------
+# PLUGIN
+#------------------------------------------------------------------------------
+
 class SynchGroupsMemberLdap(TokenPlugin):
 
     def __init__(self):
-        global UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG
-        TokenPlugin.__init__(self, 'SynchGroupsMemberLdap', UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
+        TokenPlugin.__init__(self, UPWDCHG_PLUGIN_NAME, UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
 
 
     def __ldapSrcBind(self):
-        global \
-            UPWDCHG_PLUGIN_LDAP_SRC_URI, \
-            UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_DN, \
-            UPWDCHG_PLUGIN_LDAP_SRC_ADMIN_PWD
-
-        # Check parameters
+        # Check configuration
         if not UPWDCHG_PLUGIN_LDAP_SRC_URI:
             self._DEBUG('Missing (source LDAP) server address (URI)')
             self._EXIT_ERROR('Internal error; please contact your system administrator')
@@ -129,13 +139,7 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
 
     def __ldapSrcGetUserDn(self, oLdap, sUsername):
-        global \
-            UPWDCHG_PLUGIN_LDAP_SRC_USER_DN, \
-            UPWDCHG_PLUGIN_LDAP_SRC_USER_SEARCH_DN, \
-            UPWDCHG_PLUGIN_LDAP_SRC_USER_SEARCH_SCOPE, \
-            UPWDCHG_PLUGIN_LDAP_SRC_USER_SEARCH_FILTER
-
-        # Check parameters
+        # Check configuration
         if UPWDCHG_PLUGIN_LDAP_SRC_USER_DN is not None and not UPWDCHG_PLUGIN_LDAP_SRC_USER_DN:
             self._DEBUG('Empty (source LDAP) user distinguished name (DN)')
             self._EXIT_ERROR('Internal error; please contact your system administrator')
@@ -171,19 +175,13 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
 
     def __ldapSrcGetGroups(self, oLdap, sUsername, sUserDn):
-        global \
-            UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_DN, \
-            UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_SCOPE, \
-            UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_FILTER_MEMBERSHIP, \
-            UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME
-
-        # Return variable
-        dGroups = dict()
-
-        # Check parameters
+        # Check configuration
         if not UPWDCHG_PLUGIN_LDAP_SRC_GROUP_SEARCH_DN:
             self._DEBUG('Missing (source LDAP) group search base (DN)')
             self._EXIT_ERROR('Internal error; please contact your system administrator')
+
+        # Return variable
+        dGroups = dict()
 
         # Retrieve user groups
 
@@ -196,7 +194,7 @@ class SynchGroupsMemberLdap(TokenPlugin):
                 attrlist=[UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME], attrsonly=0
                 )
             for tLdapResult in lLdapResults:
-                dGroups[ tLdapResult[1][UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME][0] ] = tLdapResult[0]
+                dGroups[ tLdapResult[1][UPWDCHG_PLUGIN_LDAP_SRC_GROUP_ATTR_NAME][0].decode('utf-8') ] = tLdapResult[0]
             self._DEBUG('Successfully retrieved user groups from (source LDAP) server:\n%s' % str(dGroups), TokenPlugin.DEBUG_TRACE)
         except Exception as e:
             self._DEBUG('Failed to retrieve user groups from (source LDAP) server; %s' % str(e))
@@ -207,7 +205,6 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
 
     def __ldapSrcUnbind(self, oLdap):
-
         # Unbind from server
         try:
             oLdap.unbind_s()
@@ -217,12 +214,7 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
 
     def __ldapDstBind(self):
-        global \
-            UPWDCHG_PLUGIN_LDAP_DST_URI, \
-            UPWDCHG_PLUGIN_LDAP_DST_ADMIN_DN, \
-            UPWDCHG_PLUGIN_LDAP_DST_ADMIN_PWD
-
-        # Check parameters
+        # Check configuration
         if not UPWDCHG_PLUGIN_LDAP_DST_URI:
             self._DEBUG('Missing (destination LDAP) server address (URI)')
             self._EXIT_ERROR('Internal error; please contact your system administrator')
@@ -271,13 +263,7 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
 
     def __ldapDstGetUserDn(self, oLdap, sUsername):
-        global \
-            UPWDCHG_PLUGIN_LDAP_DST_USER_DN, \
-            UPWDCHG_PLUGIN_LDAP_DST_USER_SEARCH_DN, \
-            UPWDCHG_PLUGIN_LDAP_DST_USER_SEARCH_SCOPE, \
-            UPWDCHG_PLUGIN_LDAP_DST_USER_SEARCH_FILTER
-
-        # Check parameters
+        # Check configuration
         if UPWDCHG_PLUGIN_LDAP_DST_USER_DN is not None and not UPWDCHG_PLUGIN_LDAP_DST_USER_DN:
             self._DEBUG('Empty (destination LDAP) user distinguished name (DN)')
             self._EXIT_ERROR('Internal error; please contact your system administrator')
@@ -313,19 +299,13 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
 
     def __ldapDstGetGroups(self, oLdap, sUsername, sUserDn):
-        global \
-            UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN, \
-            UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_SCOPE, \
-            UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER_MEMBERSHIP, \
-            UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_NAME
-
-        # Return variable
-        dGroups = dict()
-
-        # Check parameters
+        # Check configuration
         if not UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN:
             self._DEBUG('Missing (destination LDAP) group search base (DN)')
             self._EXIT_ERROR('Internal error; please contact your system administrator')
+
+        # Return variable
+        dGroups = dict()
 
         # Retrieve user groups
 
@@ -338,7 +318,7 @@ class SynchGroupsMemberLdap(TokenPlugin):
                 attrlist=[UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_NAME], attrsonly=0
                 )
             for tLdapResult in lLdapResults:
-                dGroups[ tLdapResult[1][UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_NAME][0] ] = tLdapResult[0]
+                dGroups[ tLdapResult[1][UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_NAME][0].decode('utf-8') ] = tLdapResult[0]
             self._DEBUG('Successfully retrieved user groups from (destination LDAP) server', TokenPlugin.DEBUG_NOTICE)
             self._DEBUG('> user groups:\n%s' % str(dGroups), TokenPlugin.DEBUG_TRACE)
         except Exception as e:
@@ -350,15 +330,6 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
 
     def __ldapDstAddUserToGroup(self, oLdap, sGroupname, sUsername, sUserDn):
-        global \
-            UPWDCHG_PLUGIN_DRYRUN, \
-            UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_DN, \
-            UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_SCOPE, \
-            UPWDCHG_PLUGIN_LDAP_DST_GROUP_SEARCH_FILTER, \
-            UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER, \
-            UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER_VALUE, \
-            UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL
-
         # Add user to group
 
         # ... group DN
@@ -389,7 +360,7 @@ class SynchGroupsMemberLdap(TokenPlugin):
             self._DEBUG('DRY-RUN! NOT adding (destination LDAP) group membership: %s' % sGroupDn, TokenPlugin.DEBUG_WARNING)
             return
         try:
-            lLDIF = [ (ldap.MOD_ADD, sMembershipAttr, sMembershipAttrValue) ]
+            lLDIF = [ (ldap.MOD_ADD, sMembershipAttr, sMembershipAttrValue.encode('utf-8')) ]
             oLdap.modify_s(sGroupDn, lLDIF)
             self._DEBUG('Successfully added (destination LDAP) group membership: %s' % sGroupDn, TokenPlugin.DEBUG_INFO)
         except Exception as e:
@@ -401,12 +372,6 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
 
     def __ldapDstRemoveUserFromGroup(self, oLdap, sGroupDn, sUsername, sUserDn):
-        global \
-            UPWDCHG_PLUGIN_DRYRUN, \
-            UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER, \
-            UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER_VALUE, \
-            UPWDCHG_PLUGIN_LDAP_DST_GROUP_CRITICAL
-
         # Remove user from group
         sMembershipAttr = UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER
         sMembershipAttrValue = UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTR_MEMBER_VALUE.replace('%{USERNAME}', sUsername).replace('%{USERDN}', sUserDn)
@@ -414,7 +379,7 @@ class SynchGroupsMemberLdap(TokenPlugin):
             self._DEBUG('DRY-RUN! NOT removing (destination LDAP) group membership: %s' % sGroupDn, TokenPlugin.DEBUG_WARNING)
             return
         try:
-            lLDIF = [ (ldap.MOD_DELETE, sMembershipAttr, sMembershipAttrValue) ]
+            lLDIF = [ (ldap.MOD_DELETE, sMembershipAttr, sMembershipAttrValue.encode('utf-8')) ]
             oLdap.modify_s(sGroupDn, lLDIF)
             self._DEBUG('Successfully removed (destination LDAP) group membership: %s' % sGroupDn, TokenPlugin.DEBUG_INFO)
         except Exception as e:
@@ -426,7 +391,6 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
 
     def __ldapDstUnbind(self, oLdap):
-
         # Unbind from server
         try:
             oLdap.unbind_s()
@@ -436,13 +400,9 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
 
     def process(self):
-        global \
-            UPWDCHG_PLUGIN_LDAP_DST_GROUP_ADD, \
-            UPWDCHG_PLUGIN_LDAP_DST_GROUP_REMOVE
-
         # Get token (data)
         dToken = self._getToken()
-        sUsername = dToken['username'].encode('utf-8')
+        sUsername = dToken['username']
 
         # Process token data
 
@@ -472,6 +432,7 @@ class SynchGroupsMemberLdap(TokenPlugin):
 
         # Done
         self._EXIT_OK('Groups membership successfully synchronized')
+
 
 # Process
 SynchGroupsMemberLdap().process()

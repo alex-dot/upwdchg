@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- mode:python; tab-width:4; c-basic-offset:4; intent-tabs-mode:nil; -*-
 # ex: filetype=python tabstop=4 softtabstop=4 shiftwidth=4 expandtab autoindent smartindent
 
@@ -44,15 +44,26 @@
 # The plugin file MUST be executable or it will be ignored
 #
 
-# Modules
+#------------------------------------------------------------------------------
+# DEPENDENCIES
+#------------------------------------------------------------------------------
+
+# UPwdChg
 from UPwdChg import TokenPlugin
+
+# Standard
 import sys
 
-# Plugin
+
+#------------------------------------------------------------------------------
+# PLUGIN
+#------------------------------------------------------------------------------
+
 class MyTokenPlugin(TokenPlugin):
 
     def __init__(self):
         TokenPlugin.__init__(self, '00SAMPLE')
+
 
     def process(self):
         # Get token (data)
@@ -66,6 +77,7 @@ class MyTokenPlugin(TokenPlugin):
 
         # Done
         self._EXIT_OK('Done')
+
 
 # Process
 MyTokenPlugin().process()

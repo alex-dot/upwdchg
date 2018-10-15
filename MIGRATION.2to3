@@ -7,7 +7,7 @@ time of writing - to be the safest bet for the future (of what comes closest to
 some Python cryptography standard).
 
 Unfortunately, the introduction of password nonces in UPwdChg 2.x (sent from the
-BACKEND to the FRONTEND) led to use assymetric cryptography in a somewhat unusual
+BACKEND to the FRONTEND) led to using assymetric cryptography in a somewhat unusual
 (but not unsecure) way - namely encrypting with the private key and decrypting
 with the public key - which pyCryptodome does NOT support.
 
@@ -15,10 +15,13 @@ UPwdChg 3.x thus mandates to use TWO key-pairs instead of one - namely one for
 each peer (the BACKEND and the FRONTEND) - which corresponds to the classical
 two-party assymetric cryptography scenario. Given this new requirement and the
 opportunity, UPwdChg 3.x tokens are also signed, thus adding strong TWO-WAY
-authentication, integrity and encryption between the BACKEND and the FRONTEND.
+authentication and integrity to encryption between the BACKEND and the FRONTEND.
 
 Unfortunately again, this change requires some modifications of the configuration
-of both the BACKEND and the FRONTEND.
+of both the BACKEND and the FRONTEND; see below for details.
+
+Even more unfortunately, existing (customized/configured) 2.x plugins MUST be
+migrated to Python 3; see below for details.
 
 
 BACKEND configuration
@@ -51,6 +54,20 @@ The following settings have been moved, renamed, introduced:
 - public_key_file           =>  backend_public_key_file
 - NEW                       =>  frontend_public_key_file
 - NEW                       =>  frontend_private_key_file
+
+
+2.x <-> 3.x Processing plugins
+------------------------------
+
+Given their tight integration with the entire framework, UPwdChg 2.x/Python 2
+existing plugins MUST be migrated to UPwdChg 3.x/Python 3.
+
+Migration patches for UPwdChg sample plugins are provided to ease this migration
+and should apply readily to existing plugins which only the configuration was
+changed:
+
+  $ cat /usr/share/upwdchg/backend/plugins/2to3/<plugin>.patch \
+    | patch /path/to/existing/<plugin>
 
 
 2.x <-> 3.x Tokens compatibility

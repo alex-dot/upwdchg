@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- mode:python; tab-width:4; c-basic-offset:4; intent-tabs-mode:nil; -*-
 # ex: filetype=python tabstop=4 softtabstop=4 shiftwidth=4 expandtab autoindent smartindent
 
@@ -21,15 +21,31 @@
 # License-Filename: LICENSE/GPL-3.0.txt
 #
 
-# Modules
+#------------------------------------------------------------------------------
+# DEPENDENCIES
+#------------------------------------------------------------------------------
+
+# UPwdChg
 from UPwdChg import TokenPlugin
 
-# Plugin
+
+#------------------------------------------------------------------------------
+# CONFIGURATION
+#------------------------------------------------------------------------------
+
+# UPwdChg
+UPWDCHG_PLUGIN_NAME='ShowTokenInfo'
+
+
+#------------------------------------------------------------------------------
+# PLUGIN
+#------------------------------------------------------------------------------
+
 class ShowTokenInfo(TokenPlugin):
 
     def __init__(self):
-        global UPWDCHG_PLUGIN_INFO_CRITICAL
-        TokenPlugin.__init__(self, 'ShowTokenInfo')
+        TokenPlugin.__init__(self, UPWDCHG_PLUGIN_NAME)
+
 
     def process(self):
         # Get token (data)
@@ -37,6 +53,7 @@ class ShowTokenInfo(TokenPlugin):
 
         # Done
         self._EXIT_OK('Got a "%s" token for user %s (created at %s)' % (oToken['type'], oToken['username'], oToken['timestamp']))
+
 
 # Process
 ShowTokenInfo().process()
