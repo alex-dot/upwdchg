@@ -21,7 +21,11 @@
 # License-Filename: LICENSE/GPL-3.0.txt
 #
 
-# Dependencies
+#------------------------------------------------------------------------------
+# DEPENDENCIES
+#------------------------------------------------------------------------------
+
+# UPwdChg
 from .upwdchg_token import Token, TokenMain
 from .upwdchg_process import Process, ProcessMain
 from .upwdchg_daemon import Daemon, DaemonMain

@@ -20,21 +20,35 @@
 # License-Filename: LICENSE/GPL-3.0.txt
 #
 
-# Modules
-# ... deb: python-m2crypto
+#------------------------------------------------------------------------------
+# DEPENDENCIES
+#------------------------------------------------------------------------------
+
+# UPwdChg
 from UPwdChg import \
     TokenData, \
     UPWDCHG_ENCODING, \
-    UPWDCHG_DEFAULT_FILE_KEY_PRIVATE, \
-    UPWDCHG_DEFAULT_FILE_KEY_PUBLIC, \
-    UPWDCHG_DEFAULT_FILE_RANDOM, \
+    UPWDCHG_PUBLIC_ALGO, \
     UPWDCHG_CIPHER_ALGO, \
     UPWDCHG_CIPHER_KEY_LENGTH, \
     UPWDCHG_CIPHER_IV_LENGTH, \
     UPWDCHG_DIGEST_ALGO
+
+# Extra
+# ... deb: python3-pycryptodome
+import Cryptodome.Cipher as CIPHER
+from Cryptodome.Cipher import \
+    PKCS1_OAEP
+import Cryptodome.Hash as HASH
+import Cryptodome.PublicKey as PUBKEY
+import Cryptodome.Random as RANDOM
+from Cryptodome.Signature import \
+    pkcs1_15 as PKCS1_SIGN
+import Cryptodome.Util.Padding as PADDING
+
+# Standard
 import base64 as B64
 import json as JSON
-import M2Crypto as M2C
 import os
 import sys
 
@@ -57,16 +71,12 @@ class TokenWriter(TokenData):
 
         # Fields
         self.error = 0
-        self.config()
+        self._sFileKeyPrivate = None
+        self._sFileKeyPublic = None
 
-    def config(self,
-        _sFileKeyPrivate = UPWDCHG_DEFAULT_FILE_KEY_PRIVATE,
-        _sFileKeyPublic = UPWDCHG_DEFAULT_FILE_KEY_PUBLIC,
-        _sFileRandom = UPWDCHG_DEFAULT_FILE_RANDOM,
-        ):
+    def config(self, _sFileKeyPrivate, _sFileKeyPublic):
         self._sFileKeyPrivate = _sFileKeyPrivate
         self._sFileKeyPublic = _sFileKeyPublic
-        self._sFileRandom = _sFileRandom
 
 
     #------------------------------------------------------------------------------
@@ -96,10 +106,9 @@ class TokenWriter(TokenData):
 
         # Compute the data digest
         try:
-            oMessageDigest = M2C.EVP.MessageDigest(algo=UPWDCHG_DIGEST_ALGO)
-            if oMessageDigest.update(self._getDigestData().encode('utf-8')) != 1:
-                raise RuntimeError('failed to compute digest')
-            sDataDigest = oMessageDigest.final()
+            mHash = __import__('Cryptodome.Hash.%s' % UPWDCHG_DIGEST_ALGO.upper(), fromlist=['Cryptodome.Hash'], level=0)
+            oHash = mHash.new(self._getDigestData().encode('utf-8'))
+            byDataDigest = oHash.digest()
         except Exception as e:
             self.__ERROR('Failed to compute data digest; %s' % str(e), 101)
             return self.error
@@ -109,7 +118,7 @@ class TokenWriter(TokenData):
             dData_digest = self._dData
             dData_digest['digest'] = { \
                 'algorithm': UPWDCHG_DIGEST_ALGO, \
-                'base64': B64.b64encode(sDataDigest), \
+                'base64': B64.b64encode(byDataDigest).decode('ascii'), \
             }
             sData = JSON.dumps(dData_digest, indent=4)
         except Exception as e:
@@ -118,34 +127,54 @@ class TokenWriter(TokenData):
 
         # Encrypt the (symmetric) data key
         try:
-            M2C.Rand.load_file(self._sFileRandom, UPWDCHG_CIPHER_KEY_LENGTH+UPWDCHG_CIPHER_IV_LENGTH)
-            sDataKey = M2C.Rand.rand_bytes(UPWDCHG_CIPHER_KEY_LENGTH)
-            if self._dData['type'] in ('password-nonce-request', 'password-change', 'password-reset'):
-                sDataKeyCipherAlgo = 'public'
-                # ... load the RSA public key
-                oPublicKey = M2C.RSA.load_pub_key(self._sFileKeyPublic)
-                # ... encrypt the data key
-                sDataKeyEncrypted = oPublicKey.public_encrypt(sDataKey, M2C.RSA.pkcs1_oaep_padding)
-            elif self._dData['type'] in ('password-nonce'):
-                sDataKeyCipherAlgo = 'private'
-                # ... load the RSA private key
-                oPrivateKey = M2C.RSA.load_key(self._sFileKeyPrivate)
-                # ... encrypt the data key
-                sDataKeyEncrypted = oPrivateKey.private_encrypt(sDataKey, M2C.RSA.pkcs1_padding)
+            byDataKey = RANDOM.get_random_bytes(UPWDCHG_CIPHER_KEY_LENGTH)
+            if UPWDCHG_PUBLIC_ALGO in ('rsa'):
+                with open(self._sFileKeyPublic, 'r') as oFileKey:
+                    # ... load the public key
+                    mPublicKey = __import__('Cryptodome.PublicKey.RSA', fromlist=['Cryptodome.PublicKey'], level=0)
+                    oPublicKey = mPublicKey.import_key(oFileKey.read())
+                    # ... encrypt the data key
+                    oCipher = PKCS1_OAEP.new(oPublicKey)
+                    byDataKeyEncrypted = oCipher.encrypt(byDataKey)
             else:
-                raise RuntimeError('unexpected token/data type; %s' % self._dData['type'])
+                raise RuntimeError('invalid/unsupported data key cipher; %s' % UPWDCHG_PUBLIC_ALGO)
         except Exception as e:
             self.__ERROR('Failed to encrypt data key; %s' % str(e), 121)
             return self.error
 
         # Encrypt the data
         try:
-            sDataIv = M2C.Rand.rand_bytes(UPWDCHG_CIPHER_IV_LENGTH);
-            oDataCipher = M2C.EVP.Cipher(alg=UPWDCHG_CIPHER_ALGO, key=sDataKey, iv=sDataIv, op=M2C.encrypt)
-            sDataEncrypted = oDataCipher.update(sData)
-            sDataEncrypted += oDataCipher.final()
+            byDataIv = RANDOM.get_random_bytes(UPWDCHG_CIPHER_IV_LENGTH)
+            if UPWDCHG_CIPHER_ALGO in ('aes_256_cbc', 'aes_192_cbc', 'aes_128_cbc'):
+                mCipher = __import__('Cryptodome.Cipher.AES', fromlist=['Cryptodome.Cipher'], level=0)
+                oCipher = mCipher.new(byDataKey, mCipher.MODE_CBC, iv=byDataIv)
+                byDataEncrypted = oCipher.encrypt(PADDING.pad(sData.encode('utf-8'), mCipher.block_size, 'pkcs7'))
+            elif UPWDCHG_CIPHER_ALGO in ('bf_cbc'):
+                mCipher = __import__('Cryptodome.Cipher.Blowfish', fromlist=['Cryptodome.Cipher'], level=0)
+                oCipher = mCipher.new(byDataKey, mCipher.MODE_CBC, iv=byDataIv)
+                byDataEncrypted = oCipher.encrypt(PADDING.pad(sData.encode('utf-8'), mCipher.block_size, 'pkcs7'))
+            else:
+                raise RuntimeError('invalid/unsupported data cipher; %s' % UPWDCHG_CIPHER_ALGO)
         except Exception as e:
             self.__ERROR('Failed to encrypt data; %s' % str(e), 131)
+            return self.error
+
+        # Sign the data
+        try:
+            if UPWDCHG_PUBLIC_ALGO in ('rsa'):
+                with open(self._sFileKeyPrivate, 'r') as oFileKey:
+                    # ... load the public key
+                    mPublicKey = __import__('Cryptodome.PublicKey.RSA', fromlist=['Cryptodome.PublicKey'], level=0)
+                    oPrivateKey = mPublicKey.import_key(oFileKey.read())
+                    # ... hash the data
+                    mHash = __import__('Cryptodome.Hash.%s' % UPWDCHG_DIGEST_ALGO.upper(), fromlist=['Cryptodome.Hash'], level=0)
+                    oHash = mHash.new(byDataEncrypted)
+                    # ... sign the data
+                    byDataSignature = PKCS1_SIGN.new(oPrivateKey).sign(oHash)
+            else:
+                raise RuntimeError('invalid/unsupported data signature algorithm; %s' % UPWDCHG_PUBLIC_ALGO)
+        except Exception as e:
+            self.__ERROR('Failed to sign data; %s' % str(e), 132)
             return self.error
 
         # Encode the token (JSON)
@@ -156,16 +185,20 @@ class TokenWriter(TokenData):
                     'cipher': { \
                         'algorithm': UPWDCHG_CIPHER_ALGO.replace('_', '-'), \
                         'iv': { \
-                            'base64': B64.b64encode(sDataIv), \
+                            'base64': B64.b64encode(byDataIv).decode('ascii'), \
                         }, \
                         'key': { \
                             'cipher': { \
-                                'algorithm': sDataKeyCipherAlgo, \
+                                'algorithm': UPWDCHG_PUBLIC_ALGO, \
                             }, \
-                            'base64': B64.b64encode(sDataKeyEncrypted), \
+                            'base64': B64.b64encode(byDataKeyEncrypted).decode('ascii'), \
                         }, \
                     }, \
-                    'base64': B64.b64encode(sDataEncrypted), \
+                    'signature': { \
+                        'algorithm': '%s-%s' % (UPWDCHG_PUBLIC_ALGO, UPWDCHG_DIGEST_ALGO), \
+                        'base64': B64.b64encode(byDataSignature).decode('ascii'), \
+                    }, \
+                    'base64': B64.b64encode(byDataEncrypted).decode('ascii'), \
                 }, \
             }, indent=4 )
         except Exception as e:

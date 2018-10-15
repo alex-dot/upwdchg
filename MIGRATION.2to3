@@ -1,0 +1,60 @@
+Universal Password Changer (UPwdChg)
+====================================
+
+As part of migration UPwdChg from Python 2 to Python 3, the M2Crypto dependency
+had to be replaced by the pyCryptodome library, which appears - at least at the
+time of writing - to be the safest bet for the future (of what comes closest to
+some Python cryptography standard).
+
+Unfortunately, the introduction of password nonces in UPwdChg 2.x (sent from the
+BACKEND to the FRONTEND) led to use assymetric cryptography in a somewhat unusual
+(but not unsecure) way - namely encrypting with the private key and decrypting
+with the public key - which pyCryptodome does NOT support.
+
+UPwdChg 3.x thus mandates to use TWO key-pairs instead of one - namely one for
+each peer (the BACKEND and the FRONTEND) - which corresponds to the classical
+two-party assymetric cryptography scenario. Given this new requirement and the
+opportunity, UPwdChg 3.x tokens are also signed, thus adding strong TWO-WAY
+authentication, integrity and encryption between the BACKEND and the FRONTEND.
+
+Unfortunately again, this change requires some modifications of the configuration
+of both the BACKEND and the FRONTEND.
+
+
+BACKEND configuration
+---------------------
+
+The [token] and [process] sections are replaced by the [backend], [frontend] and
+[daemon] sections.
+
+In particular, the following settings have been moved, renamed, introduced:
+- token.private_directory   =>  backend.tokens_directory
+- token.public_directory    =>  frontend.tokens_directory
+- token.plugins_directory   =>  daemon.plugins_directory
+- token.allowed_types       =>  daemon.allowed_types
+- token.random_file         =>  N/A
+- NEW                       =>  frontend.private_key_file
+- NEW                       =>  frontend.public_key_file
+- process.interval          =>  daemon.process_interval
+
+Also, the backend configuration is not only used for the processing daemon
+(upwdchg-daemon) but also for the stand-alone processing utility (upwdchg-process)
+as well as the processing plugins.
+
+
+FRONTEND configuration
+---------------------
+
+The following settings have been moved, renamed, introduced:
+- tokens_directory_private  =>  backend_tokens_directory
+- tokens_directory_public   =>  frontend_tokens_directory
+- public_key_file           =>  backend_public_key_file
+- NEW                       =>  frontend_public_key_file
+- NEW                       =>  frontend_private_key_file
+
+
+2.x <-> 3.x Tokens compatibility
+--------------------------------
+
+Given the cryptographic changes required, UPwdChg 2.x and UPwdChg 3.x tokens
+are INCOMPATIBLE.

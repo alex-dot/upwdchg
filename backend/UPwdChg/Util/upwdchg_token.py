@@ -20,14 +20,17 @@
 # License-Filename: LICENSE/GPL-3.0.txt
 #
 
-# Modules
+#------------------------------------------------------------------------------
+# DEPENDENCIES
+#------------------------------------------------------------------------------
+
+# UPwdChg
 from UPwdChg import \
     UPWDCHG_VERSION, \
-    UPWDCHG_DEFAULT_FILE_KEY_PRIVATE, \
-    UPWDCHG_DEFAULT_FILE_KEY_PUBLIC, \
-    UPWDCHG_DEFAULT_FILE_RANDOM, \
     TokenReader, \
     TokenWriter
+
+# Standard
 import argparse as AP
 import getpass
 import json as JSON
@@ -51,17 +54,13 @@ class Token:
     def __init__(self):
         # Fields
         self._bDebug = False
-        self.config()
+        self._sFileKeyPrivate = None
+        self._sFileKeyPublic = None
+        self._iPasswordNonceTtl = 300
 
-    def config(self,
-        _sFileKeyPrivate = UPWDCHG_DEFAULT_FILE_KEY_PRIVATE,
-        _sFileKeyPublic = UPWDCHG_DEFAULT_FILE_KEY_PUBLIC,
-        _sFileRandom = UPWDCHG_DEFAULT_FILE_RANDOM,
-        _iPasswordNonceTtl = 300,
-        ):
+    def config(self, _sFileKeyPrivate, _sFileKeyPublic, _iPasswordNonceTtl = 300):
         self._sFileKeyPrivate = _sFileKeyPrivate
         self._sFileKeyPublic = _sFileKeyPublic
-        self._sFileRandom = _sFileRandom
         self._iPasswordNonceTtl = _iPasswordNonceTtl
 
 
@@ -86,7 +85,7 @@ class Token:
 
         # Write token
         oToken = TokenWriter()
-        oToken.config(self._sFileKeyPrivate, self._sFileKeyPublic, self._sFileRandom)
+        oToken.config(self._sFileKeyPrivate, self._sFileKeyPublic)
         oToken.setData_PasswordNonceRequest(sUsername)
         iReturn = oToken.writeToken(_sFileToken)
         return iReturn
@@ -125,7 +124,7 @@ class Token:
 
         # Write token
         oToken = TokenWriter()
-        oToken.config(self._sFileKeyPrivate, self._sFileKeyPublic, self._sFileRandom)
+        oToken.config(self._sFileKeyPrivate, self._sFileKeyPublic)
         oToken.setData_PasswordNonce(sUsername, sPasswordNonce, self._iPasswordNonceTtl)
         iReturn = oToken.writeToken(_sFileToken)
         if iReturn:
@@ -191,7 +190,7 @@ class Token:
 
         # Write token
         oToken = TokenWriter()
-        oToken.config(self._sFileKeyPrivate, self._sFileKeyPublic, self._sFileRandom)
+        oToken.config(self._sFileKeyPrivate, self._sFileKeyPublic)
         oToken.setData_PasswordChange(sUsername, sPasswordNew, sPasswordOld, sPasswordNonce)
         iReturn = oToken.writeToken(_sFileToken)
         if iReturn:
@@ -243,7 +242,7 @@ class Token:
 
         # Write token
         oToken = TokenWriter()
-        oToken.config(self._sFileKeyPrivate, self._sFileKeyPublic, self._sFileRandom)
+        oToken.config(self._sFileKeyPrivate, self._sFileKeyPublic)
         oToken.setData_PasswordReset(sUsername, sPasswordNew, sPasswordNonce)
         iReturn = oToken.writeToken(_sFileToken)
         if iReturn:
@@ -375,19 +374,19 @@ class TokenMain(Token):
             default=False,
             help='[Write] Prompt for password nonce')
 
-        # ... RSA private key file
+        # ... private key file
         self.__oArgumentParser.add_argument(
             '-Kv', '--key_private', type=str,
             metavar='<file>',
-            default=UPWDCHG_DEFAULT_FILE_KEY_PRIVATE,
-            help='Path to RSA private key file (PEM format; default:%s)' % UPWDCHG_DEFAULT_FILE_KEY_PRIVATE)
+            default='/etc/upwdchg/frontend/private.pem',
+            help='Path to the private key file (PEM format; default:/etc/upwdchg/frontend/private.pem)')
 
-        # ... RSA public key file
+        # ... public key file
         self.__oArgumentParser.add_argument(
             '-Ku', '--key_public', type=str,
             metavar='<file>',
-            default=UPWDCHG_DEFAULT_FILE_KEY_PUBLIC,
-            help='Path to RSA public key file (PEM format; default:%s)' % UPWDCHG_DEFAULT_FILE_KEY_PUBLIC)
+            default='/etc/upwdchg/backend/public.pem',
+            help='Path to the public key file (PEM format; default:/etc/upwdchg/backend/public.pem)')
 
         # ... password nonce TTL
         self.__oArgumentParser.add_argument(
@@ -395,13 +394,6 @@ class TokenMain(Token):
             metavar='<integer>',
             default=300,
             help='Password nonce Time-to-Live, in seconds (default:300)')
-
-        # ... PRNG seed source
-        self.__oArgumentParser.add_argument(
-            '-r', '--random', type=str,
-            metavar='<file>',
-            default=UPWDCHG_DEFAULT_FILE_RANDOM,
-            help='Random number generator seed source (default:%s)' % UPWDCHG_DEFAULT_FILE_RANDOM)
 
         # ... version
         self.__oArgumentParser.add_argument(
@@ -446,7 +438,6 @@ class TokenMain(Token):
         self.config(
             self.__oArguments.key_private,
             self.__oArguments.key_public,
-            self.__oArguments.random,
             self.__oArguments.password_nonce_ttl,
             )
 

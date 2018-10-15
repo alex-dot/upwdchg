@@ -20,13 +20,17 @@
 # License-Filename: LICENSE/GPL-3.0.txt
 #
 
-# Modules
+#------------------------------------------------------------------------------
+# DEPENDENCIES
+#------------------------------------------------------------------------------
+
+# UPwdChg
 from UPwdChg import \
-    UPWDCHG_DEFAULT_FILE_KEY_PRIVATE, \
-    UPWDCHG_DEFAULT_FILE_KEY_PUBLIC, \
-    UPWDCHG_DEFAULT_FILE_RANDOM, \
+    Config, \
     TokenReader, \
     TokenWriter
+
+# Standard
 import sys
 
 
@@ -63,16 +67,17 @@ class TokenPlugin:
             self.__sErrorPrefix = 'ERROR'
         else:
             self.__sErrorPrefix = 'WARNING'
-        self.config()
+        self.__sFileConfig = None
+        self.__oConfig = Config()
 
-    def config(self,
-        _sFileKeyPrivate = UPWDCHG_DEFAULT_FILE_KEY_PRIVATE,
-        _sFileKeyPublic = UPWDCHG_DEFAULT_FILE_KEY_PUBLIC,
-        _sFileRandom = UPWDCHG_DEFAULT_FILE_RANDOM,
-        ):
-        self._sFileKeyPrivate = _sFileKeyPrivate
-        self._sFileKeyPublic = _sFileKeyPublic
-        self._sFileRandom = _sFileRandom
+
+    def config(self, _sFileConfig):
+        try:
+            self.__oConfig.load(_sFileConfig)
+            self.__sFileConfig = _sFileConfig
+        except Exception as e:
+            self._DEBUG('Failed to load configuration file')
+            self._EXIT_ERROR('Internal error; please contact your system administrator')
 
 
     #------------------------------------------------------------------------------
@@ -126,45 +131,50 @@ class TokenPlugin:
     #
 
     def _config(self):
+        # Already configured (?)
+        if self.__sFileConfig is not None:
+            return
+
         # Check arguments
-        if len(sys.argv) < 5:
-            self._DEBUG('Missing argument(s); expected token, RSA keys and random source paths')
+        if len(sys.argv) < 3:
+            self._DEBUG('Missing argument(s); expected configuration and token files')
             self._EXIT_ERROR('Internal error; please contact your system administrator')
 
         # Configuration
-        self.config(sys.argv[2], sys.argv[3], sys.argv[4])
+        self.config(sys.argv[1])
 
 
     #
     # Getters
     #
 
-    def _getToken(self):
+    def _getToken(self, _sPrivateKey='backend', _sPublicKey='frontend'):
         # Configuration
         self._config()
 
         # Get token data
         oToken = TokenReader()
-        oToken.config(self._sFileKeyPrivate, self._sFileKeyPublic)
-        if oToken.readToken(sys.argv[1]):
+        oToken.config(self.__oConfig[_sPrivateKey]['private_key_file'], self.__oConfig[_sPublicKey]['public_key_file'])
+        if oToken.readToken(sys.argv[2]):
             self._EXIT_ERROR('Internal error; please contact your system administrator')
         return oToken
 
-    def _getTokenReader(self):
+
+    def _getTokenReader(self, _sPrivateKey='backend', _sPublicKey='frontend'):
         # Configuration
         self._config()
 
         # Token reader
         oTokenReader = TokenReader()
-        oTokenReader.config(self._sFileKeyPrivate, self._sFileKeyPublic)
+        oTokenReader.config(self.__oConfig[_sPrivateKey]['private_key_file'], self.__oConfig[_sPublicKey]['public_key_file'])
         return oTokenReader
 
-    def _getTokenWriter(self):
+
+    def _getTokenWriter(self, _sPrivateKey='backend', _sPublicKey='frontend'):
         # Configuration
         self._config()
 
         # Token writer
         oTokenWriter = TokenWriter()
-        oTokenWriter.config(self._sFileKeyPrivate, self._sFileKeyPublic, self._sFileRandom)
+        oTokenWriter.config(self.__oConfig[_sPrivateKey]['private_key_file'], self.__oConfig[_sPublicKey]['public_key_file'])
         return oTokenWriter
-

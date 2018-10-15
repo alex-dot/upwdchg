@@ -20,20 +20,30 @@
 # License-Filename: LICENSE/GPL-3.0.txt
 #
 
-# Modules
-# ... deb: python-m2crypto
+#------------------------------------------------------------------------------
+# DEPENDENCIES
+#------------------------------------------------------------------------------
+
+# UPwdChg
 from UPwdChg import \
-    TokenData, \
     UPWDCHG_ENCODING, \
-    UPWDCHG_DEFAULT_FILE_KEY_PRIVATE, \
-    UPWDCHG_DEFAULT_FILE_KEY_PUBLIC, \
-    UPWDCHG_CIPHER_ALGO, \
-    UPWDCHG_CIPHER_KEY_LENGTH, \
-    UPWDCHG_CIPHER_IV_LENGTH, \
-    UPWDCHG_DIGEST_ALGO
+    TokenData
+
+# Extra
+# ... deb: python3-pycryptodome
+import Cryptodome.Cipher as CIPHER
+from Cryptodome.Cipher import \
+    PKCS1_OAEP
+import Cryptodome.Hash as HASH
+import Cryptodome.PublicKey as PUBKEY
+import Cryptodome.Random as RANDOM
+from Cryptodome.Signature import \
+    pkcs1_15 as PKCS1_SIGN
+import Cryptodome.Util.Padding as PADDING
+
+# Standard
 import base64 as B64
 import json as JSON
-import M2Crypto as M2C
 import sys
 
 
@@ -55,12 +65,10 @@ class TokenReader(TokenData):
 
         # Fields
         self.error = 0
-        self.config()
+        self._sFileKeyPrivate = None
+        self._sFileKeyPublic = None
 
-    def config(self,
-        _sFileKeyPrivate = UPWDCHG_DEFAULT_FILE_KEY_PRIVATE,
-        _sFileKeyPublic = UPWDCHG_DEFAULT_FILE_KEY_PUBLIC,
-        ):
+    def config(self, _sFileKeyPrivate, _sFileKeyPublic):
         self._sFileKeyPrivate = _sFileKeyPrivate
         self._sFileKeyPublic = _sFileKeyPublic
 
@@ -117,42 +125,64 @@ class TokenReader(TokenData):
 
         # Decode the data (Base64)
         try:
-            sData = B64.b64decode(dToken['data']['base64'])
+            byData = B64.b64decode(dToken['data']['base64'])
         except Exception as e:
             self.__ERROR('Failed to decode token data; %s' % str(e), 203)
             return self.error
 
+        # Verify the data signature
+        try:
+            sDataSignatureAlgo = dToken['data']['signature']['algorithm'].lower()
+            byDataSignature = B64.b64decode(dToken['data']['signature']['base64'].encode('ascii'))
+            if sDataSignatureAlgo[:4] == 'rsa-':
+                with open(self._sFileKeyPublic, 'r') as oFileKey:
+                    # ... load the public key
+                    mPublicKey = __import__('Cryptodome.PublicKey.RSA', fromlist=['Cryptodome.PublicKey'], level=0)
+                    oPublicKey = mPublicKey.import_key(oFileKey.read())
+                    # ... hash the data
+                    mHash = __import__('Cryptodome.Hash.%s' % sDataSignatureAlgo[4:].upper(), fromlist=['Cryptodome.Hash'], level=0)
+                    oHash = mHash.new(byData)
+                    # ... verify the signature
+                    PKCS1_SIGN.new(oPublicKey).verify(oHash, byDataSignature)
+            else:
+                raise RuntimeError('invalid/unsupported data signature algorithm; %s' % sDataSignatureAlgo)
+        except Exception as e:
+            self.__ERROR('Failed to verify data signature; %s' % str(e), 211)
+            return self.error
+
         # Decrypt the (symmetric) data key
         try:
-            sDataKey = B64.b64decode(dToken['data']['cipher']['key']['base64'])
+            byDataKey = B64.b64decode(dToken['data']['cipher']['key']['base64'])
             sDataKeyCipherAlgo = dToken['data']['cipher']['key']['cipher']['algorithm'].lower()
-            if sDataKeyCipherAlgo == 'public':
-                # ... load the RSA private key
-                oPrivateKey = M2C.RSA.load_key(self._sFileKeyPrivate)
-                # ... decrypt the data key
-                sDataKey = oPrivateKey.private_decrypt(sDataKey, M2C.RSA.pkcs1_oaep_padding)
-            elif sDataKeyCipherAlgo == 'private':
-                # ... load the RSA public key
-                oPublicKey = M2C.RSA.load_pub_key(self._sFileKeyPublic)
-                # ... decrypt the data key
-                sDataKey = oPublicKey.public_decrypt(sDataKey, M2C.RSA.pkcs1_padding)
+            if sDataKeyCipherAlgo == 'rsa':
+                with open(self._sFileKeyPrivate, 'r') as oFileKey:
+                    # ... load the private key
+                    mPublicKey = __import__('Cryptodome.PublicKey.RSA', fromlist=['Cryptodome.PublicKey'], level=0)
+                    oPrivateKey = mPublicKey.import_key(oFileKey.read())
+                    # ... decrypt the data key
+                    oCipher = PKCS1_OAEP.new(oPrivateKey)
+                    byDataKey = oCipher.decrypt(byDataKey)
             else:
                 raise RuntimeError('invalid/unsupported data key cipher; %s' % sDataKeyCipherAlgo)
         except Exception as e:
-            self.__ERROR('Failed to decrypt data key; %s' % str(e), 211)
+            self.__ERROR('Failed to decrypt data key; %s' % str(e), 212)
             return self.error
 
         # Decrypt the data
         try:
             sDataCipherAlgo = dToken['data']['cipher']['algorithm'].lower().replace('-', '_')
             try:
-                sDataIv = B64.b64decode(dToken['data']['cipher']['iv']['base64'])
+                byDataIv = B64.b64decode(dToken['data']['cipher']['iv']['base64'])
             except Exception as e:
-                sDataIv = ''
-            if sDataCipherAlgo in ('aes_256_cbc', 'aes_192_cbc', 'aes_128_cbc', 'bf_cbc'):
-                oCipher = M2C.EVP.Cipher(alg=sDataCipherAlgo, key=sDataKey, iv=sDataIv, op=M2C.decrypt)
-                sData = oCipher.update(sData)
-                sData += oCipher.final()
+                byDataIv = b''
+            if sDataCipherAlgo in ('aes_256_cbc', 'aes_192_cbc', 'aes_128_cbc'):
+                mCipher = __import__('Cryptodome.Cipher.AES', fromlist=['Cryptodome.Cipher'], level=0)
+                oCipher = mCipher.new(byDataKey, mCipher.MODE_CBC, iv=byDataIv)
+                sData = PADDING.unpad(oCipher.decrypt(byData), mCipher.block_size, 'pkcs7').decode('utf-8')
+            elif sDataCipherAlgo in ('bf_cbc'):
+                mCipher = __import__('Cryptodome.Cipher.Blowfish', fromlist=['Cryptodome.Cipher'], level=0)
+                oCipher = mCipher.new(byDataKey, mCipher.MODE_CBC, iv=byDataIv)
+                sData = PADDING.unpad(oCipher.decrypt(byData), mCipher.block_size, 'pkcs7').decode('utf-8')
             else:
                 raise RuntimeError('invalid/unsupported data cipher; %s' % sDataCipherAlgo)
         except Exception as e:
@@ -173,19 +203,18 @@ class TokenReader(TokenData):
         # Check the data digest
         try:
             sDataDigestAlgo = dData['digest']['algorithm'].lower()
-            sDataDigest_given = B64.b64decode(dData['digest']['base64'])
+            byDataDigest_given = B64.b64decode(dData['digest']['base64'].encode('ascii'))
             dData.pop('digest')
             if sDataDigestAlgo in ('sha512', 'sha384', 'sha256', 'sha224', 'sha1', 'md5'):
-                oMessageDigest = M2C.EVP.MessageDigest(algo=sDataDigestAlgo)
-                if oMessageDigest.update(self._getDigestData(dData).encode('utf-8')) != 1:
-                    raise RuntimeError('failed to compute digest')
-                sDataDigest_compute = oMessageDigest.final()
+                mHash = __import__('Cryptodome.Hash.%s' % sDataDigestAlgo.upper(), fromlist=['Cryptodome.Hash'], level=0)
+                oHash = mHash.new(self._getDigestData(dData).encode('utf-8'))
+                byDataDigest_compute = oHash.digest()
             else:
                 raise RuntimeError('invalid/unsupported data digest; %s' % sDataDigestAlgo)
         except Exception as e:
             self.__ERROR('Failed to compute data digest; %s' % str(e), 241)
             return self.error
-        if sDataDigest_compute != sDataDigest_given:
+        if byDataDigest_compute != byDataDigest_given:
             self.__ERROR('Invalid data digest', 242)
             return self.error
 

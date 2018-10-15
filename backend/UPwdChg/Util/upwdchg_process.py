@@ -20,14 +20,17 @@
 # License-Filename: LICENSE/GPL-3.0.txt
 #
 
-# Modules
+#------------------------------------------------------------------------------
+# DEPENDENCIES
+#------------------------------------------------------------------------------
+
+# UPwdChg
 from UPwdChg import \
     UPWDCHG_VERSION, \
-    UPWDCHG_DEFAULT_FILE_KEY_PRIVATE, \
-    UPWDCHG_DEFAULT_FILE_KEY_PUBLIC, \
-    UPWDCHG_DEFAULT_DIR_PLUGINS, \
-    UPWDCHG_DEFAULT_FILE_RANDOM, \
+    Config, \
     TokenReader
+
+# Standard
 import argparse as AP
 import os
 import stat
@@ -53,18 +56,19 @@ class Process:
     def __init__(self):
         # Fields
         self._bDebug = False
-        self.config()
+        self.__sFileConfig = None
+        self.__oConfig = Config()
 
-    def config(self,
-        _sFileKeyPrivate = UPWDCHG_DEFAULT_FILE_KEY_PRIVATE,
-        _sFileKeyPublic = UPWDCHG_DEFAULT_FILE_KEY_PUBLIC,
-        _sDirPlugins = UPWDCHG_DEFAULT_DIR_PLUGINS,
-        _sFileRandom = UPWDCHG_DEFAULT_FILE_RANDOM,
-        ):
-        self._sFileKeyPrivate = _sFileKeyPrivate
-        self._sFileKeyPublic = _sFileKeyPublic
+    def config(self, _sFileConfig, _sDirPlugins):
+        try:
+            self.__oConfig.load(_sFileConfig)
+            self.__sFileConfig = _sFileConfig
+        except Exception as e:
+            sys.stderr.write('ERROR[Process]: Failed to load configuration; %s\n' % str(e))
+            return 1
         self._sDirPlugins = _sDirPlugins
-        self._sFileRandom = _sFileRandom
+
+        return 0
 
 
     #------------------------------------------------------------------------------
@@ -80,6 +84,11 @@ class Process:
         # Redirect standard error (?)
         if _oStdErr:
             sys.stderr = _oStdErr
+
+        # Configured (?)
+        if self.__sFileConfig is None:
+            sys.stderr.write('ERROR[Process]: Unconfigured\n')
+            raise RuntimeError('unconfigured')
 
         # Initialize
         lsOutputs = list()
@@ -99,7 +108,7 @@ class Process:
         # Retrieve token type
         if _sTokenType is None:
             oToken = TokenReader()
-            oToken.config(self._sFileKeyPrivate, self._sFileKeyPublic)
+            oToken.config(self.__oConfig['backend']['private_key_file'], self.__oConfig['frontend']['public_key_file'])
             iReturn = oToken.readToken(_sFileToken)
             if iReturn:
                 raise RuntimeError('failed to read token file (error=%d); %s' % (iReturn, _sFileToken))
@@ -119,7 +128,7 @@ class Process:
             if self._bDebug:
                 sys.stderr.write('DEBUG[Process]: Token processing plugin; %s\n' % sFilePlugin)
             try:
-                oPopen = SP.Popen([sFilePlugin, _sFileToken, self._sFileKeyPrivate, self._sFileKeyPublic, self._sFileRandom], stdout=SP.PIPE, stderr=SP.PIPE)
+                oPopen = SP.Popen([sFilePlugin, self.__sFileConfig, _sFileToken], stdout=SP.PIPE, stderr=SP.PIPE)
                 (byStdOut, byStdErr) = oPopen.communicate()
                 iReturn = max(iReturn, oPopen.returncode)
                 lsOutputs.append(byStdOut.decode(sys.stdout.encoding))
@@ -203,33 +212,19 @@ class ProcessMain(Process):
             default='-', nargs='?',
             help='Path to token file (default:stdin)')
 
-        # ... RSA private key file
+        # ... configuration file
         self.__oArgumentParser.add_argument(
-            '-Kv', '--key_private', type=str,
-            metavar='<file>',
-            default=UPWDCHG_DEFAULT_FILE_KEY_PRIVATE,
-            help='Path to RSA private key file (PEM format; default:%s)' % UPWDCHG_DEFAULT_FILE_KEY_PRIVATE)
-
-        # ... RSA public key file
-        self.__oArgumentParser.add_argument(
-            '-Ku', '--key_public', type=str,
-            metavar='<file>',
-            default=UPWDCHG_DEFAULT_FILE_KEY_PUBLIC,
-            help='Path to RSA public key file (PEM format; default:%s)' % UPWDCHG_DEFAULT_FILE_KEY_PUBLIC)
+            '-C', '--config', type=str,
+            metavar='<conf-file>',
+            default='/etc/upwdchg/backend/upwdchg.conf',
+            help='Path to configuration file (default:/etc/upwdchg/backend/upwdchg.conf)')
 
         # ... plugins path
         self.__oArgumentParser.add_argument(
             '-Dp', '--dir_plugins', type=str,
             metavar='<directory>',
-            default=UPWDCHG_DEFAULT_DIR_PLUGINS,
-            help='Path to plugins directory (default:%s)' % UPWDCHG_DEFAULT_DIR_PLUGINS.replace('%','%%'))
-
-        # ... PRNG seed source
-        self.__oArgumentParser.add_argument(
-            '-r', '--random', type=str,
-            metavar='<file>',
-            default=UPWDCHG_DEFAULT_FILE_RANDOM,
-            help='Random number generator seed source (default:%s)' % UPWDCHG_DEFAULT_FILE_RANDOM)
+            default='/etc/upwdchg/backend/plugins/%{type}.d',
+            help='Path to plugins directory (default:/etc/upwdchg/backend/plugins/%%{type}.d)')
 
         # ... debug
         self.__oArgumentParser.add_argument(
@@ -278,12 +273,7 @@ class ProcessMain(Process):
 
         # Configure processing
         self._bDebug = self.__oArguments.debug
-        self.config(
-            self.__oArguments.key_private,
-            self.__oArguments.key_public,
-            self.__oArguments.dir_plugins,
-            self.__oArguments.random
-            )
+        self.config(self.__oArguments.config, self.__oArguments.dir_plugins)
 
         # Process token
         try:

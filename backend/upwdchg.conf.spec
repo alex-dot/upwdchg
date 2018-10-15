@@ -1,15 +1,18 @@
-[token]
-private_directory = string( min=1, max=256, default='/var/lib/upwdchg/tokens/private.d' )
-private_key_file = string( min=1, max=256, default='/etc/upwdchg/private.pem' )
-public_directory = string( min=1, max=256, default='/var/lib/upwdchg/tokens/public.d' )
-public_key_file = string( min=1, max=256, default='/etc/upwdchg/public.pem' )
-plugins_directory = string( min=1, max=256, default='/etc/upwdchg/daemon/plugins/%{type}.d' )
-random_file = string( min=1, max=256, default='/dev/urandom' )
-allowed_types = string( min=1, max=256, default='password-change' )
+[backend]
+tokens_directory = string( min=1, max=256, default='/var/lib/upwdchg/backend/tokens.d' )
+private_key_file = string( min=1, max=256, default='/etc/upwdchg/backend/private.pem' )
+public_key_file = string( min=1, max=256, default='/etc/upwdchg/backend/public.pem' )
 archive_directory = string( min=0, max=256, default=None )
 
-[process]
-interval = float( min=1.0, default=60.0 )
+[frontend]
+tokens_directory = string( min=1, max=256, default='/var/lib/upwdchg/frontend/tokens.d' )
+private_key_file = string( min=1, max=256, default='/etc/upwdchg/frontend/private.pem' )
+public_key_file = string( min=1, max=256, default='/etc/upwdchg/frontend/public.pem' )
+
+[daemon]
+plugins_directory = string( min=1, max=256, default='/etc/upwdchg/daemon/plugins/%{type}.d' )
+allowed_types = string( min=1, max=256, default='password-change' )
+process_interval = float( min=1.0, default=60.0 )
 max_tokens = integer( min=0, default=100 )
 max_errors = integer( min=0, default=1 )
 
@@ -20,7 +23,7 @@ user_domain = string( min=1, max=256, default=None )
 user_address_from_ldap = boolean( default=False )
 sender_address = string( min=1, max=256, default='UPwdChg <upwdchg@localhost.localdomain>' )
 subject_prefix = string( min=0, max=256, default='[UPWDCHG] ' )
-body_template_file = string( min=0, max=256, default='/etc/upwdchg/daemon/upwdchg-daemon.email.template' )
+body_template_file = string( min=0, max=256, default='/etc/upwdchg/backend/upwdchg.email.template' )
 sendmail_binary = string( min=1, max=256, default='/usr/sbin/sendmail' )
 encoding = string( min=1, max=256, default='utf-8' )
 

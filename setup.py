@@ -69,6 +69,6 @@ setup(
     scripts = [ 'backend/upwdchg-token', 'backend/upwdchg-process', 'backend/upwdchg-daemon' ],
     data_files = [
         ( 'share/upwdchg/backend/plugins', filesInDir( 'backend/plugins' ) ),
-        ( 'share/upwdchg/daemon', [ 'backend/upwdchg-daemon.conf.spec', 'backend/upwdchg-daemon.conf.sample' ] ),
+        ( 'share/upwdchg/backend', [ 'backend/upwdchg.conf.spec', 'backend/upwdchg.conf.sample' ] ),
         ],
     )

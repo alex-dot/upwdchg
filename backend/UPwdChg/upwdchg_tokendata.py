@@ -20,29 +20,37 @@
 # License-Filename: LICENSE/GPL-3.0.txt
 #
 
-# Modules
-# ... deb: python-m2crypto
+#------------------------------------------------------------------------------
+# DEPENDENCIES
+#------------------------------------------------------------------------------
+
+# UPwdChg
 from UPwdChg import \
-    UPWDCHG_DEFAULT_FILE_RANDOM, \
+    UPWDCHG_ENCODING, \
     UPWDCHG_PWHASH_METHOD, \
     UPWDCHG_PWHASH_ALGO, \
     UPWDCHG_PWHASH_ITERATIONS, \
     UPWDCHG_IDHASH_METHOD, \
     UPWDCHG_IDHASH_ALGO
+
+# Extra
+# ... deb: python3-pycryptodome
+import Cryptodome.Hash as HASH
+from Cryptodome.Hash import HMAC
+from Cryptodome.Protocol.KDF import PBKDF2
+import Cryptodome.Random as RANDOM
+
+# Standard
 import base64 as B64
 from calendar import \
     timegm
-import hashlib as HASH
-import hmac as HMAC
 import json as JSON
-import M2Crypto as M2C
 from sys import \
     modules
 from time import \
     gmtime, \
     strftime, \
     strptime
-from functools import reduce
 
 
 #------------------------------------------------------------------------------
@@ -72,7 +80,7 @@ class TokenData:
     # Helpers
     #
 
-    def makePasswordNonce(self, _liPasswordNonceLength, _bSplit=False, _sFileRandom=UPWDCHG_DEFAULT_FILE_RANDOM):
+    def makePasswordNonce(self, _liPasswordNonceLength, _bSplit=False):
         """
         Make a password nonce of the given (components) length.
         Returns its ID and secret components split if specified.
@@ -83,8 +91,7 @@ class TokenData:
         except TypeError:
             iPasswordNonceLength_id = iPasswordNonceLength_secret = _liPasswordNonceLength
         iPasswordNonceLength_total = iPasswordNonceLength_id+iPasswordNonceLength_secret
-        M2C.Rand.load_file(_sFileRandom, 2*iPasswordNonceLength_total)
-        sPasswordNonce = B64.b64encode(M2C.Rand.rand_bytes(2*iPasswordNonceLength_total), '**').rstrip('=').replace('*', '')
+        sPasswordNonce = B64.b64encode(RANDOM.get_random_bytes(2*iPasswordNonceLength_total), b'**').decode('ascii').rstrip('=').replace('*', '')
         sPasswordNonce_id = sPasswordNonce[0:iPasswordNonceLength_id]
         sPasswordNonce_secret = sPasswordNonce[iPasswordNonceLength_id:iPasswordNonceLength_total]
         if _bSplit:
@@ -129,39 +136,43 @@ class TokenData:
 
         # Secret (hashed!)
         if UPWDCHG_PWHASH_METHOD == 'pbkdf2':
-            oHash = HASH.new(UPWDCHG_PWHASH_ALGO)
-            sHashAlgo_salt = M2C.Rand.rand_bytes(oHash.block_size)
-            sHash_compute = HASH.pbkdf2_hmac(UPWDCHG_PWHASH_ALGO, sPasswordNonce_secret, sHashAlgo_salt, UPWDCHG_PWHASH_ITERATIONS)
+            mHash = __import__('Cryptodome.Hash.%s' % UPWDCHG_PWHASH_ALGO.upper(), fromlist=['Cryptodome.Hash'], level=0)
+            byHashAlgo_salt = RANDOM.get_random_bytes(mHash.block_size)
+            byHash_compute = PBKDF2(
+                sPasswordNonce_secret.encode(UPWDCHG_ENCODING), byHashAlgo_salt,
+                mHash.digest_size, UPWDCHG_PWHASH_ITERATIONS,
+                lambda p, s: HMAC.new(p, s, mHash).digest()
+            )
             dPasswordNonce_secret = { \
-                'base64': B64.b64encode(sHash_compute), \
+                'base64': B64.b64encode(byHash_compute).decode('ascii'), \
                 'hash': { \
                     'algorithm': "%s-%s" % (UPWDCHG_PWHASH_METHOD, UPWDCHG_PWHASH_ALGO), \
                     'salt': { \
-                        'base64': B64.b64encode(sHashAlgo_salt), \
+                        'base64': B64.b64encode(byHashAlgo_salt).decode('ascii'), \
                     }, \
                     'iterations': UPWDCHG_PWHASH_ITERATIONS, \
                 }, \
             }
         elif UPWDCHG_PWHASH_METHOD == 'hmac':
-            oHash = HASH.new(UPWDCHG_PWHASH_ALGO)
-            sHashAlgo_salt = M2C.Rand.rand_bytes(oHash.block_size)
-            oHmac = HMAC.new(sHashAlgo_salt, sPasswordNonce_secret, reduce(getattr, ['HASH', UPWDCHG_PWHASH_ALGO], modules[__name__]))
-            sHash_compute = oHmac.digest()
+            mHash = __import__('Cryptodome.Hash.%s' % UPWDCHG_PWHASH_ALGO.upper(), fromlist=['Cryptodome.Hash'], level=0)
+            byHashAlgo_salt = RANDOM.get_random_bytes(mHash.block_size)
+            oHmac = HMAC.new(byHashAlgo_salt, sPasswordNonce_secret.encode(UPWDCHG_ENCODING), mHash)
+            byHash_compute = oHmac.digest()
             dPasswordNonce_secret = { \
-                'base64': B64.b64encode(sHash_compute), \
+                'base64': B64.b64encode(byHash_compute).decode('ascii'), \
                 'hash': { \
                     'algorithm': "%s-%s" % (UPWDCHG_PWHASH_METHOD, UPWDCHG_PWHASH_ALGO), \
                     'salt': { \
-                        'base64': B64.b64encode(sHashAlgo_salt), \
+                        'base64': B64.b64encode(byHashAlgo_salt).decode('ascii'), \
                     }, \
                 }, \
             }
         elif UPWDCHG_PWHASH_METHOD == 'hash':
-            oHash = HASH.new(UPWDCHG_PWHASH_ALGO)
-            oHash.update(sPasswordNonce_secret)
-            sHash_compute = oHash.digest()
+            mHash = __import__('Cryptodome.Hash.%s' % UPWDCHG_PWHASH_ALGO.upper(), fromlist=['Cryptodome.Hash'], level=0)
+            oHash = mHash.new(sPasswordNonce_secret.encode(UPWDCHG_ENCODING))
+            byHash_compute = oHash.digest()
             dPasswordNonce_secret = { \
-                'base64': B64.b64encode(sHash_compute), \
+                'base64': B64.b64encode(byHash_compute).decode('ascii'), \
                 'hash': { \
                     'algorithm': "%s-%s" % (UPWDCHG_PWHASH_METHOD, UPWDCHG_PWHASH_ALGO), \
                 }, \
@@ -173,25 +184,25 @@ class TokenData:
         dSessionId = None
         if _sSessionId:
             if UPWDCHG_IDHASH_METHOD == 'hmac':
-                oHash = HASH.new(UPWDCHG_IDHASH_ALGO)
-                sHashAlgo_salt = M2C.Rand.rand_bytes(oHash.block_size)
-                oHmac = HMAC.new(sHashAlgo_salt, _sSessionId, reduce(getattr, ['HASH', UPWDCHG_IDHASH_ALGO], modules[__name__]))
-                sHash_compute = oHmac.digest()
+                mHash = __import__('Cryptodome.Hash.%s' % UPWDCHG_IDHASH_ALGO.upper(), fromlist=['Cryptodome.Hash'], level=0)
+                byHashAlgo_salt = RANDOM.get_random_bytes(mHash.block_size)
+                oHmac = HMAC.new(byHashAlgo_salt, _sSessionId.encode(UPWDCHG_ENCODING), mHash)
+                byHash_compute = oHmac.digest()
                 dSessionId = { \
-                    'base64': B64.b64encode(sHash_compute), \
+                    'base64': B64.b64encode(byHash_compute).decode('ascii'), \
                     'hash': { \
                         'algorithm': "%s-%s" % (UPWDCHG_IDHASH_METHOD, UPWDCHG_IDHASH_ALGO), \
                         'salt': { \
-                            'base64': B64.b64encode(sHashAlgo_salt), \
+                            'base64': B64.b64encode(byHashAlgo_salt).decode('ascii'), \
                         }, \
                     }, \
                 }
             elif UPWDCHG_IDHASH_METHOD == 'hash':
-                oHash = HASH.new(UPWDCHG_IDHASH_ALGO)
-                oHash.update(_sSessionId)
-                sHash_compute = oHash.digest()
+                mHash = __import__('Cryptodome.Hash.%s' % UPWDCHG_IDHASH_ALGO.upper(), fromlist=['Cryptodome.Hash'], level=0)
+                oHash = mHash.new(_sSessionId.encode(UPWDCHG_ENCODING))
+                byHash_compute = oHash.digest()
                 dSessionId = { \
-                    'base64': B64.b64encode(sHash_compute), \
+                    'base64': B64.b64encode(byHash_compute).decode('ascii'), \
                     'hash': { \
                         'algorithm': "%s-%s" % (UPWDCHG_IDHASH_METHOD, UPWDCHG_IDHASH_ALGO), \
                     }, \
@@ -366,23 +377,29 @@ class TokenData:
             if self._dData['username'] != _sUsername:
                 raise RuntimeError('mismatched username')
             # ... secret
-            sHash_given = B64.b64decode(self._dData['password-nonce-secret']['base64'])
+            byHash_given = B64.b64decode(self._dData['password-nonce-secret']['base64'].encode('ascii'))
             sHashAlgo = self._dData['password-nonce-secret']['hash']['algorithm']
             if sHashAlgo[:7] == 'pbkdf2-':
-                sHashAlgo_salt = B64.b64decode(self._dData['password-nonce-secret']['hash']['salt']['base64'])
+                byHashAlgo_salt = B64.b64decode(self._dData['password-nonce-secret']['hash']['salt']['base64'].encode('ascii'))
                 iHashAlgo_iterations = int(self._dData['password-nonce-secret']['hash']['iterations'])
-                sHash_compute = HASH.pbkdf2_hmac(sHashAlgo[7:], sPasswordNonce_secret, sHashAlgo_salt, iHashAlgo_iterations, len(sHash_given))
+                mHash = __import__('Cryptodome.Hash.%s' % sHashAlgo[7:].upper(), fromlist=['Cryptodome.Hash'], level=0)
+                byHash_compute = PBKDF2(
+                    sPasswordNonce_secret.encode(UPWDCHG_ENCODING), byHashAlgo_salt,
+                    len(byHash_given), iHashAlgo_iterations,
+                    lambda p, s: HMAC.new(p, s, mHash).digest()
+                )
             elif sHashAlgo[:5] == 'hmac-':
-                sHashAlgo_salt = B64.b64decode(self._dData['password-nonce-secret']['hash']['salt']['base64'])
-                oHmac = HMAC.new(sHashAlgo_salt, sPasswordNonce_secret, reduce(getattr, ['HASH', sHashAlgo[5:]], modules[__name__]))
-                sHash_compute = oHmac.digest()
+                byHashAlgo_salt = B64.b64decode(self._dData['password-nonce-secret']['hash']['salt']['base64'].encode('ascii'))
+                mHash = __import__('Cryptodome.Hash.%s' % sHashAlgo[5:].upper(), fromlist=['Cryptodome.Hash'], level=0)
+                oHmac = HMAC.new(byHashAlgo_salt, sPasswordNonce_secret.encode(UPWDCHG_ENCODING), mHash)
+                byHash_compute = oHmac.digest()
             elif sHashAlgo[:5] == 'hash-':
-                oHash = HASH.new(sHashAlgo[5:])
-                oHash.update(sPasswordNonce_secret)
-                sHash_compute = oHash.digest()
+                mHash = __import__('Cryptodome.Hash.%s' % sHashAlgo[5:].upper(), fromlist=['Cryptodome.Hash'], level=0)
+                oHash = mHash.new(sPasswordNonce_secret.encode(UPWDCHG_ENCODING))
+                byHash_compute = oHash.digest()
             else:
                 raise RuntimeError('Invalid/unsupported password hash method; %s' % sHashAlgo)
-            if sHash_given != sHash_compute:
+            if byHash_given != byHash_compute:
                 return 2
             # ... expiration
             if timegm(strptime(self._dData['expiration'], '%Y-%m-%dT%H:%M:%SZ')) <= timegm(gmtime()):
@@ -391,19 +408,20 @@ class TokenData:
             if 'session-id' in self._dData.keys():
                 if not _sSessionId:
                     return 3
-                sHash_given = B64.b64decode(self._dData['session-id']['base64'])
+                byHash_given = B64.b64decode(self._dData['session-id']['base64'].encode('ascii'))
                 sHashAlgo = self._dData['session-id']['hash']['algorithm']
                 if sHashAlgo[:5] == 'hmac-':
-                    sHashAlgo_salt = B64.b64decode(self._dData['session-id']['hash']['salt']['base64'])
-                    oHmac = HMAC.new(sHashAlgo_salt, _sSessionId, reduce(getattr, ['HASH', sHashAlgo[5:]], modules[__name__]))
-                    sHash_compute = oHmac.digest()
+                    byHashAlgo_salt = B64.b64decode(self._dData['session-id']['hash']['salt']['base64'].encode('ascii'))
+                    mHash = __import__('Cryptodome.Hash.%s' % sHashAlgo[5:].upper(), fromlist=['Cryptodome.Hash'], level=0)
+                    oHmac = HMAC.new(byHashAlgo_salt, _sSessionId.encode(UPWDCHG_ENCODING), mHash)
+                    byHash_compute = oHmac.digest()
                 elif sHashAlgo[:5] == 'hash-':
-                    oHash = HASH.new(sHashAlgo[5:])
-                    oHash.update(_sSessionId)
-                    sHash_compute = oHash.digest()
+                    mHash = __import__('Cryptodome.Hash.%s' % sHashAlgo[5:].upper(), fromlist=['Cryptodome.Hash'], level=0)
+                    oHash = mHash.new(_sSessionId.encode(UPWDCHG_ENCODING))
+                    byHash_compute = oHash.digest()
                 else:
                     raise RuntimeError('Invalid/unsupported session hash method; %s' % sHashAlgo)
-                if sHash_given != sHash_compute:
+                if byHash_given != byHash_compute:
                     return 3
             elif _sSessionId:
                 return 3

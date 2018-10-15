@@ -63,6 +63,12 @@ class UPwdChg
    * @var int */
   const INPUT_MAX_LENGTH = 100;
 
+  /** Assymetric algorithms table
+   * @var array|string */
+  const PUBLIC_ALGOS = array(
+    OPENSSL_KEYTYPE_RSA => 'rsa',
+  );
+
 
   /*
    * FIELDS
@@ -120,9 +126,11 @@ class UPwdChg
     $_CONFIG['force_ssl'] = 1;
     $_CONFIG['strict_session'] = 1;
     $_CONFIG['resources_directory'] = dirname(__FILE__).'/data/UPwdChg/resources';
-    $_CONFIG['tokens_directory_private'] = '/var/lib/upwdchg/tokens/private.d';
-    $_CONFIG['tokens_directory_public'] = '/var/lib/upwdchg/tokens/public.d';
-    $_CONFIG['public_key_file'] = '/etc/upwdchg/public.pem';
+    $_CONFIG['backend_tokens_directory'] = '/var/lib/upwdchg/backend/tokens.d';
+    $_CONFIG['backend_public_key_file'] = '/etc/upwdchg/backend/public.pem';
+    $_CONFIG['frontend_tokens_directory'] = '/var/lib/upwdchg/frontend/tokens.d';
+    $_CONFIG['frontend_public_key_file'] = '/etc/upwdchg/frontend/public.pem';
+    $_CONFIG['frontend_private_key_file'] = '/etc/upwdchg/frontend/private.pem';
     $_CONFIG['random_source'] = MCRYPT_DEV_URANDOM;
     $_CONFIG['authentication_method'] = 'http';
     $_CONFIG['authentication_exempt'] = array();
@@ -183,11 +191,12 @@ class UPwdChg
       if(!is_array($_CONFIG[$p]))
         trigger_error('['.__METHOD__.'] Parameter must be an array ('.$p.')', E_USER_ERROR);
     // ... is readable
-    foreach(array('resources_directory', 'tokens_directory_public', 'public_key_file') as $p)
+    foreach(array('resources_directory', 'backend_public_key_file', 'frontend_tokens_directory',
+                  'frontend_public_key_file', 'frontend_private_key_file') as $p)
       if(!is_readable($_CONFIG[$p]))
         trigger_error('['.__METHOD__.'] Parameter must be a readable path ('.$p.')', E_USER_ERROR);
     // ... is writeable
-    foreach(array('tokens_directory_private') as $p)
+    foreach(array('backend_tokens_directory') as $p)
       if(!is_writable($_CONFIG[$p]))
         trigger_error('['.__METHOD__.'] Parameter must be a writable path ('.$p.')', E_USER_ERROR);
 
@@ -853,7 +862,7 @@ class UPwdChg
 
 
   /*
-   * METHODS: Token (private)
+   * METHODS: Token (frontend-to-backend)
    ********************************************************************************/
 
   /** Return the "password-nonce-request" token data (associative array)
@@ -950,18 +959,28 @@ class UPwdChg
 
     // Encrypt the (symmetric) data key
     $sDataKey = mcrypt_create_iv(UPwdChg::CIPHER_KEY_LENGTH, $this->amCONFIG['random_source']);
-    // ... load the RSA public key
-    $sPublicKey = file_get_contents($this->amCONFIG['public_key_file']);
+    // ... load the public key
+    $sPublicKey = file_get_contents($this->amCONFIG['backend_public_key_file']);
     if(empty($sPublicKey)) {
-      trigger_error('['.__METHOD__.'] Failed to load RSA public key', E_USER_WARNING);
+      trigger_error('['.__METHOD__.'] Failed to load backend public key', E_USER_WARNING);
       throw new Exception($this->getText('error:internal_error'));
     }
     $mPublicKey = openssl_pkey_get_public($sPublicKey);
     if($mPublicKey === false) {
-      trigger_error('['.__METHOD__.'] Invalid RSA public key', E_USER_WARNING);
+      trigger_error('['.__METHOD__.'] Invalid backend public key', E_USER_WARNING);
       throw new Exception($this->getText('error:internal_error'));
     }
-    // ... encrypt the data key using the RSA public key
+    $aPublicKey_details = openssl_pkey_get_details($mPublicKey);
+    if($aPublicKey_details === false) {
+      trigger_error('['.__METHOD__.'] Failed to retrieve backend public key details', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    if(!array_key_exists($aPublicKey_details['type'], UPwdChg::PUBLIC_ALGOS)) {
+      trigger_error('['.__METHOD__.'] Invalid backend public key type', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    $sDataKeyCipherAlgo = UPwdChg::PUBLIC_ALGOS[$aPublicKey_details['type']];
+    // ... encrypt the data key using the public key
     if(openssl_public_encrypt($sDataKey, $sDataKeyEncrypted, $mPublicKey, OPENSSL_PKCS1_OAEP_PADDING) === false) {
       trigger_error('['.__METHOD__.'] Failed to encrypt data key', E_USER_WARNING);
       throw new Exception($this->getText('error:internal_error'));
@@ -972,6 +991,34 @@ class UPwdChg
     $sDataEncrypted = openssl_encrypt($sData, UPwdChg::CIPHER_ALGO, $sDataKey, true, $sDataIv);
     if(empty($sDataEncrypted)) {
       trigger_error('['.__METHOD__.'] Failed to encrypt data', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+
+    // Sign the data
+    // ... load the private key
+    $sPrivateKey = file_get_contents($this->amCONFIG['frontend_private_key_file']);
+    if(empty($sPrivateKey)) {
+      trigger_error('['.__METHOD__.'] Failed to load frontend private key', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    $mPrivateKey = openssl_pkey_get_private($sPrivateKey);
+    if($mPrivateKey === false) {
+      trigger_error('['.__METHOD__.'] Invalid frontend private key', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    $aPrivateKey_details = openssl_pkey_get_details($mPrivateKey);
+    if($aPrivateKey_details === false) {
+      trigger_error('['.__METHOD__.'] Failed to retrieve frontend private key details', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    if(!array_key_exists($aPrivateKey_details['type'], UPwdChg::PUBLIC_ALGOS)) {
+      trigger_error('['.__METHOD__.'] Invalid frontend private key type', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    $sDataSignatureAlgo = UPwdChg::PUBLIC_ALGOS[$aPrivateKey_details['type']];
+    # ... sign the data
+    if(openssl_sign($sDataEncrypted, $sDataSignature, $mPrivateKey, UPwdChg::DIGEST_ALGO) === false) {
+      trigger_error('['.__METHOD__.'] Failed to sign data', E_USER_WARNING);
       throw new Exception($this->getText('error:internal_error'));
     }
 
@@ -987,10 +1034,14 @@ class UPwdChg
             ),
             'key' => array(
               'cipher' => array(
-                'algorithm' => 'public',
+                'algorithm' => $sDataKeyCipherAlgo,
               ),
               'base64' => base64_encode($sDataKeyEncrypted),
             ),
+          ),
+          'signature' => array(
+            'algorithm' => $sDataSignatureAlgo.'-'.UPwdChg::DIGEST_ALGO,
+            'base64' => base64_encode($sDataSignature),
           ),
           'base64' => base64_encode($sDataEncrypted),
         ),
@@ -1057,7 +1108,7 @@ class UPwdChg
 
 
   /*
-   * METHODS: Token (public)
+   * METHODS: Token (backend-to-frontend)
    ********************************************************************************/
 
   /** Return the decrypted token data
@@ -1073,6 +1124,26 @@ class UPwdChg
       throw new Exception($this->getText('error:internal_error'));
     }
 
+    // Verify the data signature
+    $sDataSignatureAlgo = strtolower($asToken['data']['signature']['algorithm']);
+    $sDataSignature = base64_decode($asToken['data']['signature']['base64']);
+    // ... load the public key
+    $sPublicKey = file_get_contents($this->amCONFIG['backend_public_key_file']);
+    if(empty($sPublicKey)) {
+      trigger_error('['.__METHOD__.'] Failed to load backend public key', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    $mPublicKey = openssl_pkey_get_public($sPublicKey);
+    if($mPublicKey === false) {
+      trigger_error('['.__METHOD__.'] Invalid backend public key', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+    // ... verify the signature
+    if(openssl_verify($sData, $sDataSignature, $mPublicKey, explode('-', $sDataSignatureAlgo, 2)[1]) !== 1) {
+      trigger_error('['.__METHOD__.'] Failed to verify data signature', E_USER_WARNING);
+      throw new Exception($this->getText('error:internal_error'));
+    }
+
     // Decrypt the (symmetric) data key
     $sDataKey = base64_decode($asToken['data']['cipher']['key']['base64']);
     if(empty($sDataKey)) {
@@ -1081,20 +1152,20 @@ class UPwdChg
     }
     $sDataKeyCipherAlgo = strtolower($asToken['data']['cipher']['key']['cipher']['algorithm']);
     switch($sDataKeyCipherAlgo) {
-    case 'private':
-      // ... load the RSA public key
-      $sPublicKey = file_get_contents($this->amCONFIG['public_key_file']);
-      if(empty($sPublicKey)) {
-        trigger_error('['.__METHOD__.'] Failed to load RSA public key', E_USER_WARNING);
+    case 'rsa':
+      // ... load the private key
+      $sPrivateKey = file_get_contents($this->amCONFIG['frontend_private_key_file']);
+      if(empty($sPrivateKey)) {
+        trigger_error('['.__METHOD__.'] Failed to load frontend private key', E_USER_WARNING);
         throw new Exception($this->getText('error:internal_error'));
       }
-      $mPublicKey = openssl_pkey_get_public($sPublicKey);
-      if($mPublicKey === false) {
-        trigger_error('['.__METHOD__.'] Invalid RSA public key', E_USER_WARNING);
+      $mPrivateKey = openssl_pkey_get_private($sPrivateKey);
+      if($mPrivateKey === false) {
+        trigger_error('['.__METHOD__.'] Invalid frontend private key', E_USER_WARNING);
         throw new Exception($this->getText('error:internal_error'));
       }
-      // ... decrypt the data key using the RSA public key
-      if(openssl_public_decrypt($sDataKey, $sDataKeyDecrypted, $mPublicKey, OPENSSL_PKCS1_PADDING) === false) {
+      // ... decrypt the data key using the private key
+      if(openssl_private_decrypt($sDataKey, $sDataKeyDecrypted, $mPrivateKey, OPENSSL_PKCS1_OAEP_PADDING) === false) {
         trigger_error('['.__METHOD__.'] Failed to decrypt data key', E_USER_WARNING);
         throw new Exception($this->getText('error:internal_error'));
       }
@@ -1194,7 +1265,7 @@ class UPwdChg
    */
   private function readToken_PasswordNonce($sPasswordNonce_id) {
     // Read password nonce from storage
-    $sFile = $this->amCONFIG['tokens_directory_public'].DIRECTORY_SEPARATOR.$sPasswordNonce_id.'.nonce';
+    $sFile = $this->amCONFIG['frontend_tokens_directory'].DIRECTORY_SEPARATOR.$sPasswordNonce_id.'.nonce';
     if(!is_readable($sFile)) {
       throw new Exception($this->getText('error:invalid_password_nonce'));
     }

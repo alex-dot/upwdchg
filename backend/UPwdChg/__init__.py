@@ -20,16 +20,14 @@
 # License-Filename: LICENSE/GPL-3.0.txt
 #
 
-# Constants
+#------------------------------------------------------------------------------
+# CONSTANTS
+#------------------------------------------------------------------------------
+
 UPWDCHG_VERSION = 'devel'
+UPWDCHG_CONFIGSPEC = 'upwdchg.conf.spec'
 UPWDCHG_ENCODING = 'utf-8'
-UPWDCHG_DEFAULT_DIR_PRIVATE = '/var/lib/upwdchg/tokens/private.d'
-UPWDCHG_DEFAULT_FILE_KEY_PRIVATE = '/etc/upwdchg/private.pem'
-UPWDCHG_DEFAULT_DIR_PUBLIC = '/var/lib/upwdchg/tokens/public.d'
-UPWDCHG_DEFAULT_FILE_KEY_PUBLIC = '/etc/upwdchg/public.pem'
-UPWDCHG_DEFAULT_DIR_PLUGINS = '/etc/upwdchg/backend/plugins/%{type}.d'
-UPWDCHG_DEFAULT_FILE_RANDOM = '/dev/urandom'
-UPWDCHG_DEFAULT_ALLOWED_TYPES = 'password-change'
+UPWDCHG_PUBLIC_ALGO = 'rsa'
 UPWDCHG_CIPHER_ALGO = 'aes_256_cbc'
 UPWDCHG_CIPHER_KEY_LENGTH = 32
 UPWDCHG_CIPHER_IV_LENGTH = 16
@@ -40,7 +38,13 @@ UPWDCHG_PWHASH_ITERATIONS = 10000
 UPWDCHG_IDHASH_METHOD = 'hash'
 UPWDCHG_IDHASH_ALGO = 'sha256'
 
-# Dependencies
+
+#------------------------------------------------------------------------------
+# DEPENDENCIES
+#------------------------------------------------------------------------------
+
+# UPwdChg
+from .upwdchg_config import Config
 from .upwdchg_tokendata import TokenData
 from .upwdchg_tokenreader import TokenReader
 from .upwdchg_tokenwriter import TokenWriter

@@ -22,18 +22,19 @@ The Universal Password Changer (UPwdChg) is split in two parts:
 In order to deal with the lower security of the frontend host, public key
 cryptography is used:
  - on the frontend, password change requests are encrypted as password
-   change tokens, using the RSA public key of the processing backend
+   change tokens, using the public key of the processing backend
  - password change tokens are saved in a storage location shared between
    the frontend and the backend (e.g. NFS, CIFS, SSHFS, rsync, etc.)
  - on the backend, password change tokens are decrypted using the backend
-   RSA private key, and processed through customizable plugins
+   private key, and processed through customizable plugins
 
 Password change tokens are actually made of:
  - the password change data - request timestamp, username, old and new
    passwords, etc. - along corresponding their cryptographic digest, encrypted
    using a symetric cipher
  - the symetric cipher key and initialization vector (IV), encrypted with
-   the supplied RSA public key
+   the backend public key
+ - the encrypted payload signature, created with the frontend private key
 
 Once decrypted, password change tokens/requests are processed through various
 user-customizable plugins:

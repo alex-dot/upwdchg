@@ -1,5 +1,5 @@
 Universal Password Changer (UPwdChg)
-============================================
+====================================
 
 NOTE: For the sake of clarity, we will assume a Linux (Debian) environment.
 
@@ -27,12 +27,12 @@ NOTE: By "build", we mean create the necessary tarballs/package required for
 
 4. [MAY] Build the debian packages:
 
-   BASH: debuild -us -uc -b
+   BASH: dpkg-buildpackage -us -uc -b
    BASH: ls -al ../upwdchg-*_@version@_all.deb
 
 5. [MAY] Build the debian source package:
 
-   BASH: debuild -I'.git*' -I'*.pyc' -us -uc -S
+   BASH: dpkg-buildpackage -I'.git*' -I'*.pyc' -us -uc -S -d
    BASH: ls -al ../upwdchg_@version@.dsc ../upwdchg_@version@.tar.gz
 
 OR
@@ -47,7 +47,7 @@ INSTALL
 
 WARNING:
    The Universal Password Changer (UPwdChg) is actively maintained on Linux.
-   It has not been tested on Windows.
+   It has not been tested on other operating systems.
 
 NOTE:
    We assume a previously working Python and Apache/PHP/PEAR setup.
@@ -94,29 +94,41 @@ NOTE:
     - the Universal Password Changer located at 'https://example.org/upwdchg/'
       (corresponding to '/etc/upwdchg/frontend/htdocs/')
 
-1. [MUST] Create the password change tokens directory:
+1. [MUST] Create the password change tokens and configuration directory:
 
-   BASH: mkdir -p /var/lib/upwdchg/tokens/{private,public}.d
+   BASH: mkdir -p /var/lib/upwdchg/{backend,frontend}/tokens.d
+   BASH: mkdir -p /etc/upwdchg/{backend,frontend}
 
-   (and adjust the 'tokens_directory_*' configuration correspondingly; see 3.)
+   (and adjust the '*_tokens_directory' configuration correspondingly; see 4.)
 
-2. [MAY] Create and customize the (localized) resources directory:
+2. [MUST] Create the private/public keys pair:
 
    BASH: mkdir -p /etc/upwdchg/frontend
+   BASH: touch /etc/upwdchg/frontend/private.pem \
+         && chmod go= /etc/upwdchg/frontend/private.pem \
+         && openssl genrsa -out /etc/upwdchg/frontend/private.pem 4096
+   BASH: openssl rsa -in /etc/upwdchg/frontend/private.pem \
+                     -out /etc/upwdchg/frontend/public.pem \
+                     -outform PEM -pubout
+
+   (and copy the backend public key - ONLY! - to /etc/upwdchg/backend; see BACKEND below)
+
+3. [MAY] Create and customize the (localized) resources directory:
+
    BASH: cp -r /usr/share/php/UPwdChg/resources \
                /etc/upwdchg/frontend/.
 
-   (and adjust the 'resources_directory' configuration correspondingly; see 3.)
+   (and adjust the 'resources_directory' configuration correspondingly; see 4.)
 
-3. [MUST] Create and customize the configuration file:
+4. [MUST] Create and customize the configuration file:
 
    BASH: mkdir -p /etc/upwdchg/frontend
    BASH: cp /usr/share/php/doc/UPwdChg/examples/config.php \
             /etc/upwdchg/frontend/.
 
-   (and set Apache 'PHP_UPWDCHG_CONFIG' environment correspondingly; see 5.)
+   (and set Apache 'PHP_UPWDCHG_CONFIG' environment correspondingly; see 6.)
 
-4. [MUST] Create and customize the root HTML document file (index.php):
+5. [MUST] Create and customize the root HTML document file (index.php):
 
    BASH: mkdir -p /etc/upwdchg/frontend/htdocs
    BASH: cp /usr/share/php/doc/UPwdChg/examples/index.php \
@@ -124,7 +136,7 @@ NOTE:
 
    (feel free to modify the HTML content to match your visual needs)
 
-5. [MUST] Configure Apache:
+6. [MUST] Configure Apache:
 
    BASH: mkdir -p /etc/upwdchg/frontend
    BASH: cp /usr/share/php/doc/UPwdChg/examples/apache.conf \
@@ -141,36 +153,50 @@ SYSNOPSIS:
    with the tools to process password change tokens.
    Password change tokens are then passed - in their encrypted form - to
    various user-customizable processing plugins, which may do whatever is
-   deamed necessary to perform the actual password change, such as password
+   deemed necessary to perform the actual password change, such as password
    policy verification, credentials check and password change operations on
    various backends (such as LDAP, MIT Kerberos 5, Microsoft Active Directory,
    etc.).
    This processing can be fully automated thanks to the Universal Password
    Changer (UPwdChg) Daemon (see below).
 
-1. [MUST] Create the RSA private/public keys pair:
+1. [MUST] Create the password change tokens and configuration directory:
 
-   BASH: mkdir -p /etc/upwdchg
-   BASH: touch /etc/upwdchg/private.pem \
-         && chmod go= /etc/upwdchg/private.pem \
-         && openssl genrsa -out /etc/upwdchg/private.pem 4096
-   BASH: openssl rsa -in /etc/upwdchg/private.pem \
-                     -out /etc/upwdchg/public.pem \
+   BASH: mkdir -p /var/lib/upwdchg/{backend,frontend}/tokens.d
+   BASH: mkdir -p /etc/upwdchg/{backend,frontend}
+
+   (and adjust the 'tokens_directory' configuration correspondingly; see 4.)
+
+2. [MUST] Create the private/public keys pair:
+
+   BASH: touch /etc/upwdchg/backend/private.pem \
+         && chmod go= /etc/upwdchg/backend/private.pem \
+         && openssl genrsa -out /etc/upwdchg/backend/private.pem 4096
+   BASH: openssl rsa -in /etc/upwdchg/backend/private.pem \
+                     -out /etc/upwdchg/backend/public.pem \
                      -outform PEM -pubout
 
-2. [MUST] Create and customize password change token processing plugins:
+   (and copy BOTH the frontend private+public keys to /etc/upwdchg/frontend; see FRONTEND above)
+   
+3. [MUST] Create and customize password change token processing plugins:
 
    BASH: mkdir -p /etc/upwdchg/backend/plugins/password-change.d
    BASH: cp /usr/share/upwdchg/backend/plugins/* \
             /etc/upwdchg/backend/plugins/password-change.d
 
    (edit/configure each plugin to match your environment/requirements)
+   (and adjust the 'plugins_directory' configuration correspondingly; see 4.)
 
-3. [MAY] Create password change tokens manually:
+4. [MUST] Create and customize the configuration file:
+
+   BASH: cp /usr/share/upwdchg/backend/upwdchg.conf.sample \
+            /etc/upwdchg/backend/upwdchg.conf
+
+5. [MAY] Create password change tokens manually:
 
    BASH: upwdchg-token --help
 
-4. [MAY] Process password change tokens manually:
+6. [MAY] Process password change tokens manually:
 
    BASH: upwdchg-process --help
 
@@ -188,12 +214,6 @@ SYSNOPSIS:
    between the two hosts using shared mountpoints (NFS, CIFS, SSHFS, ...) or
    regular synchronization (RSync, ...).
 
-1. [MUST] Create and customize the configuration file:
-
-   BASH: mkdir -p /etc/upwdchg/daemon
-   BASH: cp /usr/share/upwdchg/daemon/upwdchg-daemon.conf.sample \
-            /etc/upwdchg/daemon/upwdchg-daemon.conf
-
-2. [MUST] Launch the processing daemon:
+1. [MUST] Launch the processing daemon:
 
    BASH: upwdchg-daemon --help

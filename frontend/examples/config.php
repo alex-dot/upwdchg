@@ -23,18 +23,24 @@
 # ATTENTION: This directory MUST be readable (but NOT writable) by PHP!
 #$_CONFIG['resources_directory'] = dirname(__FILE__).'/data/UPwdChg/resources'; // is_readable(path)
 
-# Tokens directory (private)
+# Backend tokens directory (frontend-to-backend tokens)
 # ATTENTION: This directory MUST be writable by PHP!
 # CRITICAL: THIS DIRECTORY MUST NOT BE ACCESSIBLE FROM THE WEB!!!
-#$_CONFIG['tokens_directory_private'] = '/var/lib/upwdchg/tokens/private.d'; // is_writable(path)
+#$_CONFIG['backend_tokens_directory'] = '/var/lib/upwdchg/backend/tokens.d'; // is_writable(path)
 
-# Tokens directory (public)
+# Backend public key file (PEM formatted).
+#$_CONFIG['backend_public_key_file'] = '/etc/upwdchg/backend/public.pem'; // is_readable(path)
+
+# Frontend tokens directory (backend-to-frontend tokens)
 # ATTENTION: This directory MUST be readable by PHP!
 # CRITICAL: THIS DIRECTORY MUST NOT BE ACCESSIBLE FROM THE WEB!!!
-#$_CONFIG['tokens_directory_public'] = '/var/lib/upwdchg/tokens/public.d'; // is_readable(path)
+#$_CONFIG['frontend_tokens_directory'] = '/var/lib/upwdchg/frontend/tokens.d'; // is_readable(path)
 
-# RSA public key file (PEM formatted).
-#$_CONFIG['public_key_file'] = '/etc/upwdchg/public.pem'; // is_readable(path)
+# Frontend public key file (PEM formatted).
+#$_CONFIG['frontend_public_key_file'] = '/etc/upwdchg/frontend/public.pem'; // is_readable(path)
+
+# Frontend private key file (PEM formatted).
+#$_CONFIG['frontend_private_key_file'] = '/etc/upwdchg/frontend/private.pem'; // is_readable(path)
 
 # PHP-MCrypt random source (used to generate encryption data key/IV)
 #$_CONFIG['random_source'] = MCRYPT_DEV_URANDOM; // integer
