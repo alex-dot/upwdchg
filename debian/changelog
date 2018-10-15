@@ -1,3 +1,13 @@
+upwdchg (2.0.20181015a) UNRELEASED; urgency=low
+
+  * NEW RELEASE
+
+  Cédric Dufour:
+  - FIX: Token timestamp (TTL) and expiration checks
+  - FIX: Plugins debug messages
+
+ -- Cédric Dufour <cedric.dufour@ced-network.net>  Mon, 15 Oct 2018 15:59:08 +0200
+
 upwdchg (2.0.20181005a) UNRELEASED; urgency=low
 
   * NEW RELEASE
