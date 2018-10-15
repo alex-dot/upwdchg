@@ -5,4 +5,26 @@ semantic.cache
 
 # Ignore Python byte-compiled files (and related files)
 *.pyc
+*/__pycache__/
+
+# Ignore unit tests directory
+/tests/tmp
+
+# Ignore Python packaging directory
+/build
+
+# Ignore Debian packaging resources
+/.pybuild
+/debian/debhelper-build-stamp
+/debian/files
+/debian/*.debhelper
+/debian/*.debhelper.log
+/debian/*.substvars
+/debian/tmp
+/debian/upwdchg-backend/
+/debian/upwdchg-common/
+/debian/upwdchg-daemon/
+/debian/upwdchg-frontend/
+/debian/upwdchg-plugins/
+/frontend/package.xml
 

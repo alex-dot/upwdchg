@@ -2,10 +2,11 @@ Source: upwdchg
 Section: admin
 Priority: optional
 Maintainer: Cedric Dufour <cedric.dufour@ced-network.net>
-Build-Depends: python (>= 2.7), debhelper (>= 8), dh-python, help2man
-Build-Depends-Indep: php-pear, python-argparse, python-configobj, python-daemon, python-m2crypto
+Build-Depends: python3 (>= 3.4), debhelper (>= 10), dh-python, dh-systemd, help2man
+Build-Depends-Indep: php-pear, python3-configobj, python3-daemon, python3-pycryptodome
+X-Python3-Version: >= 3.4
 Homepage: http://cedric.dufour.name/software/upwdchg
-Standards-Version: 3.9.8
+Standards-Version: 4.1.3
 
 Package: upwdchg-common
 Architecture: all
@@ -25,18 +26,19 @@ Description: Universal Password Changer (UPwdChg) - common files
  In order to deal with the lower security of the frontend host,  public key
  cryptography is used:
   - on the frontend, password change requests are encrypted as password
-    change tokens, using the RSA public key of the processing backend
+    change tokens, using the public key of the processing backend
   - password change tokens are saved in a storage location shared between
     the frontend and the backend (e.g. NFS, CIFS, SSHFS, rsync, etc.)
   - on the backend, password change tokens are decrypted using the backend
-    RSA private key, and processed through customizable plugins
+    private key, and processed through customizable plugins
  .
  Password change tokens are actually made of:
   - the password change data - request timestamp, username, old and new
     passwords - along corresponding SHA-256 digest, all of it encrypted using
     AES-256-CBC symetric cipher and base64 encoded
   - the symetric cipher key and initialization vector (IV), encrypted with
-    the supplied RSA public key and base64-encoded
+    the backend RSA public key and base64-encoded
+  - the encrypted payload signature, created with the frontend private key
  .
  Once decrypted, password change tokens/requests are processed through various
  user-customizable plugins:
@@ -55,7 +57,7 @@ Description: Universal Password Changer (UPwdChg) - common files
 
 Package: upwdchg-frontend
 Architecture: all
-Depends: ${misc:Depends}, upwdchg-common, libapache2-mod-php | php-cgi | php-fpm | libapache2-mod-php5 | php5-cgi | php5-fpm, php-mcrypt | php5-mcrypt, php-mbstring | libapache2-mod-php5 | php5-cgi | php5-fpm, php-pear
+Depends: ${misc:Depends}, upwdchg-common (>= 3), libapache2-mod-php | php-cgi | php-fpm | libapache2-mod-php5 | php5-cgi | php5-fpm, php-mcrypt | php5-mcrypt, php-mbstring | libapache2-mod-php5 | php5-cgi | php5-fpm, php-pear
 Recommends: php-ldap | php5-ldap
 Suggests: php-text-captcha, php-image-text
 Description: Universal Password Changer (UPwdChg) - frontend utilities
@@ -70,8 +72,9 @@ Description: Universal Password Changer (UPwdChg) - frontend utilities
 
 Package: upwdchg-backend
 Architecture: all
-Depends: ${misc:Depends}, ${python:Depends}, upwdchg-common, python-argparse, python-configobj, python-daemon, python-m2crypto
-Suggests: upwdchg-plugins, python-ldap, krb5-admin-server | ssh-client
+Depends: ${misc:Depends}, python3 (>= 3.4), upwdchg-common (>= 3), python3-configobj, python3-daemon, python3-pycryptodome
+Suggests: upwdchg-plugins, python3-ldap, krb5-admin-server | ssh-client
+Conflicts: upwdchg-plugins (<< 3)
 Description: Universal Password Changer (UPwdChg) - backend utilities
  The Universal Password Changer (UPwdChg) allows one to synchronize passwords
  between multiple and different user directory systems - LDAP, MIT Kerberos,
@@ -85,7 +88,7 @@ Description: Universal Password Changer (UPwdChg) - backend utilities
 
 Package: upwdchg-daemon
 Architecture: all
-Depends: ${misc:Depends}, ${python:Depends}, upwdchg-common, upwdchg-backend
+Depends: ${misc:Depends}, python3 (>= 3.4), upwdchg-common (>= 3), upwdchg-backend (>= 3)
 Suggests: upwdchg-plugins
 Description: Universal Password Changer (UPwdChg) - processing daemon
  The Universal Password Changer (UPwdChg) allows one to synchronize passwords
@@ -98,7 +101,9 @@ Description: Universal Password Changer (UPwdChg) - processing daemon
 
 Package: upwdchg-plugins
 Architecture: all
-Depends: ${misc:Depends}, python, upwdchg-common, upwdchg-backend
+Depends: ${misc:Depends}
+Conflicts: upwdchg-backend (<< 3)
+Suggests: python3-ldap, python3-mysqldb
 Description: Universal Password Changer (UPwdChg) - sample plugins
  The Universal Password Changer (UPwdChg) allows one to synchronize passwords
  between multiple and different user directory systems - LDAP, MIT Kerberos,
@@ -106,11 +111,14 @@ Description: Universal Password Changer (UPwdChg) - sample plugins
  ability and untrusted frontends security.
  .
  The Universal Password Changer (UPwdChg) sample plugins are:
+ .
   * debug
     - ShowTokenInfo:         display token details
+ .
   * nonce
     - SendPasswordNonceLdap: send password nonce (PIN code) via e-mail
     - NukePasswordNonce:     invalidate password nonce (PIN code)
+ .
   * validation
     - CheckTimestamp:        check token creation date/time
     - CheckExpiration:       check token expiration date/time
@@ -119,17 +127,36 @@ Description: Universal Password Changer (UPwdChg) - sample plugins
     - CheckPasswordPolicy:   check password policy (length, complexity)
     - CheckCredentialsLdap:  check credentials on LDAP server
     - CheckPasswordChange:   check old and new passwords are different
+ .
   * password change
     - ChangePasswordLdap:    perform password change on LDAP server
     - ChangePasswordKrb5:    perform password change on MIT Kerberos 5 server
     - ChangePasswordAd:      perform password change on Microsoft Active
                              Directory server
+    - ChangePasswordMysql:   perform password change on MySQL server
+ .
   * account creation (synchronization)
     - CreateAccountKrb5:     create MIT Kerberos 5 principal (or update its
                              password if already existing)
     - CreateAccountAd:       create Active Directory user account (or update
                              its password if already existing)
+ .
   * groups synchronization
     - SynchGroupsLdap:       synchronize groups between LDAP servers
     - SynchGroupsMemberLdap: synchronize groups (user) membership between
                              LDAP servers
+
+Package: upwdchg-plugins-2to3
+Architecture: all
+Depends: patch
+Description: Universal Password Changer (UPwdChg) - 2-to-3 plugins migration patches
+ The Universal Password Changer (UPwdChg) allows one to synchronize passwords
+ between multiple and different user directory systems - LDAP, MIT Kerberos,
+ Microsoft Active Directory, etc. - with an emphasis on flexibility, customiz-
+ ability and untrusted frontends security.
+ .
+ This package contains the patches allowing to upgrade existing version 2.x plugins
+ to version 3.x. To apply:
+   cat /usr/share/upwdchg/backend/plugins/2to3/<plugin>.patch \
+   | patch /path/to/existing/<plugin>
+

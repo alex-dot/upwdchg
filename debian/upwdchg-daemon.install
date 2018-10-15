@@ -1,4 +1,3 @@
 debian/tmp/usr/bin/upwdchg-daemon
 debian/tmp/usr/share/man/man1/upwdchg-daemon.1
-debian/tmp/usr/share/upwdchg/daemon
 debian/tmp/etc/upwdchg/daemon

@@ -1,0 +1,13 @@
+[Unit]
+Description=Universal Password Changer (UPwdChg) Daemon
+After=local-fs.target syslog.service remote-fs.target
+
+[Service]
+Type=simple
+Environment="PYTHONUNBUFFERED=yes" "CONFIG_FILE=--config=/etc/upwdchg/backend/upwdchg.conf"
+EnvironmentFile=/etc/default/upwdchg-daemon
+ExecStart=/usr/bin/upwdchg-daemon -f ${CONFIG_FILE}
+
+[Install]
+WantedBy=multi-user.target
+

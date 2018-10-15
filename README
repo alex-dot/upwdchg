@@ -67,11 +67,14 @@ The Universal Password Changer (UPwdChg) provides:
                         tokens and automatically process them
 
 3. a set of password change token processing plugins:
+
     * debug
       - ShowTokenInfo:         display token details
+
     * nonce
       - SendPasswordNonceLdap: send password nonce (PIN code) via e-mail
       - NukePasswordNonce:     invalidate password nonce (PIN code)
+
     * validation
       - CheckTimestamp:        check token creation date/time
       - CheckExpiration:       check token expiration date/time
@@ -80,16 +83,20 @@ The Universal Password Changer (UPwdChg) provides:
       - CheckPasswordPolicy:   check password policy (length, complexity)
       - CheckCredentialsLdap:  check credentials on LDAP server
       - CheckPasswordChange:   check old and new passwords are different
+
     * password change
       - ChangePasswordLdap:    perform password change on LDAP server
       - ChangePasswordKrb5:    perform password change on MIT Kerberos 5 server
       - ChangePasswordAd:      perform password change on Microsoft Active
                                Directory server
+      - ChangePasswordMysql:   perform password change on MySQL server
+
     * account creation (synchronization)
       - CreateAccountKrb5:     create MIT Kerberos 5 principal (or update its
                                password if already existing)
       - CreateAccountAd:       create Active Directory user account (or update
                                its password if already existing)
+
     * groups synchronization
       - SynchGroupsLdap:       synchronize groups between LDAP servers
       - SynchGroupsMemberLdap: synchronize groups (user) membership between

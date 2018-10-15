@@ -3,4 +3,5 @@ debian/tmp/usr/bin/upwdchg-token
 debian/tmp/usr/bin/upwdchg-process
 debian/tmp/usr/share/man/man1/upwdchg-token.1
 debian/tmp/usr/share/man/man1/upwdchg-process.1
+debian/tmp/usr/share/upwdchg/backend/upwdchg.conf.spec
 debian/tmp/etc/upwdchg/backend

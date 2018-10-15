@@ -5,12 +5,12 @@ case "$1" in
 
   configure)
     # Set appropriate permissions
-    chown -R root:www-data /etc/upwdchg/frontend
-    find /etc/upwdchg/frontend -type d -exec chmod 750 {} \;
-    find /etc/upwdchg/frontend -type f -exec chmod 640 {} \;
-    chown root:www-data /var/lib/upwdchg/tokens/private.d /var/lib/upwdchg/tokens/public.d /var/log/upwdchg/frontend
-    chmod 2770 /var/lib/upwdchg/tokens/private.d /var/log/upwdchg/frontend
-    chmod 0750 /var/lib/upwdchg/tokens/public.d
+    chown -R root:www-data /etc/upwdchg/backend /etc/upwdchg/frontend
+    find /etc/upwdchg/backend /etc/upwdchg/frontend -type d -exec chmod 750 {} \;
+    find /etc/upwdchg/backend /etc/upwdchg/frontend -type f -exec chmod 640 {} \;
+    chown root:www-data /var/lib/upwdchg/backend/tokens.d /var/lib/upwdchg/frontend/tokens.d /var/log/upwdchg/frontend
+    chmod 2770 /var/lib/upwdchg/backend/tokens.d /var/log/upwdchg/frontend
+    chmod 0750 /var/lib/upwdchg/frontend/tokens.d
 
     # Adapt logrotate (< 3.8.0) configuration
     if [ -n "$(which logrotate)" ]; then

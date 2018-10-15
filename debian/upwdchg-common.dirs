@@ -1,2 +1,4 @@
-/var/lib/upwdchg/tokens/private.d
-/var/lib/upwdchg/tokens/public.d
+/etc/upwdchg/backend
+/etc/upwdchg/frontend
+/var/lib/upwdchg/backend/tokens.d
+/var/lib/upwdchg/frontend/tokens.d

@@ -11,11 +11,11 @@ export TIME := $(shell date +'%H:%M:%S')
 export PYTHONDONTWRITEBYTECODE=1
 
 # Required for 'help2man'
-export PYTHONPATH:=backend:${PYTHONPATH}
-export PATH:=backend:${PATH}
+export PYTHONPATH:=./backend:${PYTHONPATH}
+export PATH:=./backend:${PATH}
 
 %:
-	dh $@ --with python2
+	dh $@ --with python3,systemd --buildsystem=pybuild
 
 override_dh_install:
 	# Create the PEAR package to be bundled as a Debian package
@@ -35,8 +35,7 @@ override_dh_install:
 	rm -rf debian/tmp/tmp
 
 	# Fix global variables
-	sed -i "s|UPWDCHG_DAEMON_CONFIGSPEC\s*=.*|UPWDCHG_DAEMON_CONFIGSPEC = '/usr/share/upwdchg/daemon/upwdchg-daemon.conf.spec'|" debian/tmp/usr/lib/*/dist-packages/UPwdChg/Util/upwdchg_daemon.py
-	sed -i "s|UPWDCHG_VERSION\s*=.*|UPWDCHG_VERSION = '$(VERSION)'|" debian/tmp/usr/lib/*/dist-packages/UPwdChg/__init__.py
+	sed -i "s|UPWDCHG_VERSION\s*=.*|UPWDCHG_VERSION = '$(VERSION)'|;s|UPWDCHG_CONFIGSPEC\s*=.*|UPWDCHG_CONFIGSPEC = '/usr/share/upwdchg/backend/upwdchg.conf.spec'|" debian/tmp/usr/lib/*/dist-packages/UPwdChg/__init__.py
 
 	# Copy configuration files
 	mkdir -p debian/tmp/etc/upwdchg
@@ -48,10 +47,14 @@ override_dh_install:
 	cp frontend/examples/logrotate debian/tmp/etc/logrotate.d/upwdchg-frontend
 	mkdir -p debian/tmp/etc/upwdchg/backend/plugins/password-change.d
 	cp backend/plugins/README debian/tmp/etc/upwdchg/backend/plugins/password-change.d/README
+	cp backend/upwdchg.conf.sample debian/tmp/etc/upwdchg/backend/upwdchg.conf
+	cp backend/upwdchg.email.template debian/tmp/etc/upwdchg/backend/.
 	mkdir -p debian/tmp/etc/upwdchg/daemon/plugins/password-change.d
-	cp backend/upwdchg-daemon.conf.sample debian/tmp/etc/upwdchg/daemon/upwdchg-daemon.conf
-	cp backend/upwdchg-daemon.email.template debian/tmp/etc/upwdchg/daemon/.
 	cp backend/plugins/README debian/tmp/etc/upwdchg/daemon/plugins/password-change.d/README
+
+	# Split plugins and 2-to-3 patches
+	mkdir -p debian/upwdchg-plugins-2to3/usr/share/upwdchg/backend/plugins
+	mv debian/tmp/usr/share/upwdchg/backend/plugins/2to3 debian/upwdchg-plugins-2to3/usr/share/upwdchg/backend/plugins/.
 
 	# Create man pages
 	mkdir -p debian/tmp/usr/share/man/man1
@@ -75,6 +78,9 @@ override_dh_install:
 override_dh_installdocs:
 	dh_installdocs --link-doc=upwdchg-common README* CREDITS PROTOCOL*
 
+override_dh_systemd_enable:
+	dh_systemd_enable --no-enable
+
 override_dh_clean:
 	dh_clean
 	rm -f frontend/package.xml
@@ -96,11 +102,14 @@ build-install-tarball:
 	tar -C /tmp -cjf ../$(PACKAGE)-$(VERSION).tar.bz2 $(PACKAGE)-$(VERSION)
 	rm -rf /tmp/$(PACKAGE)-$(VERSION)
 
-debian-packages:
-	debuild -us -uc -b
-
 debian-source:
-	debuild -I'.git*' -I'*.pyc' -us -uc -S
+	dpkg-buildpackage -I'.git*' -I'*.pyc' -us -uc -S -d
 
-release: debian-packages build-install-tarball debian-source build-source-tarball ;
+debian-build:
+	dpkg-buildpackage -us -uc -b
+
+debian-clean:
+	dpkg-buildpackage -T clean
+
+release: debian-build build-install-tarball debian-source build-source-tarball ;
 

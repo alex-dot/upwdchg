@@ -1,3 +1,17 @@
+upwdchg (3.0.20181015a) UNRELEASED; urgency=low
+
+  * NEW MAJOR RELEASE (3.x) - WARNING: INCOMPATIBLE WITH VERSION 2.x
+
+  Cédric Dufour:
+  - REFACTOR: [Backend] Python 2-to-3 (to be cont'd)
+  - REFACTOR: [Backend+Frontend] Python 2-to-3 (M2Crypto to pyCryptodome)
+  - REFACTOR: [Plugins] Python 2-to-3 (incl. migration patches)
+  - NEW: Unit tests
+  - FIX: Token timestamp (TTL) and expiration checks
+  - FIX: Plugins debug messages
+
+ -- Cédric Dufour <cedric.dufour@ced-network.net>  Mon, 15 Oct 2018 13:40:22 +0200
+
 upwdchg (2.0.20181005a) UNRELEASED; urgency=low
 
   * NEW RELEASE
