@@ -1054,10 +1054,13 @@ class UPwdChg
    *
    * @param int $iNow Current time (epoch)
    * @param string $sToken Token
+   * @param string $sFile Alternate file (path)
    */
-  private function writeToken($iNow, $sToken) {
+  private function writeToken($iNow, $sToken, $sFile=null) {
     // Write the token to storage
-    $sFile = $this->amCONFIG['tokens_directory_private'].DIRECTORY_SEPARATOR.gmdate('Ymd\THis\Z-', $iNow).bin2hex(openssl_random_pseudo_bytes(8)).'.token';
+    if(is_null($sFile)) {
+      $sFile = $this->amCONFIG['backend_tokens_directory'].DIRECTORY_SEPARATOR.gmdate('Ymd\THis\Z-', $iNow).bin2hex(openssl_random_pseudo_bytes(8)).'.token';
+    }
     $iUMask_old = umask();
     umask(0137);
     if(file_put_contents($sFile, $sToken) != strlen($sToken)) {

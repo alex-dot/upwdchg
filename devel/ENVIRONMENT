@@ -1,2 +1,2 @@
 export PYTHONDONTWRITEBYTECODE=1
-export PYTHONPATH=./backend:${PYTHONPATH}
+export PYTHONPATH=./backend:${PYTHONPATH//*.\/backend:/}
