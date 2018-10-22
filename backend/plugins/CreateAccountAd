@@ -67,6 +67,7 @@ UPWDCHG_PLUGIN_AD_USER_SEARCH_FILTER='(&(objectClass=user)(uid=%{USERNAME}))'
 #     'dn' attribute MUST be set, others are up to you (http://msdn.microsoft.com/en-us/library/ms677943%28v=vs.85%29.aspx)
 #     required "system" attributes ('objectClass', 'userAccountControl') will be set automatically
 #     %{LDAP:<attr>} are subsituted with the given LDAP attribute
+#     (binary) attributes defined as bytes-array will be copied "as is" (without charset decoding/encoding)
 UPWDCHG_PLUGIN_AD_USER_CLASSES=[ 'top', 'person', 'organizationalPerson', 'user' ]
 UPWDCHG_PLUGIN_AD_USER_ATTRS=dict()
 UPWDCHG_PLUGIN_AD_USER_ATTRS['dn']='cn=%{LDAP:cn},ou=Users,dc=example,dc=org'
@@ -95,7 +96,7 @@ class CreateAccountAd(TokenPlugin):
     def __init__(self):
         TokenPlugin.__init__(self, UPWDCHG_PLUGIN_NAME, UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
         # ... fields
-        self.__reLdapVariables = re.compile('%{LDAP:[^}]*}')
+        self.__reLdapVariables = re.compile('%{LDAP:([^}]*)}')
 
 
     def __ldapBind(self):
@@ -291,18 +292,44 @@ class CreateAccountAd(TokenPlugin):
             dAttrsLdap = self.__ldapGetAttributes(oLdap, sUsername)
         dAttrsAd = dict()
         for sKeyAd in UPWDCHG_PLUGIN_AD_USER_ATTRS.keys():
-            sAttr = UPWDCHG_PLUGIN_AD_USER_ATTRS[sKeyAd]
-            sAttr = sAttr.replace('%{USERNAME}', sUsername)
-            for sKeyLdap in dAttrsLdap.keys():
-                sAttr = sAttr.replace('%%{LDAP:%s}' % sKeyLdap, dAttrsLdap[sKeyLdap][0].decode('utf-8'))
-            sAttr = self.__reLdapVariables.sub('', sAttr)
-            dAttrsAd[sKeyAd] = sAttr.encode('utf-8')
+            sbyAttr = UPWDCHG_PLUGIN_AD_USER_ATTRS[sKeyAd]
+            if isinstance(sbyAttr, bytes):
+                try:
+                    sAttr = sbyAttr.decode('utf-8')
+                    sAttr_novars = self.__reLdapVariables.sub('', sAttr)
+                    if len(sAttr_novars):
+                        if len(sAttr_novars) == len(sAttr):
+                            self._DEBUG('AD binary attribute copied "as is": %s' % sKeyAd, TokenPlugin.DEBUG_TRACE)
+                            dAttrsAd[sKeyAd] = sbyAttr
+                        else:
+                            self._DEBUG('AD binary attribute must map LDAP attribute without extraneous data: %s' % sKeyAd)
+                            self._EXIT_ERROR('Internal error; please contact your system administrator')
+                    else:
+                        lsKeysLdap = self.__reLdapVariables.findall(sAttr)
+                        if len(lsKeysLdap) > 1:
+                            self._DEBUG('AD binary attribute must map to a single LDAP attribute: %s' % sKeyAd)
+                            self._EXIT_ERROR('Internal error; please contact your system administrator')
+                        for sKeyLdap in lsKeysLdap:
+                            if sKeyLdap not in dAttrsLdap.keys(): continue
+                            dAttrsAd[sKeyAd] = dAttrsLdap[sKeyLdap][0]
+                except UnicodeDecodeError:
+                    self._DEBUG('AD binary attribute copied "as is": %s' % sKeyAd, TokenPlugin.DEBUG_TRACE)
+                    dAttrsAd[sKeyAd] = sbyAttr
+            else:
+                sAttr = sbyAttr.replace('%{USERNAME}', sUsername)
+                lsKeysLdap = self.__reLdapVariables.findall(sAttr)
+                for sKeyLdap in lsKeysLdap:
+                    if sKeyLdap not in dAttrsLdap.keys(): continue
+                    sAttr = sAttr.replace('%%{LDAP:%s}' % sKeyLdap, dAttrsLdap[sKeyLdap][0].decode('utf-8'))
+                sAttr = self.__reLdapVariables.sub('', sAttr)
+                dAttrsAd[sKeyAd] = sAttr.encode('utf-8')
 
         # ... populate "system" attributes
-        sUserDn = dAttrsAd['dn']
+        sUserDn = dAttrsAd['dn'].decode('utf-8')
         dAttrsAd.pop('dn', None)
         dAttrsAd['objectClass'] = [i if isinstance(i, bytes) else i.encode('utf-8') for i in UPWDCHG_PLUGIN_AD_USER_CLASSES]
         dAttrsAd['userAccountControl'] = b'514'
+        self._DEBUG('Successfully created user attributes for (AD) server:\n%s' % str(dAttrsAd), TokenPlugin.DEBUG_TRACE)
 
         # ... create account
         if UPWDCHG_PLUGIN_DRYRUN:

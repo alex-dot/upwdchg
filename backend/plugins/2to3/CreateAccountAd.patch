@@ -121,29 +121,59 @@
          if not 'dn' in UPWDCHG_PLUGIN_AD_USER_ATTRS:
              self._DEBUG('Missing (AD) user distinguished name (DN) attribute')
              self._EXIT_ERROR('Internal error; please contact your system administrator')
-@@ -301,19 +289,19 @@
+@@ -301,19 +289,45 @@
          if oLdap:
              dAttrsLdap = self.__ldapGetAttributes(oLdap, sUsername)
          dAttrsAd = dict()
 -        for sKeyAd in UPWDCHG_PLUGIN_AD_USER_ATTRS.iterkeys():
-+        for sKeyAd in UPWDCHG_PLUGIN_AD_USER_ATTRS.keys():
-             sAttr = UPWDCHG_PLUGIN_AD_USER_ATTRS[sKeyAd]
-             sAttr = sAttr.replace('%{USERNAME}', sUsername)
+-            sAttr = UPWDCHG_PLUGIN_AD_USER_ATTRS[sKeyAd]
+-            sAttr = sAttr.replace('%{USERNAME}', sUsername)
 -            for sKeyLdap in dAttrsLdap.iterkeys():
 -                sAttr = sAttr.replace('%%{LDAP:%s}' % sKeyLdap, dAttrsLdap[sKeyLdap][0])
-+            for sKeyLdap in dAttrsLdap.keys():
-+                sAttr = sAttr.replace('%%{LDAP:%s}' % sKeyLdap, dAttrsLdap[sKeyLdap][0].decode('utf-8'))
-             sAttr = self.__reLdapVariables.sub('', sAttr)
+-            sAttr = self.__reLdapVariables.sub('', sAttr)
 -            dAttrsAd[sKeyAd] = sAttr
-+            dAttrsAd[sKeyAd] = sAttr.encode('utf-8')
++        for sKeyAd in UPWDCHG_PLUGIN_AD_USER_ATTRS.keys():
++            sbyAttr = UPWDCHG_PLUGIN_AD_USER_ATTRS[sKeyAd]
++            if isinstance(sbyAttr, bytes):
++                try:
++                    sAttr = sbyAttr.decode('utf-8')
++                    sAttr_novars = self.__reLdapVariables.sub('', sAttr)
++                    if len(sAttr_novars):
++                        if len(sAttr_novars) == len(sAttr):
++                            self._DEBUG('AD binary attribute copied "as is": %s' % sKeyAd, TokenPlugin.DEBUG_TRACE)
++                            dAttrsAd[sKeyAd] = sbyAttr
++                        else:
++                            self._DEBUG('AD binary attribute must map LDAP attribute without extraneous data: %s' % sKeyAd)
++                            self._EXIT_ERROR('Internal error; please contact your system administrator')
++                    else:
++                        lsKeysLdap = self.__reLdapVariables.findall(sAttr)
++                        if len(lsKeysLdap) > 1:
++                            self._DEBUG('AD binary attribute must map to a single LDAP attribute: %s' % sKeyAd)
++                            self._EXIT_ERROR('Internal error; please contact your system administrator')
++                        for sKeyLdap in lsKeysLdap:
++                            if sKeyLdap not in dAttrsLdap.keys(): continue
++                            dAttrsAd[sKeyAd] = dAttrsLdap[sKeyLdap][0]
++                except UnicodeDecodeError:
++                    self._DEBUG('AD binary attribute copied "as is": %s' % sKeyAd, TokenPlugin.DEBUG_TRACE)
++                    dAttrsAd[sKeyAd] = sbyAttr
++            else:
++                sAttr = sbyAttr.replace('%{USERNAME}', sUsername)
++                lsKeysLdap = self.__reLdapVariables.findall(sAttr)
++                for sKeyLdap in lsKeysLdap:
++                    if sKeyLdap not in dAttrsLdap.keys(): continue
++                    sAttr = sAttr.replace('%%{LDAP:%s}' % sKeyLdap, dAttrsLdap[sKeyLdap][0].decode('utf-8'))
++                sAttr = self.__reLdapVariables.sub('', sAttr)
++                dAttrsAd[sKeyAd] = sAttr.encode('utf-8')
  
          # ... populate "system" attributes
-         sUserDn = dAttrsAd['dn']
+-        sUserDn = dAttrsAd['dn']
++        sUserDn = dAttrsAd['dn'].decode('utf-8')
          dAttrsAd.pop('dn', None)
 -        dAttrsAd['objectClass'] = UPWDCHG_PLUGIN_AD_USER_CLASSES
 -        dAttrsAd['userAccountControl'] = '514'
 +        dAttrsAd['objectClass'] = [i if isinstance(i, bytes) else i.encode('utf-8') for i in UPWDCHG_PLUGIN_AD_USER_CLASSES]
 +        dAttrsAd['userAccountControl'] = b'514'
++        self._DEBUG('Successfully created user attributes for (AD) server:\n%s' % str(dAttrsAd), TokenPlugin.DEBUG_TRACE)
  
          # ... create account
          if UPWDCHG_PLUGIN_DRYRUN:
