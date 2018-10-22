@@ -1,3 +1,13 @@
+upwdchg (3.0.20181022a) UNRELEASED; urgency=low
+
+  * NEW RELEASE
+
+  Cédric Dufour:
+  - FIX: [Backend] 'upwdchg_process' failing on token being piped from stdin
+  - FIX: [Plugins] Properly handle binary attributes in 'CreateAccountAd'
+
+ -- Cédric Dufour <cedric.dufour@ced-network.net>  Mon, 22 Oct 2018 13:32:23 +0200
+
 upwdchg (3.0.20181015a) UNRELEASED; urgency=low
 
   * NEW MAJOR RELEASE (3.x) - WARNING: INCOMPATIBLE WITH VERSION 2.x
