@@ -26,6 +26,7 @@
 
 # UPwdChg
 from UPwdChg import \
+    UPWDCHG_ENCODING, \
     UPWDCHG_VERSION, \
     Config, \
     TokenReader
@@ -99,7 +100,7 @@ class Process:
             try:
                 (hFileTmp, _sFileToken) = mkstemp()
                 for sLine in sys.stdin:
-                    os.write(hFileTmp, sLine)
+                    os.write(hFileTmp, sLine.encode(UPWDCHG_ENCODING))
                 os.close(hFileTmp)
             except Exception as e:
                 sys.stderr.write('ERROR[Process]: Failed to store token to temporary file; %s\n' % str(e))
