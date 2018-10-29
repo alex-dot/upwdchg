@@ -1,3 +1,12 @@
+upwdchg (3.0.20181029a) UNRELEASED; urgency=low
+
+  * NEW RELEASE
+
+  Cédric Dufour:
+  - FIX: [Plugins] Properly handle binary attributes in 'SynchGroupsLdap'
+
+ -- Cédric Dufour <cedric.dufour@ced-network.net>  Mon, 29 Oct 2018 10:08:48 +0100
+
 upwdchg (3.0.20181022a) UNRELEASED; urgency=low
 
   * NEW RELEASE
