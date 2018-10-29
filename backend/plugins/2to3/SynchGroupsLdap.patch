@@ -46,7 +46,8 @@
 -        TokenPlugin.__init__(self, 'SynchGroupsLdap', UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
 +        TokenPlugin.__init__(self, UPWDCHG_PLUGIN_NAME, UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
          # ... fields
-         self.__reLdapVariables = re.compile('%{LDAP:[^}]*}')
+-        self.__reLdapVariables = re.compile('%{LDAP:[^}]*}')
++        self.__reLdapVariables = re.compile('%{LDAP:([^}]*)}')
  
  
      def __ldapSrcBind(self):
@@ -155,7 +156,7 @@
              self._DEBUG('Successfully retrieved groups from (destination LDAP) server:\n%s' % str(dGroups), TokenPlugin.DEBUG_TRACE)
          except Exception as e:
              self._DEBUG('Failed to retrieve groups from (destination LDAP) server; %s' % str(e))
-@@ -297,29 +289,23 @@
+@@ -297,29 +290,49 @@
  
  
      def __ldapDstCreateGroup(self, oLdapDst, sGroupname, oLdapSrc, sGroupDnSrc):
@@ -171,22 +172,52 @@
          dAttrsSrc = self.__ldapSrcGetAttributes(oLdapSrc, sGroupDnSrc)
          dAttrsDst = dict()
 -        for sKeyDst in UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS.iterkeys():
-+        for sKeyDst in UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS.keys():
-             sAttr = UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS[sKeyDst]
-             sAttr = sAttr.replace('%{GROUPNAME}', sGroupname)
+-            sAttr = UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS[sKeyDst]
+-            sAttr = sAttr.replace('%{GROUPNAME}', sGroupname)
 -            for sKeySrc in dAttrsSrc.iterkeys():
 -                sAttr = sAttr.replace('%%{LDAP:%s}' % sKeySrc, dAttrsSrc[sKeySrc][0])
-+            for sKeySrc in dAttrsSrc.keys():
-+                sAttr = sAttr.replace('%%{LDAP:%s}' % sKeySrc, dAttrsSrc[sKeySrc][0].decode('utf-8'))
-             sAttr = self.__reLdapVariables.sub('', sAttr)
+-            sAttr = self.__reLdapVariables.sub('', sAttr)
 -            dAttrsDst[sKeyDst] = sAttr
-+            dAttrsDst[sKeyDst] = sAttr.encode('utf-8')
++        for sKeyDst in UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS.keys():
++            sbyAttr = UPWDCHG_PLUGIN_LDAP_DST_GROUP_ATTRS[sKeyDst]
++            if isinstance(sbyAttr, bytes):
++                try:
++                    sAttr = sbyAttr.decode('utf-8')
++                    sAttr_novars = self.__reLdapVariables.sub('', sAttr)
++                    if len(sAttr_novars):
++                        if len(sAttr_novars) == len(sAttr):
++                            self._DEBUG('Destination LDAP binary attribute copied "as is": %s' % sKeyDst, TokenPlugin.DEBUG_TRACE)
++                            dAttrsDst[sKeyDst] = sbyAttr
++                        else:
++                            self._DEBUG('Destination LDAP binary attribute must map source LDAP attribute without extraneous data: %s' % sKeyDst)
++                            self._EXIT_ERROR('Internal error; please contact your system administrator')
++                    else:
++                        lsKeysSrc = self.__reLdapVariables.findall(sAttr)
++                        if len(lsKeysSrc) > 1:
++                            self._DEBUG('Destination LDAP binary attribute must map to a single source LDAP attribute: %s' % sKeyDst)
++                            self._EXIT_ERROR('Internal error; please contact your system administrator')
++                        for sKeySrc in lsKeysSrc:
++                            if sKeySrc not in dAttrsSrc.keys(): continue
++                            dAttrsDst[sKeyDst] = dAttrsSrc[sKeySrc][0]
++                except UnicodeDecodeError:
++                    self._DEBUG('Destination LDAP binary attribute copied "as is": %s' % sKeyDst, TokenPlugin.DEBUG_TRACE)
++                    dAttrsDst[sKeyDst] = sbyAttr
++            else:
++                sAttr = sbyAttr.replace('%{GROUPNAME}', sGroupname)
++                lsKeysSrc = self.__reLdapVariables.findall(sAttr)
++                for sKeySrc in lsKeysSrc:
++                    if sKeySrc not in dAttrsSrc.keys(): continue
++                    sAttr = sAttr.replace('%%{LDAP:%s}' % sKeySrc, dAttrsSrc[sKeySrc][0].decode('utf-8'))
++                sAttr = self.__reLdapVariables.sub('', sAttr)
++                dAttrsDst[sKeyDst] = sAttr.encode('utf-8')
  
          # ... populate "system" attributes
-         sGroupDn = dAttrsDst['dn']
+-        sGroupDn = dAttrsDst['dn']
++        sGroupDn = dAttrsDst['dn'].decode('utf-8')
          dAttrsDst.pop('dn', None)
 -        dAttrsDst['objectClass'] = UPWDCHG_PLUGIN_LDAP_DST_GROUP_CLASSES
 +        dAttrsDst['objectClass'] = [i if isinstance(i, bytes) else i.encode('utf-8') for i in UPWDCHG_PLUGIN_LDAP_DST_GROUP_CLASSES]
++        self._DEBUG('Successfully created (new group) attributes for (destination LDAP) server:\n%s' % str(dAttrsDst), TokenPlugin.DEBUG_TRACE)
  
          # ... create group
          if UPWDCHG_PLUGIN_DRYRUN:
