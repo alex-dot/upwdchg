@@ -1,3 +1,12 @@
+upwdchg (3.0.20181105b) UNRELEASED; urgency=low
+
+  * NEW RELEASE
+
+  Cédric Dufour:
+  - FIX: [Plugins] Local handling of single quote in 'ChangePasswordKrb5' and 'CreateAccountKrb5'
+
+ -- Cédric Dufour <cedric.dufour@ced-network.net>  Mon, 05 Nov 2018 14:48:29 +0100
+
 upwdchg (3.0.20181105a) UNRELEASED; urgency=low
 
   * NEW RELEASE
