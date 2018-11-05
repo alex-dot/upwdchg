@@ -27,7 +27,7 @@
 +
 +# UPwdChg
 +UPWDCHG_PLUGIN_NAME='CreateAccountKrb5'
-@@ -39,16 +52,13 @@
+@@ -39,16 +52,17 @@
 -# Plugin
 +
 +#------------------------------------------------------------------------------
@@ -40,6 +40,10 @@
 -        global UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG
 -        TokenPlugin.__init__(self, 'CreateAccountKrb5', UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
 +        TokenPlugin.__init__(self, UPWDCHG_PLUGIN_NAME, UPWDCHG_PLUGIN_CRITICAL, UPWDCHG_PLUGIN_DEBUG)
++
++
++    def __escape(self, _s):
++        return _s.replace('"', '""').replace('\'', '\'"\'"\'')
  
 -    def process(self):
 -        global \
@@ -63,9 +67,17 @@
  
          # Process token data
  
-@@ -79,8 +88,9 @@
+@@ -75,12 +89,15 @@
+         # ... Check principal existency
+         bPrincipalExists = True
+         try:
+-            lCommand = [ 'kadmin.local', '-q', "'get_principal -terse \"%s\"'" % sPrincipal.replace('"', '""') ]
++            lCommand = [ 'kadmin.local', '-q', "'get_principal -terse \"%s\"'" % self.__escape(sPrincipal) ]
              if UPWDCHG_PLUGIN_KRB5_ADMSRV is not None:
-                 lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join(lCommand) ]
+-                lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join(lCommand) ]
++                lCommand_ssh = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--' ]
++                lCommand_ssh.extend(lCommand)
++                lCommand = lCommand_ssh
              oPopen = SP.Popen(lCommand, stdout=SP.PIPE, stderr=SP.PIPE)
 -            (sStdOut, sStdErr) = oPopen.communicate()
 -            if oPopen.returncode != 0 or sStdErr:
@@ -75,9 +87,17 @@
                  if sStdErr.lower().find('principal does not exist') < 0:
                      raise Exception(sStdErr)
                  bPrincipalExists = False
-@@ -100,9 +110,9 @@
+@@ -96,13 +113,15 @@
+         try:
+             if bPrincipalExists:
+                 if not UPWDCHG_PLUGIN_DRYRUN:
+-                    lCommand = [ 'kadmin.local', '-q', "'change_password -pw \"%s\" \"%s\"'" % (sPasswordNew.replace('"', '""'), sPrincipal.replace('"', '""')) ]
++                    lCommand = [ 'kadmin.local', '-q', "'change_password -pw \"%s\" \"%s\"'" % (self.__escape(sPasswordNew), self.__escape(sPrincipal)) ]
                      if UPWDCHG_PLUGIN_KRB5_ADMSRV is not None:
-                         lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join(lCommand) ]
+-                        lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join(lCommand) ]
++                        lCommand_ssh = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--' ]
++                        lCommand_ssh.extend(lCommand)
++                        lCommand = lCommand_ssh
                      oPopen = SP.Popen(lCommand, stdout=SP.PIPE, stderr=SP.PIPE)
 -                    (sStdOut, sStdErr) = oPopen.communicate()
 -                    if oPopen.returncode != 0 or sStdErr:
@@ -88,9 +108,17 @@
                      self._DEBUG('Successfully changed password for principal: %s' % sPrincipal, TokenPlugin.DEBUG_INFO)
                  else:
                      self._DEBUG('DRY-RUN! NOT changing password for principal: %s' % sPrincipal, TokenPlugin.DEBUG_WARNING)
-@@ -121,9 +131,9 @@
+@@ -117,13 +136,15 @@
+                     sUserDn = UPWDCHG_PLUGIN_KRB5_ADD_USER_DN.replace('%{USERNAME}', sUsername)
+                     self._DEBUG('Creating principal (DN): %s (%s)' % (sPrincipal, sUserDn), TokenPlugin.DEBUG_TRACE)
+                     sOptions = UPWDCHG_PLUGIN_KRB5_ADD_OPTIONS
+-                    lCommand = [ 'kadmin.local', '-q', "'add_principal -x dn=\"%s\" -pw \"%s\" %s \"%s\"'" % (sUserDn.replace('"', '""'), sPasswordNew.replace('"', '""'), sOptions, sPrincipal.replace('"', '""')) ]
++                    lCommand = [ 'kadmin.local', '-q', "'add_principal -x dn=\"%s\" -pw \"%s\" %s \"%s\"'" % (self.__escape(sUserDn), self.__escape(sPasswordNew), sOptions, self.__escape(sPrincipal)) ]
                      if UPWDCHG_PLUGIN_KRB5_ADMSRV is not None:
-                         lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join(lCommand) ]
+-                        lCommand = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--', ' '.join(lCommand) ]
++                        lCommand_ssh = [ 'ssh', '-x', UPWDCHG_PLUGIN_KRB5_ADMSRV, '--' ]
++                        lCommand_ssh.extend(lCommand)
++                        lCommand = lCommand_ssh
                      oPopen = SP.Popen(lCommand, stdout=SP.PIPE, stderr=SP.PIPE)
 -                    (sStdOut, sStdErr) = oPopen.communicate()
 -                    if oPopen.returncode != 0 or sStdErr:
