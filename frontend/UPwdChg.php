@@ -1665,7 +1665,7 @@ class UPwdChg
     switch($sID) {
 
     case 'reset':
-      $sHTML .= '<FORM ID="UPwdChg_reset" METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'">';
+      $sHTML .= '<FORM ID="UPwdChg_reset" METHOD="post" ACTION="/index.php">';
       $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="reset" />';
       $sHTML .= '<TABLE CELLSPACING="0">';
       $sHTML .= '<TR><TD CLASS="link" COLSPAN="2"><A HREF="javascript:;" ONCLICK="javascript:document.getElementById(\'UPwdChg_reset\').submit();">'.htmlentities($this->getText('label:reset')).'</A></TD></TR>';
@@ -1677,7 +1677,7 @@ class UPwdChg
       $sCurrentLocale = $this->getCurrentLocale();
 
       // ... HTML
-      $sHTML .= '<FORM ID="UPwdChg_locale" METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'">';
+      $sHTML .= '<FORM ID="UPwdChg_locale" METHOD="post" ACTION="/index.php">';
       $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="locale" />';
       $sHTML .= '<TABLE CELLSPACING="0"><TR>';
       $sHTML .= '<TD CLASS="label">'.htmlentities($this->getText('label:language')).':</TD>';
@@ -1697,7 +1697,7 @@ class UPwdChg
       }
 
       // ... HTML
-      $sHTML .= '<FORM ID="UPwdChg_form" METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'?view=captcha'.($sBack ? '&back='.$sBack : null).'">';
+      $sHTML .= '<FORM ID="UPwdChg_form" METHOD="post" ACTION="/index.php'.'?view=captcha'.($sBack ? '&back='.$sBack : null).'">';
       $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="captcha" />';
       $sHTML .= '<TABLE CELLSPACING="0"><TR>';
       $iTabIndex = 1;
@@ -1778,7 +1778,7 @@ class UPwdChg
       }
 
       // ... HTML
-      $sHTML .= '<FORM ID="UPwdChg_form" METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'?view=password-nonce-request">';
+      $sHTML .= '<FORM ID="UPwdChg_form" METHOD="post" ACTION="/index.php?view=password-nonce-request">';
       $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="password-nonce-request" />';
       $sHTML .= '<TABLE CELLSPACING="0">';
       $iTabIndex = 1;
@@ -1816,7 +1816,7 @@ class UPwdChg
       }
 
       // ... HTML
-      $sHTML .= '<FORM ID="UPwdChg_form" METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'?view=password-change">';
+      $sHTML .= '<FORM ID="UPwdChg_form" METHOD="post" ACTION="/index.php?view=password-change">';
       $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="password-change" />';
       $sHTML .= '<INPUT TYPE="password" NAME="autocomplete_off" STYLE="DISPLAY:none;" />';
       if(!$bFormPasswordNonce)
@@ -1865,7 +1865,7 @@ class UPwdChg
       }
 
       // ... HTML
-      $sHTML .= '<FORM ID="UPwdChg_form" METHOD="post" ACTION="'.$_SERVER['SCRIPT_NAME'].'?view=password-reset">';
+      $sHTML .= '<FORM ID="UPwdChg_form" METHOD="post" ACTION="/index.php?view=password-reset">';
       $sHTML .= '<INPUT TYPE="hidden" NAME="do" VALUE="password-reset" />';
       $sHTML .= '<INPUT TYPE="password" NAME="autocomplete_off" STYLE="DISPLAY:none;" />';
       $sHTML .= '<TABLE CELLSPACING="0">';
